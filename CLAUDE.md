@@ -16,7 +16,7 @@ StitchMap is a web application that allows registered users to create, manage, a
 | **Reactivity** | [Datastar](https://data-star.dev/) (`github.com/starfederation/datastar-go`) | Hypermedia-driven SSE reactivity; no JS build step |
 | **CSS Framework** | [Bulma CSS](https://bulma.io/) | Loaded via CDN; no build tooling needed |
 | **Database** | SQLite via `modernc.org/sqlite` (pure Go) | CGo-free; all access behind repository interfaces |
-| **Migrations** | Manually Written and Executied in order sql files. | SQL-based migrations, embedded via `embed.FS` |
+| **Migrations** | Manual SQL files per DB implementation | SQL-based, embedded via `embed.FS`, owned by each `domain.Database` implementation |
 | **Authentication** | JWT-based with bcrypt | `golang.org/x/crypto/bcrypt` for password hashing; `github.com/golang-jwt/jwt/v5` for JWTs |
 | **Testing** | stdlib `testing` + `net/http/httptest` | No test framework dependencies |
 | **CI/CD** | GitHub Actions | Build validation + unit tests on PRs and `main` |
@@ -47,6 +47,7 @@ stitch-map-2/
 │       └── ci.yml                   # Build + test on PR and main
 ├── internal/
 │   ├── domain/                      # Core business types & interfaces (no external deps)
+│   │   ├── db.go                    # Database interface (Migrate, Close)
 │   │   ├── user.go                  # User entity, UserRepository interface
 │   │   ├── pattern.go               # Pattern, Round, StitchEntry entities
 │   │   ├── stitch.go                # Stitch (predefined + custom), StitchRepository interface
@@ -59,7 +60,14 @@ stitch-map-2/
 │   │   └── worksession.go           # Active pattern tracking, navigation
 │   ├── repository/                  # Repository implementations
 │   │   └── sqlite/
-│   │       ├── sqlite.go            # DB connection, initialization
+│   │       ├── sqlite.go            # DB struct, connection, implements domain.Database
+│   │       ├── migrations/          # SQLite-specific migration files & runner
+│   │       │   ├── embed.go         # embed.FS for migration SQL files
+│   │       │   ├── runner.go        # Migration runner (schema_migrations tracking)
+│   │       │   ├── 001_create_users.sql
+│   │       │   ├── 002_create_stitches.sql
+│   │       │   ├── 003_create_patterns.sql
+│   │       │   └── 004_create_work_sessions.sql
 │   │       ├── user.go              # UserRepository implementation
 │   │       ├── pattern.go           # PatternRepository implementation
 │   │       ├── stitch.go            # StitchRepository implementation
@@ -71,20 +79,14 @@ stitch-map-2/
 │   │   ├── stitch.go                # Stitch library handlers
 │   │   ├── worksession.go           # Live tracking SSE handlers
 │   │   └── routes.go                # Route registration
-│   ├── view/                        # Templ components (.templ files)
-│   │   ├── layout.templ             # Base HTML layout (Bulma + Datastar CDN)
-│   │   ├── auth.templ               # Login/register forms
-│   │   ├── pattern_list.templ       # Pattern listing page
-│   │   ├── pattern_editor.templ     # Pattern builder UI
-│   │   ├── stitch_library.templ     # Stitch abbreviation browser/editor
-│   │   ├── worksession.templ        # Live pattern tracker UI
-│   │   └── components.templ         # Shared reusable components (navbar, flash, etc.)
-│   └── migrations/
-│       ├── embed.go                 # embed.FS for migration files
-│       ├── 001_create_users.sql
-│       ├── 002_create_stitches.sql
-│       ├── 003_create_patterns.sql
-│       └── 004_create_work_sessions.sql
+│   └── view/                        # Templ components (.templ files)
+│       ├── layout.templ             # Base HTML layout (Bulma + Datastar CDN)
+│       ├── auth.templ               # Login/register forms
+│       ├── pattern_list.templ       # Pattern listing page
+│       ├── pattern_editor.templ     # Pattern builder UI
+│       ├── stitch_library.templ     # Stitch abbreviation browser/editor
+│       ├── worksession.templ        # Live pattern tracker UI
+│       └── components.templ         # Shared reusable components (navbar, flash, etc.)
 ├── static/                          # Static assets (minimal; Bulma via CDN)
 │   └── favicon.ico
 └── test/                            # Integration tests
@@ -95,14 +97,26 @@ stitch-map-2/
 
 1. **`domain/` has zero external imports** - only stdlib types. All interfaces are defined here.
 2. **Repository interfaces in `domain/`** - implementations in `repository/sqlite/`. SQLite can be swapped for Postgres, etc., by implementing the same interfaces.
-3. **Services depend on interfaces, not implementations** - all repository dependencies are injected via constructors.
-4. **Handlers depend on services** - handlers never touch repositories directly.
-5. **Templ components are pure rendering** - no business logic in `.templ` files.
-6. **Datastar SSE pattern**: handlers create `datastar.NewSSE(w, r)`, read signals with `datastar.ReadSignals(r, &store)`, and respond with `sse.PatchElements(...)` or `sse.MarshalAndPatchSignals(...)`.
+3. **`Database` interface in `domain/`** — defines lifecycle operations (`Migrate`, `Close`) so the entire database backend (including migrations) is swappable. Each database implementation owns its own migration files and runner. Migration SQL files live alongside the implementation (e.g., `repository/sqlite/migrations/`) since DDL is database-specific.
+4. **Services depend on interfaces, not implementations** - all repository dependencies are injected via constructors.
+5. **Handlers depend on services** - handlers never touch repositories directly.
+6. **Templ components are pure rendering** - no business logic in `.templ` files.
+7. **Datastar SSE pattern**: handlers create `datastar.NewSSE(w, r)`, read signals with `datastar.ReadSignals(r, &store)`, and respond with `sse.PatchElements(...)` or `sse.MarshalAndPatchSignals(...)`.
 
 ---
 
 ## Domain Model
+
+### Database
+
+The `Database` interface defines lifecycle operations for the underlying database. Each implementation (SQLite, Postgres, etc.) owns its migration files and strategy, ensuring the entire database backend is swappable.
+
+```go
+type Database interface {
+    Migrate(ctx context.Context) error
+    Close() error
+}
+```
 
 ### User
 
@@ -298,7 +312,7 @@ type WorkSessionRepository interface {
 
 ## Database Schema
 
-All tables use SQLite. Migrations are plain `.sql` files executed manually in order by a custom migration runner, embedded via `embed.FS`. The migration runner tracks applied migrations in a `schema_migrations` table and applies any unapplied migrations on startup.
+All tables use SQLite. Migrations are plain `.sql` files owned by the SQLite implementation (`repository/sqlite/migrations/`), embedded via `embed.FS`. A custom migration runner tracks applied migrations in a `schema_migrations` table and applies any unapplied migrations in filename order when `Database.Migrate()` is called. Because migration files live with the database implementation, a different backend (e.g., Postgres) can provide its own DDL and migration strategy while implementing the same `domain.Database` interface.
 
 ### Migration 001: Users
 
@@ -489,8 +503,9 @@ Each phase is independently implementable, testable, and deployable. Each phase 
 **Deliverables**:
 - `go.mod` initialized with module path
 - `main.go` with HTTP server startup using `net/http`
-- SQLite connection via `database/sql` + `modernc.org/sqlite`
-- Custom migration runner: reads `.sql` files from `embed.FS`, tracks applied migrations in a `schema_migrations` table, applies unapplied migrations in filename order on startup
+- `domain/db.go` — `Database` interface (`Migrate`, `Close`) so the entire DB backend is swappable
+- SQLite `DB` struct implementing `domain.Database` via `database/sql` + `modernc.org/sqlite`
+- Custom migration runner owned by the SQLite implementation: reads `.sql` files from `embed.FS`, tracks applied migrations in a `schema_migrations` table, applies unapplied migrations in filename order via `Database.Migrate()`
 - Migration 001 (users table) applied on startup
 - Health check endpoint: `GET /healthz` returning 200
 - Structured logging via `log/slog`

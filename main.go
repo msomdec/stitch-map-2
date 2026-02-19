@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/msomdec/stitch-map-2/internal/handler"
-	"github.com/msomdec/stitch-map-2/internal/migrations"
 	"github.com/msomdec/stitch-map-2/internal/repository/sqlite"
 )
 
@@ -28,7 +27,7 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := migrations.Run(context.Background(), db); err != nil {
+	if err := db.Migrate(context.Background()); err != nil {
 		slog.Error("failed to run migrations", "error", err)
 		os.Exit(1)
 	}
