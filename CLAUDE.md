@@ -24,7 +24,7 @@ StitchMap is a web application that allows registered users to create, manage, a
 ### Dependency Philosophy
 
 - **Prefer stdlib**: `net/http`, `database/sql`, `encoding/json`, `crypto/rand`, `log/slog`, `context`, `embed`
-- **Use external deps when**: the stdlib alternative would require significant boilerplate or introduce maintenance burden (e.g., Templ for HTML, Datastar for SSE reactivity, goose for migrations, bcrypt for password hashing)
+- **Use external deps when**: the stdlib alternative would require significant boilerplate or introduce maintenance burden (e.g., Templ for HTML, Datastar for SSE reactivity, bcrypt for password hashing, JWT for auth tokens)
 - **Avoid**: ORMs, heavy middleware frameworks, JavaScript build tools, npm
 
 ---
@@ -298,13 +298,13 @@ type WorkSessionRepository interface {
 
 ## Database Schema
 
-All tables use SQLite. Migrations are managed by goose and embedded via `embed.FS`.
+All tables use SQLite. Migrations are plain `.sql` files executed manually in order by a custom migration runner, embedded via `embed.FS`. The migration runner tracks applied migrations in a `schema_migrations` table and applies any unapplied migrations on startup.
 
 ### Migration 001: Users
 
 ```sql
--- +goose Up
-CREATE TABLE users (
+-- 001_create_users.sql
+CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
@@ -313,17 +313,14 @@ CREATE TABLE users (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX idx_users_email ON users(email);
-
--- +goose Down
-DROP TABLE users;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 ```
 
 ### Migration 002: Stitches
 
 ```sql
--- +goose Up
-CREATE TABLE stitches (
+-- 002_create_stitches.sql
+CREATE TABLE IF NOT EXISTS stitches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     abbreviation TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -335,18 +332,15 @@ CREATE TABLE stitches (
     UNIQUE(abbreviation, user_id)
 );
 
-CREATE INDEX idx_stitches_user ON stitches(user_id);
-CREATE INDEX idx_stitches_category ON stitches(category);
-
--- +goose Down
-DROP TABLE stitches;
+CREATE INDEX IF NOT EXISTS idx_stitches_user ON stitches(user_id);
+CREATE INDEX IF NOT EXISTS idx_stitches_category ON stitches(category);
 ```
 
 ### Migration 003: Patterns
 
 ```sql
--- +goose Up
-CREATE TABLE patterns (
+-- 003_create_patterns.sql
+CREATE TABLE IF NOT EXISTS patterns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -359,9 +353,9 @@ CREATE TABLE patterns (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_patterns_user ON patterns(user_id);
+CREATE INDEX IF NOT EXISTS idx_patterns_user ON patterns(user_id);
 
-CREATE TABLE instruction_groups (
+CREATE TABLE IF NOT EXISTS instruction_groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pattern_id INTEGER NOT NULL REFERENCES patterns(id) ON DELETE CASCADE,
     sort_order INTEGER NOT NULL,
@@ -371,9 +365,9 @@ CREATE TABLE instruction_groups (
     UNIQUE(pattern_id, sort_order)
 );
 
-CREATE INDEX idx_instruction_groups_pattern ON instruction_groups(pattern_id);
+CREATE INDEX IF NOT EXISTS idx_instruction_groups_pattern ON instruction_groups(pattern_id);
 
-CREATE TABLE stitch_entries (
+CREATE TABLE IF NOT EXISTS stitch_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     instruction_group_id INTEGER NOT NULL REFERENCES instruction_groups(id) ON DELETE CASCADE,
     sort_order INTEGER NOT NULL,
@@ -385,19 +379,14 @@ CREATE TABLE stitch_entries (
     UNIQUE(instruction_group_id, sort_order)
 );
 
-CREATE INDEX idx_stitch_entries_group ON stitch_entries(instruction_group_id);
-
--- +goose Down
-DROP TABLE stitch_entries;
-DROP TABLE instruction_groups;
-DROP TABLE patterns;
+CREATE INDEX IF NOT EXISTS idx_stitch_entries_group ON stitch_entries(instruction_group_id);
 ```
 
 ### Migration 004: Work Sessions
 
 ```sql
--- +goose Up
-CREATE TABLE work_sessions (
+-- 004_create_work_sessions.sql
+CREATE TABLE IF NOT EXISTS work_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pattern_id INTEGER NOT NULL REFERENCES patterns(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -412,12 +401,9 @@ CREATE TABLE work_sessions (
     completed_at DATETIME
 );
 
-CREATE INDEX idx_work_sessions_user ON work_sessions(user_id);
-CREATE INDEX idx_work_sessions_pattern ON work_sessions(pattern_id);
-CREATE INDEX idx_work_sessions_status ON work_sessions(status);
-
--- +goose Down
-DROP TABLE work_sessions;
+CREATE INDEX IF NOT EXISTS idx_work_sessions_user ON work_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_work_sessions_pattern ON work_sessions(pattern_id);
+CREATE INDEX IF NOT EXISTS idx_work_sessions_status ON work_sessions(status);
 ```
 
 ---
@@ -461,13 +447,14 @@ All interactivity follows the Datastar hypermedia pattern:
 
 ---
 
-## Authentication & Sessions
+## Authentication (JWT-Based)
 
 - **Registration**: Email + password + display name. Passwords hashed with bcrypt (cost 12).
-- **Login**: Email + password. On success, create a session token (32 bytes from `crypto/rand`, hex-encoded), store in `sessions` table, set as `HttpOnly`, `Secure`, `SameSite=Lax` cookie.
-- **Session table**: `id`, `user_id`, `token_hash` (SHA-256 of token), `created_at`, `expires_at` (24h default).
-- **Auth middleware**: Reads cookie, hashes token, looks up session, injects user into request context.
-- **Logout**: Deletes session from DB, clears cookie.
+- **Login**: Email + password. On success, issue a signed JWT containing `sub` (user ID), `email`, `exp` (expiration). Set the JWT as an `HttpOnly`, `Secure`, `SameSite=Lax` cookie named `auth_token`.
+- **JWT structure**: Standard claims (`sub`, `exp`, `iat`) plus custom claims (`email`, `display_name`). Signed with HMAC-SHA256 using `JWT_SECRET` environment variable. Default expiration: 24 hours.
+- **Auth middleware**: Reads `auth_token` cookie, validates and parses JWT, extracts user ID from `sub` claim, loads user from DB, injects user into request context. Returns 401 for missing/invalid/expired tokens.
+- **Logout**: Clears the `auth_token` cookie (sets `MaxAge=-1`). Since JWTs are stateless, no server-side session cleanup is needed.
+- **No server-side session table**: Auth state is entirely in the JWT. This simplifies the database schema and eliminates session cleanup concerns.
 
 ---
 
@@ -503,7 +490,7 @@ Each phase is independently implementable, testable, and deployable. Each phase 
 - `go.mod` initialized with module path
 - `main.go` with HTTP server startup using `net/http`
 - SQLite connection via `database/sql` + `modernc.org/sqlite`
-- Migration system using goose with `embed.FS`
+- Custom migration runner: reads `.sql` files from `embed.FS`, tracks applied migrations in a `schema_migrations` table, applies unapplied migrations in filename order on startup
 - Migration 001 (users table) applied on startup
 - Health check endpoint: `GET /healthz` returning 200
 - Structured logging via `log/slog`
@@ -520,24 +507,24 @@ Each phase is independently implementable, testable, and deployable. Each phase 
 
 ---
 
-### Phase 2: User Authentication
+### Phase 2: User Authentication (JWT)
 
-**Goal**: Users can register, log in, log out, and access protected routes.
+**Goal**: Users can register, log in, log out, and access protected routes via JWT tokens.
 
 **Deliverables**:
-- Migration 001 for users table (if not already), session table migration
+- Migration 001 for users table (applied in Phase 1)
 - `domain/user.go` — User entity and UserRepository interface
 - `repository/sqlite/user.go` — SQLite UserRepository implementation
-- `service/auth.go` — Registration (with validation, duplicate check), login (bcrypt verify), session create/delete
+- `service/auth.go` — Registration (with validation, duplicate check), login (bcrypt verify, JWT generation), logout (cookie clearing)
 - `handler/auth.go` — Register, login, logout HTTP handlers with Datastar SSE responses
-- `handler/middleware.go` — Auth middleware that injects user into context
+- `handler/middleware.go` — Auth middleware that reads JWT from `auth_token` cookie, validates signature and expiration, loads user from DB, injects into context
 - `view/auth.templ` — Login and register forms using Bulma styling
 - `view/layout.templ` — Navbar with conditional auth state (login/register vs. user menu)
 
 **Tests**:
 - Unit: UserRepository CRUD operations
-- Unit: Auth service — register (success, duplicate email, weak password), login (success, wrong password, unknown email), session validation
-- Unit: Auth middleware — valid session, expired session, missing cookie
+- Unit: Auth service — register (success, duplicate email, weak password), login (success, wrong password, unknown email), JWT generation and validation
+- Unit: Auth middleware — valid JWT, expired JWT, missing cookie, tampered token
 - Integration: Full registration -> login -> access protected route -> logout flow
 
 **Regression Gate**: All Phase 1 + Phase 2 tests pass. CI green.
@@ -716,7 +703,7 @@ go build -o stitch-map ./main.go
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP server port |
 | `DATABASE_PATH` | `stitch-map.db` | Path to SQLite database file |
-| `SESSION_SECRET` | (required) | Secret for additional session security |
+| `JWT_SECRET` | (required) | HMAC-SHA256 signing key for JWT tokens |
 | `BCRYPT_COST` | `12` | bcrypt cost factor |
 
 ---
