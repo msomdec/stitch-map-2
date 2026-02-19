@@ -733,3 +733,4 @@ go build -o stitch-map ./main.go
 - **Database transactions**: Use a `WithTx` helper for operations that span multiple tables.
 - **Templ files**: One `.templ` file per page/feature. Shared components in `components.templ`.
 - **No global state**: All dependencies injected through constructors. Server struct holds all handler dependencies.
+- **Routing**: Use Go 1.22+ enhanced `ServeMux` patterns. Method prefixes (`GET /path`) restrict by HTTP method. The `{$}` suffix matches a path exactly (e.g., `GET /{$}` matches only `/`, not `/foo`), eliminating manual path checks in handlers. Use `{name}` for path parameters (e.g., `GET /patterns/{id}`) — extract with `r.PathValue("id")`. Prefer these built-in features over custom routing logic.

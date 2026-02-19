@@ -26,13 +26,20 @@ func TestHandleHome(t *testing.T) {
 	}
 }
 
-func TestHandleHomeNotFound(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
-	w := httptest.NewRecorder()
+func TestUnknownPathReturns404(t *testing.T) {
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
 
-	handler.HandleHome(w, req)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
 
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", w.Code)
+	resp, err := http.Get(srv.URL + "/nonexistent")
+	if err != nil {
+		t.Fatalf("GET /nonexistent: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
 	}
 }
