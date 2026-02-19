@@ -16,8 +16,8 @@ StitchMap is a web application that allows registered users to create, manage, a
 | **Reactivity** | [Datastar](https://data-star.dev/) (`github.com/starfederation/datastar-go`) | Hypermedia-driven SSE reactivity; no JS build step |
 | **CSS Framework** | [Bulma CSS](https://bulma.io/) | Loaded via CDN; no build tooling needed |
 | **Database** | SQLite via `modernc.org/sqlite` (pure Go) | CGo-free; all access behind repository interfaces |
-| **Migrations** | [goose](https://github.com/pressly/goose) | SQL-based migrations, embedded via `embed.FS` |
-| **Authentication** | Session-based with bcrypt | `golang.org/x/crypto/bcrypt` for password hashing; stdlib `crypto/rand` for session tokens |
+| **Migrations** | Manually Written and Executied in order sql files. | SQL-based migrations, embedded via `embed.FS` |
+| **Authentication** | JWT-based with bcrypt | `golang.org/x/crypto/bcrypt` for password hashing; `github.com/golang-jwt/jwt/v5` for JWTs |
 | **Testing** | stdlib `testing` + `net/http/httptest` | No test framework dependencies |
 | **CI/CD** | GitHub Actions | Build validation + unit tests on PRs and `main` |
 
