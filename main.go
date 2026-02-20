@@ -50,10 +50,20 @@ func main() {
 	slog.Info("database migrations applied")
 
 	userRepo := sqlite.NewUserRepository(db)
+	stitchRepo := sqlite.NewStitchRepository(db)
+
 	authService := service.NewAuthService(userRepo, jwtSecret, bcryptCost)
+	stitchService := service.NewStitchService(stitchRepo)
+
+	// Seed predefined stitches (idempotent).
+	if err := stitchService.SeedPredefined(context.Background()); err != nil {
+		slog.Error("failed to seed predefined stitches", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("predefined stitches seeded")
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, authService)
+	handler.RegisterRoutes(mux, authService, stitchService)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

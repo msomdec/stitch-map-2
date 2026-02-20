@@ -7,8 +7,9 @@ import (
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService) {
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService) {
 	authHandler := NewAuthHandler(auth)
+	stitchHandler := NewStitchHandler(stitches)
 
 	// Public routes.
 	mux.HandleFunc("GET /healthz", HandleHealthz)
@@ -21,6 +22,12 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService) {
 	mux.HandleFunc("POST /register", authHandler.HandleRegister)
 	mux.HandleFunc("POST /logout", authHandler.HandleLogout)
 
-	// Protected routes (placeholder for future phases).
+	// Protected routes.
 	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(HandleDashboard)))
+
+	// Stitch library routes (authenticated).
+	mux.Handle("GET /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))
+	mux.Handle("POST /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleCreateCustom)))
+	mux.Handle("POST /stitches/{id}/edit", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleUpdateCustom)))
+	mux.Handle("POST /stitches/{id}/delete", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleDeleteCustom)))
 }

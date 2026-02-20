@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -13,10 +14,10 @@ import (
 )
 
 func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -120,10 +121,10 @@ func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
 }
 
 func TestIntegration_LoginWrongPassword(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -160,10 +161,10 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 }
 
 func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -202,10 +203,10 @@ func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestIntegration_RegisterWeakPassword(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -231,10 +232,10 @@ func TestIntegration_RegisterWeakPassword(t *testing.T) {
 }
 
 func TestIntegration_LoginPageRendering(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -255,5 +256,222 @@ func TestIntegration_LoginPageRendering(t *testing.T) {
 	body := string(bodyBytes)
 	if !strings.Contains(body, "Log In") {
 		t.Fatal("login page should contain 'Log In'")
+	}
+}
+
+func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
+	auth, stitches := newTestAuthService(t)
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/stitches")
+	if err != nil {
+		t.Fatalf("GET /stitches: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
+	auth, stitches := newTestAuthService(t)
+
+	// Seed predefined stitches.
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("create cookie jar: %v", err)
+	}
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	resp, err := client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"stitch@example.com"},
+		"display_name": {"Stitch User"},
+		"password":     {"password123"},
+	})
+	if err != nil {
+		t.Fatalf("POST /register: %v", err)
+	}
+	resp.Body.Close()
+
+	resp, err = client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"stitch@example.com"},
+		"password": {"password123"},
+	})
+	if err != nil {
+		t.Fatalf("POST /login: %v", err)
+	}
+	resp.Body.Close()
+
+	// 1. Browse stitch library.
+	resp, err = client.Get(srv.URL + "/stitches")
+	if err != nil {
+		t.Fatalf("GET /stitches: %v", err)
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("stitch library: expected 200, got %d", resp.StatusCode)
+	}
+	body := string(bodyBytes)
+	if !strings.Contains(body, "Stitch Library") {
+		t.Fatal("stitch library page should contain 'Stitch Library'")
+	}
+	if !strings.Contains(body, "Single Crochet") {
+		t.Fatal("stitch library should contain predefined stitch 'Single Crochet'")
+	}
+
+	// 2. Create a custom stitch.
+	resp, err = client.PostForm(srv.URL+"/stitches", url.Values{
+		"abbreviation": {"mst"},
+		"name":         {"My Special Thingy"},
+		"description":  {"A custom test stitch"},
+		"category":     {"custom"},
+	})
+	if err != nil {
+		t.Fatalf("POST /stitches: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create custom stitch: expected 303 redirect, got %d", resp.StatusCode)
+	}
+
+	// 3. Verify the custom stitch appears in the library.
+	resp, err = client.Get(srv.URL + "/stitches")
+	if err != nil {
+		t.Fatalf("GET /stitches after create: %v", err)
+	}
+	bodyBytes, err = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	body = string(bodyBytes)
+	if !strings.Contains(body, "My Special Thingy") {
+		t.Fatal("stitch library should contain newly created custom stitch")
+	}
+	if !strings.Contains(body, "mst") {
+		t.Fatal("stitch library should contain custom stitch abbreviation 'mst'")
+	}
+
+	// 4. Delete the custom stitch (find its ID from the page).
+	// We need to extract the stitch ID. Let's find the delete form action.
+	// The form action is /stitches/{id}/delete.
+	idx := strings.Index(body, "/stitches/")
+	if idx == -1 {
+		t.Fatal("expected to find /stitches/ in page body for delete form")
+	}
+	// Extract the path segment after /stitches/ up to /delete.
+	rest := body[idx+len("/stitches/"):]
+	slashIdx := strings.Index(rest, "/")
+	if slashIdx == -1 {
+		t.Fatal("expected /delete path after stitch ID")
+	}
+	stitchID := rest[:slashIdx]
+
+	resp, err = client.PostForm(srv.URL+"/stitches/"+stitchID+"/delete", nil)
+	if err != nil {
+		t.Fatalf("POST /stitches/%s/delete: %v", stitchID, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("delete custom stitch: expected 303 redirect, got %d", resp.StatusCode)
+	}
+
+	// 5. Verify the custom stitch is gone.
+	resp, err = client.Get(srv.URL + "/stitches")
+	if err != nil {
+		t.Fatalf("GET /stitches after delete: %v", err)
+	}
+	bodyBytes, err = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	body = string(bodyBytes)
+	if strings.Contains(body, "My Special Thingy") {
+		t.Fatal("deleted stitch should not appear in library")
+	}
+}
+
+func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
+	auth, stitches := newTestAuthService(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"filter@example.com"},
+		"display_name": {"Filter User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"filter@example.com"},
+		"password": {"password123"},
+	})
+
+	// Filter by "post" category.
+	resp, err := client.Get(srv.URL + "/stitches?category=post")
+	if err != nil {
+		t.Fatalf("GET /stitches?category=post: %v", err)
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	body := string(bodyBytes)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	// Should contain post stitches.
+	if !strings.Contains(body, "Front Post Double Crochet") {
+		t.Fatal("post filter should include FPdc")
+	}
+
+	// Should NOT contain basic-only stitches (Chain is only in basic category).
+	if strings.Contains(body, ">Chain<") {
+		t.Fatal("post filter should not include basic stitches")
 	}
 }
