@@ -1,6 +1,6 @@
 package view
 
-templ Layout(title string) {
+templ Layout(title string, displayName string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -17,6 +17,23 @@ templ Layout(title string) {
 						StitchMap
 					</a>
 				</div>
+				<div class="navbar-end">
+					if displayName != "" {
+						<div class="navbar-item has-dropdown is-hoverable">
+							<a class="navbar-link">{ displayName }</a>
+							<div class="navbar-dropdown is-right">
+								<a class="navbar-item" href="/logout">Logout</a>
+							</div>
+						</div>
+					} else {
+						<div class="navbar-item">
+							<div class="buttons">
+								<a class="button is-light" href="/register">Register</a>
+								<a class="button is-white is-outlined" href="/login">Log In</a>
+							</div>
+						</div>
+					}
+				</div>
 			</nav>
 			<section class="section">
 				<div class="container">
@@ -27,8 +44,8 @@ templ Layout(title string) {
 	</html>
 }
 
-templ HomePage() {
-	@Layout("Home") {
+templ HomePage(displayName string) {
+	@Layout("Home", displayName) {
 		<div class="content">
 			<h1 class="title">Welcome to StitchMap</h1>
 			<p class="subtitle">Your crochet pattern builder and tracker.</p>
