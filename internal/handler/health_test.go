@@ -38,10 +38,10 @@ func TestHandleHealthz(t *testing.T) {
 }
 
 func TestHandleHealthzRouting(t *testing.T) {
-	auth := newTestAuthService(t)
+	auth, stitches := newTestAuthService(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth)
+	handler.RegisterRoutes(mux, auth, stitches)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

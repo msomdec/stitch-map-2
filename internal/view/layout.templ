@@ -17,6 +17,14 @@ templ Layout(title string, displayName string) {
 						StitchMap
 					</a>
 				</div>
+				<div class="navbar-menu">
+					if displayName != "" {
+						<div class="navbar-start">
+							<a class="navbar-item" href="/stitches">Stitch Library</a>
+							<a class="navbar-item" href="/dashboard">Dashboard</a>
+						</div>
+					}
+				</div>
 				<div class="navbar-end">
 					if displayName != "" {
 						<div class="navbar-item has-dropdown is-hoverable">

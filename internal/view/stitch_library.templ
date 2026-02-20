@@ -1,0 +1,186 @@
+package view
+
+import "github.com/msomdec/stitch-map-2/internal/domain"
+import "strconv"
+
+templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []domain.Stitch, activeCategory string, search string, errMsg string) {
+	@Layout("Stitch Library", displayName) {
+		<h1 class="title">Stitch Library</h1>
+		if errMsg != "" {
+			<div class="notification is-danger">
+				{ errMsg }
+			</div>
+		}
+		<!-- Filter and Search -->
+		<div class="box">
+			<form method="GET" action="/stitches">
+				<div class="field is-grouped">
+					<div class="control">
+						<div class="select">
+							<select name="category">
+								<option value="" if activeCategory == "" { selected }>All Categories</option>
+								<option value="basic" if activeCategory == "basic" { selected }>Basic</option>
+								<option value="increase" if activeCategory == "increase" { selected }>Increase</option>
+								<option value="decrease" if activeCategory == "decrease" { selected }>Decrease</option>
+								<option value="post" if activeCategory == "post" { selected }>Post</option>
+								<option value="advanced" if activeCategory == "advanced" { selected }>Advanced</option>
+								<option value="specialty" if activeCategory == "specialty" { selected }>Specialty</option>
+								<option value="action" if activeCategory == "action" { selected }>Action</option>
+								<option value="custom" if activeCategory == "custom" { selected }>Custom</option>
+							</select>
+						</div>
+					</div>
+					<div class="control is-expanded">
+						<input class="input" type="text" name="search" placeholder="Search stitches..." value={ search }/>
+					</div>
+					<div class="control">
+						<button class="button is-primary" type="submit">Filter</button>
+					</div>
+					if activeCategory != "" || search != "" {
+						<div class="control">
+							<a class="button is-light" href="/stitches">Clear</a>
+						</div>
+					}
+				</div>
+			</form>
+		</div>
+		<!-- Predefined Stitches -->
+		<h2 class="title is-4">Standard Stitches</h2>
+		if len(predefined) == 0 {
+			<p class="has-text-grey">No stitches match your filter.</p>
+		} else {
+			<div class="table-container">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>Abbreviation</th>
+							<th>Name</th>
+							<th>Category</th>
+							<th>Description</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, s := range predefined {
+							<tr>
+								<td><strong>{ s.Abbreviation }</strong></td>
+								<td>{ s.Name }</td>
+								<td><span class={ "tag", categoryTagClass(s.Category) }>{ s.Category }</span></td>
+								<td>{ s.Description }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		<!-- Custom Stitches -->
+		<h2 class="title is-4 mt-5">Your Custom Stitches</h2>
+		<!-- Create Custom Stitch Form -->
+		<div class="box">
+			<h3 class="subtitle is-5">Add Custom Stitch</h3>
+			<form method="POST" action="/stitches">
+				<div class="columns">
+					<div class="column is-2">
+						<div class="field">
+							<label class="label" for="abbreviation">Abbreviation</label>
+							<div class="control">
+								<input class="input" type="text" id="abbreviation" name="abbreviation" required placeholder="e.g., msc"/>
+							</div>
+						</div>
+					</div>
+					<div class="column is-3">
+						<div class="field">
+							<label class="label" for="name">Name</label>
+							<div class="control">
+								<input class="input" type="text" id="name" name="name" required placeholder="e.g., Modified Single Crochet"/>
+							</div>
+						</div>
+					</div>
+					<div class="column is-2">
+						<div class="field">
+							<label class="label" for="category">Category</label>
+							<div class="control">
+								<div class="select is-fullwidth">
+									<select id="category" name="category">
+										<option value="custom">Custom</option>
+										<option value="basic">Basic</option>
+										<option value="advanced">Advanced</option>
+										<option value="specialty">Specialty</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="column is-4">
+						<div class="field">
+							<label class="label" for="description">Description</label>
+							<div class="control">
+								<input class="input" type="text" id="description" name="description" placeholder="How to perform this stitch"/>
+							</div>
+						</div>
+					</div>
+					<div class="column is-1">
+						<div class="field">
+							<label class="label">&nbsp;</label>
+							<div class="control">
+								<button class="button is-success" type="submit">Add</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</form>
+		</div>
+		if len(custom) == 0 {
+			<p class="has-text-grey">You haven't created any custom stitches yet.</p>
+		} else {
+			<div class="table-container">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>Abbreviation</th>
+							<th>Name</th>
+							<th>Category</th>
+							<th>Description</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, s := range custom {
+							<tr>
+								<td><strong>{ s.Abbreviation }</strong></td>
+								<td>{ s.Name }</td>
+								<td><span class={ "tag", categoryTagClass(s.Category) }>{ s.Category }</span></td>
+								<td>{ s.Description }</td>
+								<td>
+									<form method="POST" action={ templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete") } style="display:inline;">
+										<button class="button is-small is-danger is-outlined" type="submit">Delete</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	}
+}
+
+func categoryTagClass(category string) string {
+	switch category {
+	case "basic":
+		return "is-info"
+	case "increase":
+		return "is-success"
+	case "decrease":
+		return "is-warning"
+	case "post":
+		return "is-primary"
+	case "advanced":
+		return "is-link"
+	case "specialty":
+		return "is-danger"
+	case "action":
+		return "is-dark"
+	default:
+		return "is-light"
+	}
+}
