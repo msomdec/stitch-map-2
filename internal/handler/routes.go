@@ -7,10 +7,11 @@ import (
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService) {
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService) {
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches)
+	sessionHandler := NewWorkSessionHandler(sessions, patterns, stitches)
 
 	// Public routes.
 	mux.HandleFunc("GET /healthz", HandleHealthz)
@@ -41,4 +42,13 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /patterns/{id}/edit", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleUpdate)))
 	mux.Handle("POST /patterns/{id}/delete", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDelete)))
 	mux.Handle("POST /patterns/{id}/duplicate", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDuplicate)))
+
+	// Work session routes (authenticated).
+	mux.Handle("POST /patterns/{id}/start-session", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleStart)))
+	mux.Handle("GET /sessions/{id}", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleView)))
+	mux.Handle("POST /sessions/{id}/next", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleForward)))
+	mux.Handle("POST /sessions/{id}/prev", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleBackward)))
+	mux.Handle("POST /sessions/{id}/pause", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandlePause)))
+	mux.Handle("POST /sessions/{id}/resume", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleResume)))
+	mux.Handle("POST /sessions/{id}/abandon", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleAbandon)))
 }
