@@ -26,7 +26,7 @@ func newTestDB(t *testing.T) *sqlite.DB {
 
 func TestUserRepository_Create(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	user := &domain.User{
@@ -50,7 +50,7 @@ func TestUserRepository_Create(t *testing.T) {
 
 func TestUserRepository_Create_DuplicateEmail(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	user1 := &domain.User{
@@ -75,7 +75,7 @@ func TestUserRepository_Create_DuplicateEmail(t *testing.T) {
 
 func TestUserRepository_GetByID(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	user := &domain.User{
@@ -102,7 +102,7 @@ func TestUserRepository_GetByID(t *testing.T) {
 
 func TestUserRepository_GetByID_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	_, err := repo.GetByID(ctx, 99999)
@@ -113,7 +113,7 @@ func TestUserRepository_GetByID_NotFound(t *testing.T) {
 
 func TestUserRepository_GetByEmail(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	user := &domain.User{
@@ -137,7 +137,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 
 func TestUserRepository_GetByEmail_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	ctx := context.Background()
 
 	_, err := repo.GetByEmail(ctx, "nonexistent@example.com")

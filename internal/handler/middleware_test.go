@@ -26,14 +26,10 @@ func newTestServices(t *testing.T) (*service.AuthService, *service.StitchService
 	}
 	t.Cleanup(func() { db.Close() })
 
-	userRepo := sqlite.NewUserRepository(db)
-	stitchRepo := sqlite.NewStitchRepository(db)
-	patternRepo := sqlite.NewPatternRepository(db)
-	sessionRepo := sqlite.NewWorkSessionRepository(db)
-	return service.NewAuthService(userRepo, testJWTSecret, 4),
-		service.NewStitchService(stitchRepo),
-		service.NewPatternService(patternRepo, stitchRepo),
-		service.NewWorkSessionService(sessionRepo, patternRepo)
+	return service.NewAuthService(db.Users(), testJWTSecret, 4),
+		service.NewStitchService(db.Stitches()),
+		service.NewPatternService(db.Patterns(), db.Stitches()),
+		service.NewWorkSessionService(db.Sessions(), db.Patterns())
 }
 
 func TestRequireAuth_ValidJWT(t *testing.T) {

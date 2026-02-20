@@ -1,10 +1,73 @@
 package view
 
-templ DashboardPage(displayName string) {
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/msomdec/stitch-map-2/internal/domain"
+)
+
+templ DashboardPage(displayName string, activeSessions []domain.WorkSession) {
 	@Layout("Dashboard", displayName) {
 		<div class="content">
 			<h1 class="title">Dashboard</h1>
 			<p class="subtitle">Welcome back, { displayName }!</p>
 		</div>
+		<div class="columns">
+			<div class="column is-8">
+				<h2 class="title is-4">Active Sessions</h2>
+				if len(activeSessions) == 0 {
+					<div class="notification is-info is-light" role="status">
+						<p>No active sessions. <a href="/patterns">Browse your patterns</a> to start crocheting!</p>
+					</div>
+				} else {
+					<div class="columns is-multiline">
+						for _, s := range activeSessions {
+							<div class="column is-6">
+								@sessionCard(s)
+							</div>
+						}
+					</div>
+				}
+			</div>
+			<div class="column is-4">
+				<h2 class="title is-4">Quick Links</h2>
+				<div class="buttons are-medium" style="flex-direction: column; align-items: flex-start;">
+					<a class="button is-primary is-fullwidth" href="/patterns">My Patterns</a>
+					<a class="button is-link is-fullwidth" href="/patterns/new">New Pattern</a>
+					<a class="button is-info is-fullwidth" href="/stitches">Stitch Library</a>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ sessionCard(s domain.WorkSession) {
+	<div class="card">
+		<div class="card-content">
+			<p class="title is-6">Pattern #{ strconv.FormatInt(s.PatternID, 10) }</p>
+			<p class="subtitle is-7 has-text-grey">
+				{ sessionStatusLabel(s.Status) }
+				{ " · " }
+				{ fmt.Sprintf("Group %d", s.CurrentGroupIndex+1) }
+			</p>
+		</div>
+		<footer class="card-footer">
+			<a class="card-footer-item" href={ templ.SafeURL("/sessions/" + strconv.FormatInt(s.ID, 10)) }
+				aria-label={ "Resume session for pattern " + strconv.FormatInt(s.PatternID, 10) }>
+				Resume
+			</a>
+		</footer>
+	</div>
+}
+
+func sessionStatusLabel(status string) string {
+	switch status {
+	case domain.SessionStatusActive:
+		return "Active"
+	case domain.SessionStatusPaused:
+		return "Paused"
+	default:
+		return status
 	}
 }

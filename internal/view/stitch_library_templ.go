@@ -49,7 +49,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 				return templ_7745c5c3_Err
 			}
 			if errMsg != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"notification is-danger\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"notification is-danger\" role=\"alert\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -67,7 +67,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <!-- Filter and Search --> <div class=\"box\"><form method=\"GET\" action=\"/stitches\"><div class=\"field is-grouped\"><div class=\"control\"><div class=\"select\"><select name=\"category\"><option value=\"\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <!-- Filter and Search --> <div class=\"box\"><form method=\"GET\" action=\"/stitches\" role=\"search\" aria-label=\"Filter stitches\"><div class=\"field is-grouped\"><div class=\"control\"><label class=\"is-sr-only\" for=\"category-filter\">Category</label><div class=\"select\"><select name=\"category\" id=\"category-filter\" aria-label=\"Filter by category\"><option value=\"\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -157,25 +157,25 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, ">Custom</option></select></div></div><div class=\"control is-expanded\"><input class=\"input\" type=\"text\" name=\"search\" placeholder=\"Search stitches...\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, ">Custom</option></select></div></div><div class=\"control is-expanded\"><label class=\"is-sr-only\" for=\"stitch-search\">Search</label> <input class=\"input\" type=\"text\" id=\"stitch-search\" name=\"search\" placeholder=\"Search stitches...\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(search)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 34, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 36, Col: 119}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></div><div class=\"control\"><button class=\"button is-primary\" type=\"submit\">Filter</button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" aria-label=\"Search stitches\"></div><div class=\"control\"><button class=\"button is-primary\" type=\"submit\" aria-label=\"Apply filter\">Filter</button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if activeCategory != "" || search != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"control\"><a class=\"button is-light\" href=\"/stitches\">Clear</a></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"control\"><a class=\"button is-light\" href=\"/stitches\" aria-label=\"Clear filters\">Clear</a></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -185,12 +185,12 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 				return templ_7745c5c3_Err
 			}
 			if len(predefined) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<p class=\"has-text-grey\">No stitches match your filter.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<p class=\"has-text-grey\" role=\"status\">No stitches match your filter.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"table-container\"><table class=\"table is-fullwidth is-striped is-hoverable\"><thead><tr><th>Abbreviation</th><th>Name</th><th>Category</th><th>Description</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"table-container\"><table class=\"table is-fullwidth is-striped is-hoverable\" aria-label=\"Standard stitches\"><thead><tr><th scope=\"col\">Abbreviation</th><th scope=\"col\">Name</th><th scope=\"col\">Category</th><th scope=\"col\">Description</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -202,7 +202,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(s.Abbreviation)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 65, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 67, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -215,7 +215,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(s.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 66, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 68, Col: 20}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -250,7 +250,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(s.Category)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 67, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 69, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -263,7 +263,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(s.Description)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 68, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 70, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -279,17 +279,17 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " <!-- Custom Stitches --> <h2 class=\"title is-4 mt-5\">Your Custom Stitches</h2><!-- Create Custom Stitch Form --> <div class=\"box\"><h3 class=\"subtitle is-5\">Add Custom Stitch</h3><form method=\"POST\" action=\"/stitches\"><div class=\"columns\"><div class=\"column is-2\"><div class=\"field\"><label class=\"label\" for=\"abbreviation\">Abbreviation</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"abbreviation\" name=\"abbreviation\" required placeholder=\"e.g., msc\"></div></div></div><div class=\"column is-3\"><div class=\"field\"><label class=\"label\" for=\"name\">Name</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"name\" name=\"name\" required placeholder=\"e.g., Modified Single Crochet\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><label class=\"label\" for=\"category\">Category</label><div class=\"control\"><div class=\"select is-fullwidth\"><select id=\"category\" name=\"category\"><option value=\"custom\">Custom</option> <option value=\"basic\">Basic</option> <option value=\"advanced\">Advanced</option> <option value=\"specialty\">Specialty</option></select></div></div></div></div><div class=\"column is-4\"><div class=\"field\"><label class=\"label\" for=\"description\">Description</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"description\" name=\"description\" placeholder=\"How to perform this stitch\"></div></div></div><div class=\"column is-1\"><div class=\"field\"><label class=\"label\">&nbsp;</label><div class=\"control\"><button class=\"button is-success\" type=\"submit\">Add</button></div></div></div></div></form></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " <!-- Custom Stitches --> <h2 class=\"title is-4 mt-5\">Your Custom Stitches</h2><!-- Create Custom Stitch Form --> <div class=\"box\"><h3 class=\"subtitle is-5\">Add Custom Stitch</h3><form method=\"POST\" action=\"/stitches\" aria-label=\"Add custom stitch\"><div class=\"columns\"><div class=\"column is-2\"><div class=\"field\"><label class=\"label\" for=\"abbreviation\">Abbreviation</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"abbreviation\" name=\"abbreviation\" required placeholder=\"e.g., msc\" aria-required=\"true\"></div></div></div><div class=\"column is-3\"><div class=\"field\"><label class=\"label\" for=\"name\">Name</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"name\" name=\"name\" required placeholder=\"e.g., Modified Single Crochet\" aria-required=\"true\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><label class=\"label\" for=\"category\">Category</label><div class=\"control\"><div class=\"select is-fullwidth\"><select id=\"category\" name=\"category\" aria-label=\"Stitch category\"><option value=\"custom\">Custom</option> <option value=\"basic\">Basic</option> <option value=\"advanced\">Advanced</option> <option value=\"specialty\">Specialty</option></select></div></div></div></div><div class=\"column is-4\"><div class=\"field\"><label class=\"label\" for=\"description\">Description</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"description\" name=\"description\" placeholder=\"How to perform this stitch\"></div></div></div><div class=\"column is-1\"><div class=\"field\"><label class=\"label\">&nbsp;</label><div class=\"control\"><button class=\"button is-success\" type=\"submit\" aria-label=\"Add custom stitch\">Add</button></div></div></div></div></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(custom) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<p class=\"has-text-grey\">You haven't created any custom stitches yet.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<p class=\"has-text-grey\" role=\"status\">You haven't created any custom stitches yet.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"table-container\"><table class=\"table is-fullwidth is-striped is-hoverable\"><thead><tr><th>Abbreviation</th><th>Name</th><th>Category</th><th>Description</th><th>Actions</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"table-container\"><table class=\"table is-fullwidth is-striped is-hoverable\" aria-label=\"Your custom stitches\"><thead><tr><th scope=\"col\">Abbreviation</th><th scope=\"col\">Name</th><th scope=\"col\">Category</th><th scope=\"col\">Description</th><th scope=\"col\">Actions</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -301,7 +301,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(s.Abbreviation)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 149, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 151, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -314,7 +314,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(s.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 150, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 152, Col: 20}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -349,7 +349,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(s.Category)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 151, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 153, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -362,7 +362,7 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(s.Description)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 152, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 154, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -375,18 +375,31 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					var templ_7745c5c3_Var17 templ.SafeURL
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 154, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 156, Col: 107}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" style=\"display:inline;\"><button class=\"button is-small is-danger is-outlined\" type=\"submit\">Delete</button></form></td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" style=\"display:inline;\" onsubmit=\"return confirm('Delete this custom stitch? This cannot be undone.')\"><button class=\"button is-small is-danger is-outlined\" type=\"submit\" aria-label=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var18 string
+					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("Delete custom stitch " + s.Abbreviation)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 159, Col: 64}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\">Delete</button></form></td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</tbody></table></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</tbody></table></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

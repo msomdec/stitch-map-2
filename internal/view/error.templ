@@ -1,0 +1,17 @@
+package view
+
+import "strconv"
+
+// ErrorPage renders a generic error page with a status code, title, and message.
+templ ErrorPage(statusCode int, title string, message string) {
+	@Layout(strconv.Itoa(statusCode)+" "+title, "") {
+		<div class="columns is-centered">
+			<div class="column is-6 has-text-centered">
+				<p class="title is-1 has-text-grey-light">{ strconv.Itoa(statusCode) }</p>
+				<h1 class="title">{ title }</h1>
+				<p class="subtitle">{ message }</p>
+				<a class="button is-primary" href="/">Go Home</a>
+			</div>
+		</div>
+	}
+}

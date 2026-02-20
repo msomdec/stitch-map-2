@@ -13,14 +13,14 @@ import (
 func newTestPatternService(t *testing.T) (*service.PatternService, *service.StitchService, *sqlite.DB) {
 	t.Helper()
 	_, db := newTestAuthService(t)
-	stitchRepo := sqlite.NewStitchRepository(db)
-	patternRepo := sqlite.NewPatternRepository(db)
+	stitchRepo := db.Stitches()
+	patternRepo := db.Patterns()
 	return service.NewPatternService(patternRepo, stitchRepo), service.NewStitchService(stitchRepo), db
 }
 
 func seedStitchForTest(t *testing.T, db *sqlite.DB) int64 {
 	t.Helper()
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	s := &domain.Stitch{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"}
 	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatalf("seed stitch: %v", err)
@@ -30,7 +30,7 @@ func seedStitchForTest(t *testing.T, db *sqlite.DB) int64 {
 
 func seedUserForTest(t *testing.T, db *sqlite.DB, email string) int64 {
 	t.Helper()
-	repo := sqlite.NewUserRepository(db)
+	repo := db.Users()
 	u := &domain.User{Email: email, DisplayName: "Test", PasswordHash: "hash"}
 	if err := repo.Create(context.Background(), u); err != nil {
 		t.Fatalf("seed user: %v", err)

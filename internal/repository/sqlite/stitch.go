@@ -10,17 +10,12 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/domain"
 )
 
-// StitchRepository implements domain.StitchRepository using SQLite.
-type StitchRepository struct {
+// stitchRepo implements domain.StitchRepository using SQLite.
+type stitchRepo struct {
 	db *sql.DB
 }
 
-// NewStitchRepository creates a new SQLite-backed StitchRepository.
-func NewStitchRepository(db *DB) *StitchRepository {
-	return &StitchRepository{db: db.SqlDB}
-}
-
-func (r *StitchRepository) ListPredefined(ctx context.Context) ([]domain.Stitch, error) {
+func (r *stitchRepo) ListPredefined(ctx context.Context) ([]domain.Stitch, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, abbreviation, name, description, category, is_custom, user_id, created_at
 		 FROM stitches WHERE is_custom = FALSE ORDER BY category, abbreviation`)
@@ -31,7 +26,7 @@ func (r *StitchRepository) ListPredefined(ctx context.Context) ([]domain.Stitch,
 	return scanStitches(rows)
 }
 
-func (r *StitchRepository) ListByUser(ctx context.Context, userID int64) ([]domain.Stitch, error) {
+func (r *stitchRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Stitch, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, abbreviation, name, description, category, is_custom, user_id, created_at
 		 FROM stitches WHERE is_custom = TRUE AND user_id = ? ORDER BY abbreviation`, userID)
@@ -42,7 +37,7 @@ func (r *StitchRepository) ListByUser(ctx context.Context, userID int64) ([]doma
 	return scanStitches(rows)
 }
 
-func (r *StitchRepository) GetByID(ctx context.Context, id int64) (*domain.Stitch, error) {
+func (r *stitchRepo) GetByID(ctx context.Context, id int64) (*domain.Stitch, error) {
 	s := &domain.Stitch{}
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, abbreviation, name, description, category, is_custom, user_id, created_at
@@ -57,7 +52,7 @@ func (r *StitchRepository) GetByID(ctx context.Context, id int64) (*domain.Stitc
 	return s, nil
 }
 
-func (r *StitchRepository) GetByAbbreviation(ctx context.Context, abbreviation string, userID *int64) (*domain.Stitch, error) {
+func (r *stitchRepo) GetByAbbreviation(ctx context.Context, abbreviation string, userID *int64) (*domain.Stitch, error) {
 	var row *sql.Row
 	if userID == nil {
 		row = r.db.QueryRowContext(ctx,
@@ -80,7 +75,7 @@ func (r *StitchRepository) GetByAbbreviation(ctx context.Context, abbreviation s
 	return s, nil
 }
 
-func (r *StitchRepository) Create(ctx context.Context, stitch *domain.Stitch) error {
+func (r *stitchRepo) Create(ctx context.Context, stitch *domain.Stitch) error {
 	now := time.Now().UTC()
 	result, err := r.db.ExecContext(ctx,
 		`INSERT INTO stitches (abbreviation, name, description, category, is_custom, user_id, created_at)
@@ -105,7 +100,7 @@ func (r *StitchRepository) Create(ctx context.Context, stitch *domain.Stitch) er
 	return nil
 }
 
-func (r *StitchRepository) Update(ctx context.Context, stitch *domain.Stitch) error {
+func (r *stitchRepo) Update(ctx context.Context, stitch *domain.Stitch) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE stitches SET abbreviation = ?, name = ?, description = ?, category = ?
 		 WHERE id = ?`,
@@ -128,7 +123,7 @@ func (r *StitchRepository) Update(ctx context.Context, stitch *domain.Stitch) er
 	return nil
 }
 
-func (r *StitchRepository) Delete(ctx context.Context, id int64) error {
+func (r *stitchRepo) Delete(ctx context.Context, id int64) error {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM stitches WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("delete stitch: %w", err)

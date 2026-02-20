@@ -5,15 +5,39 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/msomdec/stitch-map-2/internal/domain"
 	"github.com/msomdec/stitch-map-2/internal/repository/sqlite/migrations"
 	_ "modernc.org/sqlite"
 )
 
 // DB wraps a *sql.DB and implements domain.Database.
 // It owns SQLite-specific configuration and migrations.
+// All repository interfaces are accessed via factory methods on DB, so the
+// entire database backend can be swapped by replacing a single sqlite.New call.
 type DB struct {
 	SqlDB *sql.DB
 }
+
+// Compile-time interface compliance checks.
+var (
+	_ domain.Database              = (*DB)(nil)
+	_ domain.UserRepository        = (*userRepo)(nil)
+	_ domain.StitchRepository      = (*stitchRepo)(nil)
+	_ domain.PatternRepository     = (*patternRepo)(nil)
+	_ domain.WorkSessionRepository = (*workSessionRepo)(nil)
+)
+
+// Users returns a domain.UserRepository backed by this database.
+func (db *DB) Users() domain.UserRepository { return &userRepo{db: db.SqlDB} }
+
+// Stitches returns a domain.StitchRepository backed by this database.
+func (db *DB) Stitches() domain.StitchRepository { return &stitchRepo{db: db.SqlDB} }
+
+// Patterns returns a domain.PatternRepository backed by this database.
+func (db *DB) Patterns() domain.PatternRepository { return &patternRepo{db: db.SqlDB} }
+
+// Sessions returns a domain.WorkSessionRepository backed by this database.
+func (db *DB) Sessions() domain.WorkSessionRepository { return &workSessionRepo{db: db.SqlDB} }
 
 // New opens a SQLite database at the given path and configures it for use.
 // It enables WAL mode and foreign keys.

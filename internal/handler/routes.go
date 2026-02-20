@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/msomdec/stitch-map-2/internal/service"
+	"github.com/msomdec/stitch-map-2/internal/view"
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
@@ -12,20 +13,24 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches)
 	sessionHandler := NewWorkSessionHandler(sessions, patterns, stitches)
+	dashboardHandler := NewDashboardHandler(sessions)
+
+	// Rate limiter for auth endpoints: 10 req/s capacity, refills at 1/s.
+	authLimiter := service.NewTokenBucket(1, 10)
 
 	// Public routes.
 	mux.HandleFunc("GET /healthz", HandleHealthz)
 	mux.Handle("GET /{$}", OptionalAuth(auth, http.HandlerFunc(HandleHome)))
 
-	// Auth routes (unauthenticated).
-	mux.HandleFunc("GET /login", authHandler.ShowLogin)
-	mux.HandleFunc("POST /login", authHandler.HandleLogin)
-	mux.HandleFunc("GET /register", authHandler.ShowRegister)
-	mux.HandleFunc("POST /register", authHandler.HandleRegister)
+	// Auth routes (unauthenticated, rate-limited).
+	mux.Handle("GET /login", RateLimit(authLimiter, http.HandlerFunc(authHandler.ShowLogin)))
+	mux.Handle("POST /login", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleLogin)))
+	mux.Handle("GET /register", RateLimit(authLimiter, http.HandlerFunc(authHandler.ShowRegister)))
+	mux.Handle("POST /register", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleRegister)))
 	mux.HandleFunc("POST /logout", authHandler.HandleLogout)
 
 	// Protected routes.
-	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(HandleDashboard)))
+	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleDashboard)))
 
 	// Stitch library routes (authenticated).
 	mux.Handle("GET /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))
@@ -51,4 +56,10 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /sessions/{id}/pause", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandlePause)))
 	mux.Handle("POST /sessions/{id}/resume", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleResume)))
 	mux.Handle("POST /sessions/{id}/abandon", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleAbandon)))
+
+	// Catch-all 404 handler.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		view.ErrorPage(http.StatusNotFound, "Page Not Found", "The page you're looking for doesn't exist.").Render(r.Context(), w)
+	})
 }
