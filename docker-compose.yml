@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /data/stitch-map.db
+      # Change JWT_SECRET to a long random string before deploying to production.
+      # Generate one with: openssl rand -hex 32
+      JWT_SECRET: dev-secret-change-before-production
+      BCRYPT_COST: "12"
+    volumes:
+      - db_data:/data
+    restart: unless-stopped
+
+volumes:
+  db_data:
