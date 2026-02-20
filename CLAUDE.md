@@ -647,12 +647,11 @@ Each phase is independently implementable, testable, and deployable. Each phase 
   - Keyboard handling via Datastar `data-on-keydown` sending SSE requests
   - Active sessions list on dashboard
 
-**Tests**:
-- Unit: Navigation logic — forward through simple pattern, forward through repeats, forward through group repeats, backward, boundary transitions, completion detection
-- Unit: WorkSessionRepository CRUD
-- Unit: Service — start session, advance to completion, pause/resume state
+**Tests** (following Testing Strategy — only where they add value):
+- Unit: Navigation logic — this is the core complexity of Phase 6 and warrants thorough testing: forward through simple pattern, forward through repeats, forward through group repeats, backward, boundary transitions, completion detection
 - Integration: Start session -> navigate forward through entire small pattern -> verify completion
 - Integration: Navigate backward from middle of pattern -> verify correct position
+- Note: WorkSessionRepository CRUD and simple service wiring (start, pause/resume) are exercised by integration tests and do not need separate unit tests
 
 **Regression Gate**: All Phase 1-6 tests pass. CI green.
 
@@ -729,8 +728,36 @@ go build -o stitch-map ./main.go
 - **Context**: Pass `context.Context` as first parameter to all repository and service methods.
 - **Naming**: Follow Go conventions — exported types are PascalCase, unexported are camelCase, acronyms are all-caps (ID, HTTP, SSE).
 - **Logging**: Use `log/slog` with structured fields. Log at handler level, not in domain/repository.
-- **Testing**: Table-driven tests. Use `t.Helper()` in test helpers. Use `testutil` sub-packages for shared test fixtures.
+- **Testing**: See "Testing Strategy" section below for full guidelines.
 - **Database transactions**: Use a `WithTx` helper for operations that span multiple tables.
 - **Templ files**: One `.templ` file per page/feature. Shared components in `components.templ`.
 - **No global state**: All dependencies injected through constructors. Server struct holds all handler dependencies.
 - **Routing**: Use Go 1.22+ enhanced `ServeMux` patterns. Method prefixes (`GET /path`) restrict by HTTP method. The `{$}` suffix matches a path exactly (e.g., `GET /{$}` matches only `/`, not `/foo`), eliminating manual path checks in handlers. Use `{name}` for path parameters (e.g., `GET /patterns/{id}`) — extract with `r.PathValue("id")`. Prefer these built-in features over custom routing logic.
+
+---
+
+## Testing Strategy
+
+### Philosophy
+
+Write tests where they add value — not for the sake of coverage metrics. Tests should catch real bugs, verify non-obvious behavior, and protect against regressions. Skip tests for code that is trivially correct or already well-covered by integration tests.
+
+### What to test
+
+- **Pure business logic with meaningful complexity**: Navigation state machines, stitch count calculations, pattern text rendering, validation rules with multiple branches. These have real edge cases worth verifying.
+- **Repository operations with non-trivial queries**: CRUD operations involving transactions, nested inserts, cascade deletes, or complex WHERE clauses. Simple single-table CRUD that is a thin wrapper over `database/sql` does not need its own unit test if covered by integration tests.
+- **Integration tests for user-facing flows**: Full HTTP request/response cycles that exercise the handler → service → repository stack together. These catch wiring bugs and verify the system works end-to-end.
+
+### What NOT to test
+
+- **Trivial getters/setters or simple pass-through functions**: If a function just calls one repository method and returns the result, an integration test covers it.
+- **Generated code**: Templ-generated `_templ.go` files, or any code produced by code generators.
+- **HTTP handler logic that is just wiring**: Handlers that parse a request, call a service, and redirect don't need their own unit tests — integration tests verify this behavior more effectively.
+- **Repository methods that are simple SQL wrappers**: A `GetByID` that does `SELECT ... WHERE id = ?` and scans into a struct doesn't need a dedicated unit test if integration tests exercise it.
+
+### Test conventions
+
+- Use table-driven tests for logic with multiple input/output cases.
+- Use `t.Helper()` in test helpers.
+- Prefer a single `newTestServices` helper (see `handler/middleware_test.go`) that creates a real in-memory SQLite database for tests — this avoids the complexity and maintenance burden of mock implementations.
+- Keep test names descriptive: `TestNavigation_ForwardThroughGroupRepeat`, not `TestCase1`.

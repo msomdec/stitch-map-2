@@ -1,0 +1,112 @@
+package view
+
+import "github.com/msomdec/stitch-map-2/internal/domain"
+import "github.com/msomdec/stitch-map-2/internal/service"
+import "strconv"
+import "fmt"
+
+templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress) {
+	@Layout(pattern.Name+" - Tracker", displayName) {
+		if session.Status == domain.SessionStatusCompleted {
+			<div class="notification is-success">
+				<p class="title is-4">Pattern Complete!</p>
+				<p>You have completed <strong>{ pattern.Name }</strong>.</p>
+				<a class="button is-primary mt-3" href="/dashboard">Back to Dashboard</a>
+			</div>
+		} else {
+			<div class="columns">
+				<div class="column is-8 is-offset-2">
+					<!-- Pattern Name and Controls -->
+					<div class="level mb-2">
+						<div class="level-left">
+							<div>
+								<h1 class="title is-4 mb-1">{ pattern.Name }</h1>
+								<p class="subtitle is-6 has-text-grey">{ progress.GroupLabel }
+									if progress.GroupRepeatInfo != "" {
+										{ " — " + progress.GroupRepeatInfo }
+									}
+								</p>
+							</div>
+						</div>
+						<div class="level-right">
+							<div class="buttons">
+								if session.Status == domain.SessionStatusActive {
+									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/pause") } style="display:inline;">
+										<button class="button is-warning is-small" type="submit" title="Pause (P)">Pause</button>
+									</form>
+								}
+								if session.Status == domain.SessionStatusPaused {
+									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/resume") } style="display:inline;">
+										<button class="button is-success is-small" type="submit">Resume</button>
+									</form>
+								}
+								<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/abandon") } style="display:inline;" onsubmit="return confirm('Abandon this session?');">
+									<button class="button is-danger is-small is-outlined" type="submit" title="Abandon (Esc)">Abandon</button>
+								</form>
+							</div>
+						</div>
+					</div>
+					if session.Status == domain.SessionStatusPaused {
+						<div class="notification is-warning">
+							<strong>Session Paused</strong> — Resume to continue tracking.
+						</div>
+					}
+					<!-- Stitch Display -->
+					<div class="box has-text-centered py-6">
+						<div class="is-flex is-justify-content-center is-align-items-center" style="gap: 2rem;">
+							<!-- Previous stitch -->
+							<div style="min-width: 80px;">
+								if progress.PrevAbbr != "" {
+									<span class="tag is-medium is-light">{ progress.PrevAbbr }</span>
+								}
+							</div>
+							<!-- Current stitch -->
+							<div>
+								if progress.CurrentAbbr != "" {
+									<p class="title is-1 mb-1">{ progress.CurrentAbbr }</p>
+									<p class="subtitle is-5 has-text-grey">{ progress.CurrentName }</p>
+								} else {
+									<p class="title is-3 has-text-grey">—</p>
+								}
+							</div>
+							<!-- Next stitch -->
+							<div style="min-width: 80px;">
+								if progress.NextAbbr != "" {
+									<span class="tag is-medium is-light">{ progress.NextAbbr }</span>
+								}
+							</div>
+						</div>
+					</div>
+					<!-- Progress Bar -->
+					<div class="mb-4">
+						<div class="is-flex is-justify-content-space-between mb-1">
+							<span class="is-size-7 has-text-grey">Progress</span>
+							<span class="is-size-7 has-text-grey">{ fmt.Sprintf("%d / %d (%.0f%%)", progress.CompletedStitches, progress.TotalStitches, progress.Percentage) }</span>
+						</div>
+						<progress class="progress is-primary" value={ strconv.Itoa(progress.CompletedStitches) } max={ strconv.Itoa(progress.TotalStitches) }>
+							{ fmt.Sprintf("%.0f%%", progress.Percentage) }
+						</progress>
+					</div>
+					<!-- Navigation Buttons -->
+					if session.Status == domain.SessionStatusActive {
+						<div class="is-flex is-justify-content-center" style="gap: 1rem;">
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev") } style="display:inline;">
+								<button class="button is-medium" type="submit" title="Previous stitch (Left Arrow / Backspace)">
+									<span>&#8592; Back</span>
+								</button>
+							</form>
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next") } style="display:inline;">
+								<button class="button is-primary is-medium" type="submit" title="Next stitch (Right Arrow / Space)">
+									<span>Next &#8594;</span>
+								</button>
+							</form>
+						</div>
+						<p class="has-text-centered has-text-grey is-size-7 mt-3">
+							Keyboard: Space/Right = forward, Backspace/Left = backward, P = pause, Esc = abandon
+						</p>
+					}
+				</div>
+			</div>
+		}
+	}
+}

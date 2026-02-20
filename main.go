@@ -52,10 +52,12 @@ func main() {
 	userRepo := sqlite.NewUserRepository(db)
 	stitchRepo := sqlite.NewStitchRepository(db)
 	patternRepo := sqlite.NewPatternRepository(db)
+	sessionRepo := sqlite.NewWorkSessionRepository(db)
 
 	authService := service.NewAuthService(userRepo, jwtSecret, bcryptCost)
 	stitchService := service.NewStitchService(stitchRepo)
 	patternService := service.NewPatternService(patternRepo, stitchRepo)
+	sessionService := service.NewWorkSessionService(sessionRepo, patternRepo)
 
 	// Seed predefined stitches (idempotent).
 	if err := stitchService.SeedPredefined(context.Background()); err != nil {
@@ -65,7 +67,7 @@ func main() {
 	slog.Info("predefined stitches seeded")
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, authService, stitchService, patternService)
+	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

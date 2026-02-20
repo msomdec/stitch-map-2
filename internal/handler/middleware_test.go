@@ -14,7 +14,7 @@ import (
 
 const testJWTSecret = "test-secret-for-handler-tests"
 
-func newTestServices(t *testing.T) (*service.AuthService, *service.StitchService, *service.PatternService) {
+func newTestServices(t *testing.T) (*service.AuthService, *service.StitchService, *service.PatternService, *service.WorkSessionService) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	db, err := sqlite.New(dbPath)
@@ -29,13 +29,15 @@ func newTestServices(t *testing.T) (*service.AuthService, *service.StitchService
 	userRepo := sqlite.NewUserRepository(db)
 	stitchRepo := sqlite.NewStitchRepository(db)
 	patternRepo := sqlite.NewPatternRepository(db)
+	sessionRepo := sqlite.NewWorkSessionRepository(db)
 	return service.NewAuthService(userRepo, testJWTSecret, 4),
 		service.NewStitchService(stitchRepo),
-		service.NewPatternService(patternRepo, stitchRepo)
+		service.NewPatternService(patternRepo, stitchRepo),
+		service.NewWorkSessionService(sessionRepo, patternRepo)
 }
 
 func TestRequireAuth_ValidJWT(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "valid@example.com", "Valid User", "password123")
@@ -71,7 +73,7 @@ func TestRequireAuth_ValidJWT(t *testing.T) {
 }
 
 func TestRequireAuth_MissingCookie(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("inner handler should not be called")
@@ -88,7 +90,7 @@ func TestRequireAuth_MissingCookie(t *testing.T) {
 }
 
 func TestRequireAuth_ExpiredOrInvalidToken(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("inner handler should not be called")
@@ -106,7 +108,7 @@ func TestRequireAuth_ExpiredOrInvalidToken(t *testing.T) {
 }
 
 func TestRequireAuth_TamperedToken(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "tamper@example.com", "Tamper", "password123")
@@ -136,7 +138,7 @@ func TestRequireAuth_TamperedToken(t *testing.T) {
 }
 
 func TestOptionalAuth_WithToken(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
 	_, err := auth.Register(ctx, "opt@example.com", "Optional", "password123")
@@ -172,7 +174,7 @@ func TestOptionalAuth_WithToken(t *testing.T) {
 }
 
 func TestOptionalAuth_WithoutToken(t *testing.T) {
-	auth, _, _ := newTestServices(t)
+	auth, _, _, _ := newTestServices(t)
 
 	var gotUser *bool
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

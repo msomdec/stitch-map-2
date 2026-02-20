@@ -15,10 +15,10 @@ import (
 )
 
 func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -122,10 +122,10 @@ func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
 }
 
 func TestIntegration_LoginWrongPassword(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -162,10 +162,10 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 }
 
 func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -204,10 +204,10 @@ func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestIntegration_RegisterWeakPassword(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -233,10 +233,10 @@ func TestIntegration_RegisterWeakPassword(t *testing.T) {
 }
 
 func TestIntegration_LoginPageRendering(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -261,10 +261,10 @@ func TestIntegration_LoginPageRendering(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -280,7 +280,7 @@ func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	// Seed predefined stitches.
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
@@ -288,7 +288,7 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -419,14 +419,14 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -478,7 +478,7 @@ func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
 }
 
 func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	// Seed stitches so we can reference them.
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
@@ -486,7 +486,7 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -640,14 +640,14 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 }
 
 func TestIntegration_Pattern_ViewWithTextPreview(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -749,14 +749,14 @@ func TestIntegration_Pattern_ViewWithTextPreview(t *testing.T) {
 }
 
 func TestIntegration_Pattern_EditorPreview(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -835,14 +835,14 @@ func TestIntegration_Pattern_EditorPreview(t *testing.T) {
 }
 
 func TestIntegration_Pattern_Duplicate(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -970,10 +970,10 @@ func extractPatternID(t *testing.T, body string) string {
 }
 
 func TestIntegration_Pattern_Unauthenticated(t *testing.T) {
-	auth, stitches, patterns := newTestServices(t)
+	auth, stitches, patterns, sessions := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -985,5 +985,240 @@ func TestIntegration_Pattern_Unauthenticated(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestIntegration_WorkSession_NavigateToCompletion(t *testing.T) {
+	auth, stitches, patterns, sessions := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"session@example.com"},
+		"display_name": {"Session User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"session@example.com"},
+		"password": {"password123"},
+	})
+
+	// Get sc stitch ID.
+	predefined, _ := stitches.ListPredefined(context.Background())
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+	if scID == "" {
+		t.Fatal("sc stitch not found")
+	}
+
+	// Create a small pattern: Round 1: 3 sc (3 total stitches).
+	resp, err := client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":             {"Session Test"},
+		"pattern_type":     {"round"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"3"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+
+	// Find pattern ID.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	patternID := extractPatternID(t, string(bodyBytes))
+
+	// Start a work session.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/start-session", nil)
+	if err != nil {
+		t.Fatalf("POST start-session: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("start session: expected 303, got %d", resp.StatusCode)
+	}
+	sessionURL := resp.Header.Get("Location")
+	if sessionURL == "" {
+		t.Fatal("expected redirect location for session")
+	}
+
+	// View the session.
+	resp, err = client.Get(srv.URL + sessionURL)
+	if err != nil {
+		t.Fatalf("GET session: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("view session: expected 200, got %d", resp.StatusCode)
+	}
+	body := string(bodyBytes)
+	if !strings.Contains(body, "sc") {
+		t.Fatal("session page should contain current stitch abbreviation 'sc'")
+	}
+	if !strings.Contains(body, "Round 1") {
+		t.Fatal("session page should contain group label 'Round 1'")
+	}
+
+	// Navigate forward 3 times to complete the pattern.
+	for i := 0; i < 3; i++ {
+		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
+		if err != nil {
+			t.Fatalf("POST next (stitch %d): %v", i+1, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("next stitch %d: expected 303, got %d", i+1, resp.StatusCode)
+		}
+	}
+
+	// Session should now be completed.
+	resp, err = client.Get(srv.URL + sessionURL)
+	if err != nil {
+		t.Fatalf("GET session after completion: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body = string(bodyBytes)
+	if !strings.Contains(body, "Pattern Complete") {
+		t.Fatal("session page should show 'Pattern Complete' after navigating through all stitches")
+	}
+}
+
+func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
+	auth, stitches, patterns, sessions := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"backward@example.com"},
+		"display_name": {"Backward User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"backward@example.com"},
+		"password": {"password123"},
+	})
+
+	predefined, _ := stitches.ListPredefined(context.Background())
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+
+	// Create pattern: Round 1: 4 sc.
+	resp, err := client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":             {"Backward Test"},
+		"pattern_type":     {"round"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"4"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	patternID := extractPatternID(t, string(bodyBytes))
+
+	// Start session.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/start-session", nil)
+	if err != nil {
+		t.Fatalf("POST start-session: %v", err)
+	}
+	resp.Body.Close()
+	sessionURL := resp.Header.Get("Location")
+
+	// Navigate forward 2 times.
+	for i := 0; i < 2; i++ {
+		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
+		if err != nil {
+			t.Fatalf("POST next: %v", err)
+		}
+		resp.Body.Close()
+	}
+
+	// Navigate backward 1 time.
+	resp, err = client.PostForm(srv.URL+sessionURL+"/prev", nil)
+	if err != nil {
+		t.Fatalf("POST prev: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("prev: expected 303, got %d", resp.StatusCode)
+	}
+
+	// View session — should show progress at 1/4 (stitch count position 1).
+	resp, err = client.Get(srv.URL + sessionURL)
+	if err != nil {
+		t.Fatalf("GET session: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body := string(bodyBytes)
+
+	// Should still be active (not completed).
+	if strings.Contains(body, "Pattern Complete") {
+		t.Fatal("session should not be completed after navigating backward")
+	}
+	if !strings.Contains(body, "sc") {
+		t.Fatal("session should show current stitch 'sc'")
 	}
 }
