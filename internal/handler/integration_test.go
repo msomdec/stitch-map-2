@@ -639,6 +639,336 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 	}
 }
 
+func TestIntegration_Pattern_ViewWithTextPreview(t *testing.T) {
+	auth, stitches, patterns := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"preview@example.com"},
+		"display_name": {"Preview User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"preview@example.com"},
+		"password": {"password123"},
+	})
+
+	// Get sc and inc stitch IDs.
+	predefined, _ := stitches.ListPredefined(context.Background())
+	scID, incID := "", ""
+	for _, s := range predefined {
+		switch s.Abbreviation {
+		case "sc":
+			scID = strconv.FormatInt(s.ID, 10)
+		case "inc":
+			incID = strconv.FormatInt(s.ID, 10)
+		}
+	}
+	if scID == "" || incID == "" {
+		t.Fatal("sc or inc stitch not found")
+	}
+
+	// Create a pattern with two groups.
+	resp, err := client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":             {"Preview Test"},
+		"pattern_type":     {"round"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"6"},
+		"entry_repeat_0_0": {"1"},
+		"group_label_1":    {"Round 2"},
+		"group_repeat_1":   {"1"},
+		"entry_stitch_1_0": {incID},
+		"entry_count_1_0":  {"1"},
+		"entry_repeat_1_0": {"6"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create: expected 303, got %d", resp.StatusCode)
+	}
+
+	// Find pattern ID from list.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body := string(bodyBytes)
+
+	patternID := extractPatternID(t, body)
+
+	// View the pattern.
+	resp, err = client.Get(srv.URL + "/patterns/" + patternID)
+	if err != nil {
+		t.Fatalf("GET /patterns/%s: %v", patternID, err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("view: expected 200, got %d", resp.StatusCode)
+	}
+	body = string(bodyBytes)
+
+	// Should contain pattern text preview.
+	if !strings.Contains(body, "Pattern Text") {
+		t.Fatal("pattern view should contain 'Pattern Text' section")
+	}
+	if !strings.Contains(body, "Round 1: 6 sc") {
+		t.Fatal("pattern view should contain rendered text 'Round 1: 6 sc'")
+	}
+	if !strings.Contains(body, "Round 2:") {
+		t.Fatal("pattern view should contain 'Round 2:' in rendered text")
+	}
+	// Check per-group text rendering in each group box.
+	if !strings.Contains(body, "inc") {
+		t.Fatal("pattern view should contain stitch abbreviation 'inc'")
+	}
+}
+
+func TestIntegration_Pattern_EditorPreview(t *testing.T) {
+	auth, stitches, patterns := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"editorpreview@example.com"},
+		"display_name": {"Editor Preview User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"editorpreview@example.com"},
+		"password": {"password123"},
+	})
+
+	predefined, _ := stitches.ListPredefined(context.Background())
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+
+	// Create a pattern first.
+	resp, err := client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":             {"Editor Preview Test"},
+		"pattern_type":     {"round"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"6"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+
+	// Find pattern ID.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	patternID := extractPatternID(t, string(bodyBytes))
+
+	// Open the edit page.
+	resp, err = client.Get(srv.URL + "/patterns/" + patternID + "/edit")
+	if err != nil {
+		t.Fatalf("GET edit: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("edit: expected 200, got %d", resp.StatusCode)
+	}
+	body := string(bodyBytes)
+
+	// Editor should contain the preview panel.
+	if !strings.Contains(body, "Preview") {
+		t.Fatal("editor should contain 'Preview' panel")
+	}
+	if !strings.Contains(body, "Round 1: 6 sc") {
+		t.Fatal("editor preview should contain rendered text 'Round 1: 6 sc'")
+	}
+}
+
+func TestIntegration_Pattern_Duplicate(t *testing.T) {
+	auth, stitches, patterns := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"dup-pattern@example.com"},
+		"display_name": {"Dup User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"dup-pattern@example.com"},
+		"password": {"password123"},
+	})
+
+	predefined, _ := stitches.ListPredefined(context.Background())
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+
+	// Create a pattern.
+	resp, err := client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":             {"Original Pattern"},
+		"pattern_type":     {"round"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"6"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+
+	// Find pattern ID.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	patternID := extractPatternID(t, string(bodyBytes))
+
+	// Duplicate.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/duplicate", nil)
+	if err != nil {
+		t.Fatalf("POST duplicate: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("duplicate: expected 303, got %d", resp.StatusCode)
+	}
+
+	// Verify both original and copy appear in the list.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body := string(bodyBytes)
+
+	if !strings.Contains(body, "Original Pattern") {
+		t.Fatal("list should contain original pattern")
+	}
+	if !strings.Contains(body, "Original Pattern (Copy)") {
+		t.Fatal("list should contain duplicated pattern with '(Copy)' suffix")
+	}
+
+	// Delete the original — the copy should remain.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/delete", nil)
+	if err != nil {
+		t.Fatalf("POST delete: %v", err)
+	}
+	resp.Body.Close()
+
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body = string(bodyBytes)
+
+	if !strings.Contains(body, "Original Pattern (Copy)") {
+		t.Fatal("copy should still exist after deleting original")
+	}
+}
+
+// extractPatternID finds the first numeric pattern ID from /patterns/{id} links in HTML.
+func extractPatternID(t *testing.T, body string) string {
+	t.Helper()
+	searchBody := body
+	for {
+		idx := strings.Index(searchBody, "/patterns/")
+		if idx == -1 {
+			break
+		}
+		rest := searchBody[idx+len("/patterns/"):]
+		endIdx := strings.IndexAny(rest, "\"/ >")
+		if endIdx == -1 {
+			break
+		}
+		candidate := rest[:endIdx]
+		if _, err := strconv.Atoi(candidate); err == nil {
+			return candidate
+		}
+		searchBody = rest
+	}
+	t.Fatal("couldn't extract numeric pattern ID from page")
+	return ""
+}
+
 func TestIntegration_Pattern_Unauthenticated(t *testing.T) {
 	auth, stitches, patterns := newTestServices(t)
 
