@@ -1,0 +1,10 @@
+package view
+
+templ DashboardPage(displayName string) {
+	@Layout("Dashboard", displayName) {
+		<div class="content">
+			<h1 class="title">Dashboard</h1>
+			<p class="subtitle">Welcome back, { displayName }!</p>
+		</div>
+	}
+}

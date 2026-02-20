@@ -1,0 +1,81 @@
+package view
+
+templ LoginPage(errMsg string) {
+	@Layout("Login", "") {
+		<div class="columns is-centered">
+			<div class="column is-4">
+				<h1 class="title">Log In</h1>
+				if errMsg != "" {
+					<div class="notification is-danger">
+						{ errMsg }
+					</div>
+				}
+				<form method="POST" action="/login">
+					<div class="field">
+						<label class="label" for="email">Email</label>
+						<div class="control">
+							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com"/>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label" for="password">Password</label>
+						<div class="control">
+							<input class="input" type="password" id="password" name="password" required placeholder="••••••••"/>
+						</div>
+					</div>
+					<div class="field">
+						<div class="control">
+							<button class="button is-primary is-fullwidth" type="submit">Log In</button>
+						</div>
+					</div>
+				</form>
+				<p class="has-text-centered mt-4">
+					Don't have an account? <a href="/register">Register</a>
+				</p>
+			</div>
+		</div>
+	}
+}
+
+templ RegisterPage(errMsg string) {
+	@Layout("Register", "") {
+		<div class="columns is-centered">
+			<div class="column is-4">
+				<h1 class="title">Register</h1>
+				if errMsg != "" {
+					<div class="notification is-danger">
+						{ errMsg }
+					</div>
+				}
+				<form method="POST" action="/register">
+					<div class="field">
+						<label class="label" for="email">Email</label>
+						<div class="control">
+							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com"/>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label" for="display_name">Display Name</label>
+						<div class="control">
+							<input class="input" type="text" id="display_name" name="display_name" required placeholder="Your Name"/>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label" for="password">Password</label>
+						<div class="control">
+							<input class="input" type="password" id="password" name="password" required placeholder="At least 8 characters"/>
+						</div>
+					</div>
+					<div class="field">
+						<div class="control">
+							<button class="button is-primary is-fullwidth" type="submit">Register</button>
+						</div>
+					</div>
+				</form>
+				<p class="has-text-centered mt-4">
+					Already have an account? <a href="/login">Log In</a>
+				</p>
+			</div>
+		</div>
+	}
+}

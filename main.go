@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/msomdec/stitch-map-2/internal/handler"
 	"github.com/msomdec/stitch-map-2/internal/repository/sqlite"
+	"github.com/msomdec/stitch-map-2/internal/service"
 )
 
 func main() {
@@ -19,6 +21,20 @@ func main() {
 
 	port := envOrDefault("PORT", "8080")
 	dbPath := envOrDefault("DATABASE_PATH", "stitch-map.db")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		slog.Error("JWT_SECRET environment variable is required")
+		os.Exit(1)
+	}
+	bcryptCost := 12
+	if v := os.Getenv("BCRYPT_COST"); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			slog.Error("invalid BCRYPT_COST", "error", err)
+			os.Exit(1)
+		}
+		bcryptCost = parsed
+	}
 
 	db, err := sqlite.New(dbPath)
 	if err != nil {
@@ -33,8 +49,11 @@ func main() {
 	}
 	slog.Info("database migrations applied")
 
+	userRepo := sqlite.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo, jwtSecret, bcryptCost)
+
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
+	handler.RegisterRoutes(mux, authService)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
