@@ -1,6 +1,7 @@
 package view
 
 import "github.com/msomdec/stitch-map-2/internal/domain"
+import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 
 templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, errMsg string) {
@@ -10,100 +11,118 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				{ errMsg }
 			</div>
 		}
-		<form method="POST" action={ editorAction(pattern) }>
-			<h1 class="title">{ editorTitle(pattern) }</h1>
-			<!-- Pattern Metadata -->
-			<div class="box">
-				<div class="columns">
-					<div class="column is-6">
-						<div class="field">
-							<label class="label" for="name">Pattern Name</label>
-							<div class="control">
-								<input class="input" type="text" id="name" name="name" required
-									value={ patternFieldValue(pattern, "name") }
-									placeholder="e.g., Amigurumi Bear"/>
+		<div class="columns">
+			<div class="column is-8">
+				<form method="POST" action={ editorAction(pattern) }>
+					<h1 class="title">{ editorTitle(pattern) }</h1>
+					<!-- Pattern Metadata -->
+					<div class="box">
+						<div class="columns">
+							<div class="column is-6">
+								<div class="field">
+									<label class="label" for="name">Pattern Name</label>
+									<div class="control">
+										<input class="input" type="text" id="name" name="name" required
+											value={ patternFieldValue(pattern, "name") }
+											placeholder="e.g., Amigurumi Bear"/>
+									</div>
+								</div>
+							</div>
+							<div class="column is-3">
+								<div class="field">
+									<label class="label" for="pattern_type">Type</label>
+									<div class="control">
+										<div class="select is-fullwidth">
+											<select id="pattern_type" name="pattern_type">
+												<option value="round"
+													if pattern == nil || pattern.PatternType == domain.PatternTypeRound { selected }>Round</option>
+												<option value="row"
+													if pattern != nil && pattern.PatternType == domain.PatternTypeRow { selected }>Row</option>
+											</select>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="column is-3">
+								<div class="field">
+									<label class="label" for="hook_size">Hook Size</label>
+									<div class="control">
+										<input class="input" type="text" id="hook_size" name="hook_size"
+											value={ patternFieldValue(pattern, "hook_size") }
+											placeholder="e.g., 5.0mm"/>
+									</div>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div class="column is-3">
-						<div class="field">
-							<label class="label" for="pattern_type">Type</label>
-							<div class="control">
-								<div class="select is-fullwidth">
-									<select id="pattern_type" name="pattern_type">
-										<option value="round"
-											if pattern == nil || pattern.PatternType == domain.PatternTypeRound { selected }>Round</option>
-										<option value="row"
-											if pattern != nil && pattern.PatternType == domain.PatternTypeRow { selected }>Row</option>
-									</select>
+						<div class="columns">
+							<div class="column is-6">
+								<div class="field">
+									<label class="label" for="description">Description</label>
+									<div class="control">
+										<textarea class="textarea" id="description" name="description"
+											placeholder="Brief description of the pattern">{ patternFieldValue(pattern, "description") }</textarea>
+									</div>
+								</div>
+							</div>
+							<div class="column is-3">
+								<div class="field">
+									<label class="label" for="yarn_weight">Yarn Weight</label>
+									<div class="control">
+										<input class="input" type="text" id="yarn_weight" name="yarn_weight"
+											value={ patternFieldValue(pattern, "yarn_weight") }
+											placeholder="e.g., Worsted"/>
+									</div>
+								</div>
+							</div>
+							<div class="column is-3">
+								<div class="field">
+									<label class="label" for="notes">Notes</label>
+									<div class="control">
+										<textarea class="textarea" id="notes" name="notes"
+											placeholder="General notes">{ patternFieldValue(pattern, "notes") }</textarea>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-					<div class="column is-3">
-						<div class="field">
-							<label class="label" for="hook_size">Hook Size</label>
-							<div class="control">
-								<input class="input" type="text" id="hook_size" name="hook_size"
-									value={ patternFieldValue(pattern, "hook_size") }
-									placeholder="e.g., 5.0mm"/>
-							</div>
+					<!-- Instruction Groups -->
+					<h2 class="title is-4">Instruction Groups</h2>
+					if pattern != nil && len(pattern.InstructionGroups) > 0 {
+						for gi, g := range pattern.InstructionGroups {
+							@groupFields(gi, g, stitches)
+						}
+					} else {
+						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
+					}
+					<p class="help mb-4">
+						Add more groups by including group_label_N fields. For now, save and edit to add more groups.
+					</p>
+					<!-- Submit -->
+					<div class="field is-grouped">
+						<div class="control">
+							<button class="button is-primary" type="submit">Save Pattern</button>
+						</div>
+						<div class="control">
+							<a class="button is-light" href="/patterns">Cancel</a>
 						</div>
 					</div>
-				</div>
-				<div class="columns">
-					<div class="column is-6">
-						<div class="field">
-							<label class="label" for="description">Description</label>
-							<div class="control">
-								<textarea class="textarea" id="description" name="description"
-									placeholder="Brief description of the pattern">{ patternFieldValue(pattern, "description") }</textarea>
-							</div>
-						</div>
-					</div>
-					<div class="column is-3">
-						<div class="field">
-							<label class="label" for="yarn_weight">Yarn Weight</label>
-							<div class="control">
-								<input class="input" type="text" id="yarn_weight" name="yarn_weight"
-									value={ patternFieldValue(pattern, "yarn_weight") }
-									placeholder="e.g., Worsted"/>
-							</div>
-						</div>
-					</div>
-					<div class="column is-3">
-						<div class="field">
-							<label class="label" for="notes">Notes</label>
-							<div class="control">
-								<textarea class="textarea" id="notes" name="notes"
-									placeholder="General notes">{ patternFieldValue(pattern, "notes") }</textarea>
-							</div>
-						</div>
-					</div>
+				</form>
+			</div>
+			<!-- Live Preview Panel -->
+			<div class="column is-4">
+				<div class="box" style="position: sticky; top: 1rem;">
+					<h2 class="title is-5">Preview</h2>
+					if pattern != nil && len(pattern.InstructionGroups) > 0 {
+						<pre class="pattern-text" style="white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem;">{ service.RenderPatternText(pattern, stitches) }</pre>
+						<p class="help has-text-grey mt-2">
+							{ strconv.Itoa(service.StitchCount(pattern)) + " stitches total" }
+						</p>
+					} else {
+						<p class="has-text-grey">Save your pattern to see a preview.</p>
+					}
 				</div>
 			</div>
-			<!-- Instruction Groups -->
-			<h2 class="title is-4">Instruction Groups</h2>
-			if pattern != nil && len(pattern.InstructionGroups) > 0 {
-				for gi, g := range pattern.InstructionGroups {
-					@groupFields(gi, g, stitches)
-				}
-			} else {
-				@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
-			}
-			<p class="help mb-4">
-				Add more groups by including group_label_N fields. For now, save and edit to add more groups.
-			</p>
-			<!-- Submit -->
-			<div class="field is-grouped">
-				<div class="control">
-					<button class="button is-primary" type="submit">Save Pattern</button>
-				</div>
-				<div class="control">
-					<a class="button is-light" href="/patterns">Cancel</a>
-				</div>
-			</div>
-		</form>
+		</div>
 	}
 }
 
