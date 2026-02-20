@@ -188,8 +188,8 @@ func TestAuthService_JWT_TamperedToken(t *testing.T) {
 		t.Fatalf("Login: %v", err)
 	}
 
-	// Tamper with the token by changing the last character.
-	tampered := token[:len(token)-1] + "X"
+	// Tamper with the token by flipping several characters in the signature.
+	tampered := token[:len(token)-5] + "XXXXX"
 	_, err = auth.ValidateToken(tampered)
 	if !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatalf("expected ErrUnauthorized for tampered token, got %v", err)

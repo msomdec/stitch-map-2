@@ -7,6 +7,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,10 +15,10 @@ import (
 )
 
 func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -121,10 +122,10 @@ func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
 }
 
 func TestIntegration_LoginWrongPassword(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -161,10 +162,10 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 }
 
 func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -203,10 +204,10 @@ func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestIntegration_RegisterWeakPassword(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -232,10 +233,10 @@ func TestIntegration_RegisterWeakPassword(t *testing.T) {
 }
 
 func TestIntegration_LoginPageRendering(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -260,10 +261,10 @@ func TestIntegration_LoginPageRendering(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -279,7 +280,7 @@ func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	// Seed predefined stitches.
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
@@ -287,7 +288,7 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -418,14 +419,14 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 }
 
 func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	if err := stitches.SeedPredefined(context.Background()); err != nil {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -473,5 +474,186 @@ func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
 	// Should NOT contain basic-only stitches (Chain is only in basic category).
 	if strings.Contains(body, ">Chain<") {
 		t.Fatal("post filter should not include basic stitches")
+	}
+}
+
+func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
+	auth, stitches, patterns := newTestServices(t)
+
+	// Seed stitches so we can reference them.
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// Register and login.
+	client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"pattern@example.com"},
+		"display_name": {"Pattern User"},
+		"password":     {"password123"},
+	})
+	client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"pattern@example.com"},
+		"password": {"password123"},
+	})
+
+	// Get a stitch ID by listing predefined.
+	predefined, _ := stitches.ListPredefined(context.Background())
+	if len(predefined) == 0 {
+		t.Fatal("no predefined stitches")
+	}
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+	if scID == "" {
+		t.Fatal("sc stitch not found")
+	}
+
+	// 1. Pattern list should be empty initially.
+	resp, err := client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	body := string(bodyBytes)
+	if !strings.Contains(body, "My Patterns") {
+		t.Fatal("pattern list should contain 'My Patterns'")
+	}
+
+	// 2. Create a pattern.
+	resp, err = client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":           {"Test Amigurumi"},
+		"description":    {"A small amigurumi ball"},
+		"pattern_type":   {"round"},
+		"hook_size":      {"4.0mm"},
+		"yarn_weight":    {"Worsted"},
+		"group_label_0":  {"Round 1"},
+		"group_repeat_0": {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"6"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("POST /patterns: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create pattern: expected 303 redirect, got %d", resp.StatusCode)
+	}
+
+	// 3. Verify the pattern appears in the list.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns after create: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body = string(bodyBytes)
+	if !strings.Contains(body, "Test Amigurumi") {
+		t.Fatal("pattern list should contain 'Test Amigurumi'")
+	}
+
+	// Extract pattern ID from the view link (skip /patterns/new).
+	patternID := ""
+	searchBody := body
+	for {
+		idx := strings.Index(searchBody, "/patterns/")
+		if idx == -1 {
+			break
+		}
+		rest := searchBody[idx+len("/patterns/"):]
+		endIdx := strings.IndexAny(rest, "\"/ >")
+		if endIdx == -1 {
+			break
+		}
+		candidate := rest[:endIdx]
+		if _, err := strconv.Atoi(candidate); err == nil {
+			patternID = candidate
+			break
+		}
+		searchBody = rest
+	}
+	if patternID == "" {
+		t.Fatal("couldn't extract numeric pattern ID from page")
+	}
+
+	// 4. View the pattern.
+	resp, err = client.Get(srv.URL + "/patterns/" + patternID)
+	if err != nil {
+		t.Fatalf("GET /patterns/%s: %v", patternID, err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("view pattern: expected 200, got %d", resp.StatusCode)
+	}
+	body = string(bodyBytes)
+	if !strings.Contains(body, "Test Amigurumi") {
+		t.Fatal("pattern view should contain 'Test Amigurumi'")
+	}
+	if !strings.Contains(body, "sc") {
+		t.Fatal("pattern view should contain stitch abbreviation 'sc'")
+	}
+
+	// 5. Delete the pattern.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/delete", nil)
+	if err != nil {
+		t.Fatalf("POST /patterns/%s/delete: %v", patternID, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("delete pattern: expected 303, got %d", resp.StatusCode)
+	}
+
+	// 6. Verify the pattern is gone.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns after delete: %v", err)
+	}
+	bodyBytes, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body = string(bodyBytes)
+	if strings.Contains(body, "Test Amigurumi") {
+		t.Fatal("deleted pattern should not appear in list")
+	}
+}
+
+func TestIntegration_Pattern_Unauthenticated(t *testing.T) {
+	auth, stitches, patterns := newTestServices(t)
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
 	}
 }

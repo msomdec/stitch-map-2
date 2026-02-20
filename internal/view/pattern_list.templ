@@ -1,0 +1,74 @@
+package view
+
+import "github.com/msomdec/stitch-map-2/internal/domain"
+import "github.com/msomdec/stitch-map-2/internal/service"
+import "strconv"
+import "fmt"
+
+templ PatternListPage(displayName string, patterns []domain.Pattern) {
+	@Layout("Patterns", displayName) {
+		<div class="level">
+			<div class="level-left">
+				<h1 class="title">My Patterns</h1>
+			</div>
+			<div class="level-right">
+				<a class="button is-primary" href="/patterns/new">New Pattern</a>
+			</div>
+		</div>
+		if len(patterns) == 0 {
+			<div class="notification is-info is-light">
+				<p>You haven't created any patterns yet. Click "New Pattern" to get started!</p>
+			</div>
+		} else {
+			<div class="columns is-multiline">
+				for _, p := range patterns {
+					<div class="column is-4">
+						@patternCard(p)
+					</div>
+				}
+			</div>
+		}
+	}
+}
+
+templ patternCard(p domain.Pattern) {
+	<div class="card">
+		<div class="card-content">
+			<p class="title is-5">{ p.Name }</p>
+			<p class="subtitle is-6 has-text-grey">
+				{ string(p.PatternType) }
+				if p.HookSize != "" {
+					{ " · " + p.HookSize }
+				}
+				if p.YarnWeight != "" {
+					{ " · " + p.YarnWeight }
+				}
+			</p>
+			if p.Description != "" {
+				<p class="content is-small">{ truncate(p.Description, 100) }</p>
+			}
+			<div class="tags">
+				<span class="tag is-info">{ fmt.Sprintf("%d groups", len(p.InstructionGroups)) }</span>
+				<span class="tag is-success">{ fmt.Sprintf("%d stitches", service.StitchCount(&p)) }</span>
+			</div>
+		</div>
+		<footer class="card-footer">
+			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10)) }>View</a>
+			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/edit") }>Edit</a>
+			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/duplicate") }
+				data-method="POST">Duplicate</a>
+		</footer>
+		<footer class="card-footer">
+			<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/delete") } style="width:100%;">
+				<button class="card-footer-item has-text-danger" type="submit" style="border:none;background:none;cursor:pointer;">Delete</button>
+			</form>
+		</footer>
+	</div>
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
