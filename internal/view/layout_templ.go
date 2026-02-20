@@ -47,7 +47,7 @@ func Layout(title string, displayName string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if displayName != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"navbar-start\"><a class=\"navbar-item\" href=\"/stitches\">Stitch Library</a> <a class=\"navbar-item\" href=\"/dashboard\">Dashboard</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"navbar-start\"><a class=\"navbar-item\" href=\"/patterns\">Patterns</a> <a class=\"navbar-item\" href=\"/stitches\">Stitch Library</a> <a class=\"navbar-item\" href=\"/dashboard\">Dashboard</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -64,7 +64,7 @@ func Layout(title string, displayName string) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(displayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/layout.templ`, Line: 31, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/layout.templ`, Line: 32, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {

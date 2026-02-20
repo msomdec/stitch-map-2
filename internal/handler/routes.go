@@ -7,9 +7,10 @@ import (
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService) {
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService) {
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
+	patternHandler := NewPatternHandler(patterns, stitches)
 
 	// Public routes.
 	mux.HandleFunc("GET /healthz", HandleHealthz)
@@ -30,4 +31,14 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleCreateCustom)))
 	mux.Handle("POST /stitches/{id}/edit", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleUpdateCustom)))
 	mux.Handle("POST /stitches/{id}/delete", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleDeleteCustom)))
+
+	// Pattern routes (authenticated).
+	mux.Handle("GET /patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleList)))
+	mux.Handle("GET /patterns/new", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleNew)))
+	mux.Handle("POST /patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleCreate)))
+	mux.Handle("GET /patterns/{id}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleView)))
+	mux.Handle("GET /patterns/{id}/edit", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleEdit)))
+	mux.Handle("POST /patterns/{id}/edit", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleUpdate)))
+	mux.Handle("POST /patterns/{id}/delete", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDelete)))
+	mux.Handle("POST /patterns/{id}/duplicate", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDuplicate)))
 }

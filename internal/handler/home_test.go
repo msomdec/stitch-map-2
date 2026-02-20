@@ -9,10 +9,10 @@ import (
 )
 
 func TestHandleHome(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -29,10 +29,10 @@ func TestHandleHome(t *testing.T) {
 }
 
 func TestUnknownPathReturns404(t *testing.T) {
-	auth, stitches := newTestAuthService(t)
+	auth, stitches, patterns := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches)
+	handler.RegisterRoutes(mux, auth, stitches, patterns)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
