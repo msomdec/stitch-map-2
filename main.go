@@ -49,15 +49,10 @@ func main() {
 	}
 	slog.Info("database migrations applied")
 
-	userRepo := sqlite.NewUserRepository(db)
-	stitchRepo := sqlite.NewStitchRepository(db)
-	patternRepo := sqlite.NewPatternRepository(db)
-	sessionRepo := sqlite.NewWorkSessionRepository(db)
-
-	authService := service.NewAuthService(userRepo, jwtSecret, bcryptCost)
-	stitchService := service.NewStitchService(stitchRepo)
-	patternService := service.NewPatternService(patternRepo, stitchRepo)
-	sessionService := service.NewWorkSessionService(sessionRepo, patternRepo)
+	authService := service.NewAuthService(db.Users(), jwtSecret, bcryptCost)
+	stitchService := service.NewStitchService(db.Stitches())
+	patternService := service.NewPatternService(db.Patterns(), db.Stitches())
+	sessionService := service.NewWorkSessionService(db.Sessions(), db.Patterns())
 
 	// Seed predefined stitches (idempotent).
 	if err := stitchService.SeedPredefined(context.Background()); err != nil {

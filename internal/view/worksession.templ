@@ -8,7 +8,7 @@ import "fmt"
 templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress) {
 	@Layout(pattern.Name+" - Tracker", displayName) {
 		if session.Status == domain.SessionStatusCompleted {
-			<div class="notification is-success">
+			<div class="notification is-success" role="status" aria-live="polite">
 				<p class="title is-4">Pattern Complete!</p>
 				<p>You have completed <strong>{ pattern.Name }</strong>.</p>
 				<a class="button is-primary mt-3" href="/dashboard">Back to Dashboard</a>
@@ -21,7 +21,7 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 						<div class="level-left">
 							<div>
 								<h1 class="title is-4 mb-1">{ pattern.Name }</h1>
-								<p class="subtitle is-6 has-text-grey">{ progress.GroupLabel }
+								<p class="subtitle is-6 has-text-grey" aria-live="polite">{ progress.GroupLabel }
 									if progress.GroupRepeatInfo != "" {
 										{ " — " + progress.GroupRepeatInfo }
 									}
@@ -32,78 +32,121 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 							<div class="buttons">
 								if session.Status == domain.SessionStatusActive {
 									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/pause") } style="display:inline;">
-										<button class="button is-warning is-small" type="submit" title="Pause (P)">Pause</button>
+										<button class="button is-warning is-small" type="submit" title="Pause (P)" aria-label="Pause session">Pause</button>
 									</form>
 								}
 								if session.Status == domain.SessionStatusPaused {
 									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/resume") } style="display:inline;">
-										<button class="button is-success is-small" type="submit">Resume</button>
+										<button class="button is-success is-small" type="submit" aria-label="Resume session">Resume</button>
 									</form>
 								}
-								<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/abandon") } style="display:inline;" onsubmit="return confirm('Abandon this session?');">
-									<button class="button is-danger is-small is-outlined" type="submit" title="Abandon (Esc)">Abandon</button>
+								<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/abandon") } style="display:inline;"
+									onsubmit="return confirm('Abandon this session? Your progress will be lost.')">
+									<button class="button is-danger is-small is-outlined" type="submit" title="Abandon (Esc)" aria-label="Abandon session">Abandon</button>
 								</form>
 							</div>
 						</div>
 					</div>
 					if session.Status == domain.SessionStatusPaused {
-						<div class="notification is-warning">
+						<div class="notification is-warning" role="status" aria-live="polite">
 							<strong>Session Paused</strong> — Resume to continue tracking.
 						</div>
 					}
 					<!-- Stitch Display -->
-					<div class="box has-text-centered py-6">
+					<div class="box has-text-centered py-6" id="stitch-display"
+						aria-label="Current stitch tracker"
+						style="touch-action: pan-y;">
 						<div class="is-flex is-justify-content-center is-align-items-center" style="gap: 2rem;">
 							<!-- Previous stitch -->
-							<div style="min-width: 80px;">
+							<div style="min-width: 80px;" aria-label="Previous stitch">
 								if progress.PrevAbbr != "" {
-									<span class="tag is-medium is-light">{ progress.PrevAbbr }</span>
+									<span class="tag is-medium is-light" aria-hidden="false">{ progress.PrevAbbr }</span>
 								}
 							</div>
 							<!-- Current stitch -->
-							<div>
+							<div aria-live="assertive" aria-label={ "Current stitch: " + progress.CurrentName }>
 								if progress.CurrentAbbr != "" {
 									<p class="title is-1 mb-1">{ progress.CurrentAbbr }</p>
 									<p class="subtitle is-5 has-text-grey">{ progress.CurrentName }</p>
 								} else {
-									<p class="title is-3 has-text-grey">—</p>
+									<p class="title is-3 has-text-grey" aria-label="Pattern complete">—</p>
 								}
 							</div>
 							<!-- Next stitch -->
-							<div style="min-width: 80px;">
+							<div style="min-width: 80px;" aria-label="Next stitch">
 								if progress.NextAbbr != "" {
-									<span class="tag is-medium is-light">{ progress.NextAbbr }</span>
+									<span class="tag is-medium is-light" aria-hidden="false">{ progress.NextAbbr }</span>
 								}
 							</div>
 						</div>
 					</div>
 					<!-- Progress Bar -->
-					<div class="mb-4">
+					<div class="mb-4" role="region" aria-label="Pattern progress">
 						<div class="is-flex is-justify-content-space-between mb-1">
 							<span class="is-size-7 has-text-grey">Progress</span>
-							<span class="is-size-7 has-text-grey">{ fmt.Sprintf("%d / %d (%.0f%%)", progress.CompletedStitches, progress.TotalStitches, progress.Percentage) }</span>
+							<span class="is-size-7 has-text-grey" aria-live="polite">{ fmt.Sprintf("%d / %d (%.0f%%)", progress.CompletedStitches, progress.TotalStitches, progress.Percentage) }</span>
 						</div>
-						<progress class="progress is-primary" value={ strconv.Itoa(progress.CompletedStitches) } max={ strconv.Itoa(progress.TotalStitches) }>
+						<progress class="progress is-primary" value={ strconv.Itoa(progress.CompletedStitches) } max={ strconv.Itoa(progress.TotalStitches) }
+							aria-valuenow={ strconv.Itoa(progress.CompletedStitches) }
+							aria-valuemin="0"
+							aria-valuemax={ strconv.Itoa(progress.TotalStitches) }>
 							{ fmt.Sprintf("%.0f%%", progress.Percentage) }
 						</progress>
 					</div>
 					<!-- Navigation Buttons -->
 					if session.Status == domain.SessionStatusActive {
-						<div class="is-flex is-justify-content-center" style="gap: 1rem;">
-							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev") } style="display:inline;">
-								<button class="button is-medium" type="submit" title="Previous stitch (Left Arrow / Backspace)">
-									<span>&#8592; Back</span>
+						<div class="is-flex is-justify-content-center" style="gap: 1rem;" role="group" aria-label="Navigation controls">
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev") } style="display:inline;" id="prev-form">
+								<button class="button is-medium" type="submit" title="Previous stitch (Left Arrow / Backspace)" aria-label="Previous stitch">
+									<span aria-hidden="true">&#8592;</span> Back
 								</button>
 							</form>
-							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next") } style="display:inline;">
-								<button class="button is-primary is-medium" type="submit" title="Next stitch (Right Arrow / Space)">
-									<span>Next &#8594;</span>
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next") } style="display:inline;" id="next-form">
+								<button class="button is-primary is-medium" type="submit" title="Next stitch (Right Arrow / Space)" aria-label="Next stitch">
+									Next <span aria-hidden="true">&#8594;</span>
 								</button>
 							</form>
 						</div>
 						<p class="has-text-centered has-text-grey is-size-7 mt-3">
 							Keyboard: Space/Right = forward, Backspace/Left = backward, P = pause, Esc = abandon
 						</p>
+						<!-- Keyboard and swipe support -->
+						<script>
+							(function() {
+								document.addEventListener('keydown', function(e) {
+									if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+									if (e.key === ' ' || e.key === 'ArrowRight') {
+										e.preventDefault();
+										document.getElementById('next-form').submit();
+									} else if (e.key === 'Backspace' || e.key === 'ArrowLeft') {
+										e.preventDefault();
+										document.getElementById('prev-form').submit();
+									}
+								});
+
+								// Touch/swipe support.
+								var touchStartX = 0;
+								var touchStartY = 0;
+								var display = document.getElementById('stitch-display');
+								if (display) {
+									display.addEventListener('touchstart', function(e) {
+										touchStartX = e.changedTouches[0].screenX;
+										touchStartY = e.changedTouches[0].screenY;
+									}, {passive: true});
+									display.addEventListener('touchend', function(e) {
+										var dx = e.changedTouches[0].screenX - touchStartX;
+										var dy = e.changedTouches[0].screenY - touchStartY;
+										if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+											if (dx < 0) {
+												document.getElementById('next-form').submit();
+											} else {
+												document.getElementById('prev-form').submit();
+											}
+										}
+									}, {passive: true});
+								}
+							})();
+						</script>
 					}
 				</div>
 			</div>

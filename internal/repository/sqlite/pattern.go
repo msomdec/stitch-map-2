@@ -9,17 +9,12 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/domain"
 )
 
-// PatternRepository implements domain.PatternRepository using SQLite.
-type PatternRepository struct {
+// patternRepo implements domain.PatternRepository using SQLite.
+type patternRepo struct {
 	db *sql.DB
 }
 
-// NewPatternRepository creates a new SQLite-backed PatternRepository.
-func NewPatternRepository(db *DB) *PatternRepository {
-	return &PatternRepository{db: db.SqlDB}
-}
-
-func (r *PatternRepository) Create(ctx context.Context, pattern *domain.Pattern) error {
+func (r *patternRepo) Create(ctx context.Context, pattern *domain.Pattern) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -56,7 +51,7 @@ func (r *PatternRepository) Create(ctx context.Context, pattern *domain.Pattern)
 	return nil
 }
 
-func (r *PatternRepository) GetByID(ctx context.Context, id int64) (*domain.Pattern, error) {
+func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, error) {
 	p := &domain.Pattern{}
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, notes, created_at, updated_at
@@ -78,7 +73,7 @@ func (r *PatternRepository) GetByID(ctx context.Context, id int64) (*domain.Patt
 	return p, nil
 }
 
-func (r *PatternRepository) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
+func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, notes, created_at, updated_at
 		 FROM patterns WHERE user_id = ? ORDER BY updated_at DESC`, userID)
@@ -99,7 +94,7 @@ func (r *PatternRepository) ListByUser(ctx context.Context, userID int64) ([]dom
 	return patterns, rows.Err()
 }
 
-func (r *PatternRepository) Update(ctx context.Context, pattern *domain.Pattern) error {
+func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -142,7 +137,7 @@ func (r *PatternRepository) Update(ctx context.Context, pattern *domain.Pattern)
 	return nil
 }
 
-func (r *PatternRepository) Delete(ctx context.Context, id int64) error {
+func (r *patternRepo) Delete(ctx context.Context, id int64) error {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM patterns WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("delete pattern: %w", err)
@@ -158,7 +153,7 @@ func (r *PatternRepository) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (r *PatternRepository) Duplicate(ctx context.Context, id int64, newUserID int64) (*domain.Pattern, error) {
+func (r *patternRepo) Duplicate(ctx context.Context, id int64, newUserID int64) (*domain.Pattern, error) {
 	original, err := r.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get original: %w", err)
@@ -223,7 +218,7 @@ func insertGroups(ctx context.Context, tx *sql.Tx, patternID int64, groups []dom
 	return nil
 }
 
-func (r *PatternRepository) loadGroups(ctx context.Context, patternID int64) ([]domain.InstructionGroup, error) {
+func (r *patternRepo) loadGroups(ctx context.Context, patternID int64) ([]domain.InstructionGroup, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, pattern_id, sort_order, label, repeat_count, expected_count
 		 FROM instruction_groups WHERE pattern_id = ? ORDER BY sort_order`, patternID)
@@ -254,7 +249,7 @@ func (r *PatternRepository) loadGroups(ctx context.Context, patternID int64) ([]
 	return groups, nil
 }
 
-func (r *PatternRepository) loadEntries(ctx context.Context, groupID int64) ([]domain.StitchEntry, error) {
+func (r *patternRepo) loadEntries(ctx context.Context, groupID int64) ([]domain.StitchEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, instruction_group_id, sort_order, stitch_id, count, into_stitch, repeat_count, notes
 		 FROM stitch_entries WHERE instruction_group_id = ? ORDER BY sort_order`, groupID)

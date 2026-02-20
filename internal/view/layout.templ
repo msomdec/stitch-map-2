@@ -13,25 +13,31 @@ templ Layout(title string, displayName string) {
 		<body>
 			<nav class="navbar is-primary" role="navigation" aria-label="main navigation">
 				<div class="navbar-brand">
-					<a class="navbar-item has-text-weight-bold" href="/">
+					<a class="navbar-item has-text-weight-bold" href="/" aria-label="StitchMap home">
 						StitchMap
 					</a>
+					<a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu"
+						onclick="document.getElementById('navbarMenu').classList.toggle('is-active');this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true')">
+						<span aria-hidden="true"></span>
+						<span aria-hidden="true"></span>
+						<span aria-hidden="true"></span>
+					</a>
 				</div>
-				<div class="navbar-menu">
+				<div id="navbarMenu" class="navbar-menu">
 					if displayName != "" {
-						<div class="navbar-start">
-							<a class="navbar-item" href="/patterns">Patterns</a>
-							<a class="navbar-item" href="/stitches">Stitch Library</a>
-							<a class="navbar-item" href="/dashboard">Dashboard</a>
+						<div class="navbar-start" role="menubar">
+							<a class="navbar-item" href="/patterns" role="menuitem">Patterns</a>
+							<a class="navbar-item" href="/stitches" role="menuitem">Stitch Library</a>
+							<a class="navbar-item" href="/dashboard" role="menuitem">Dashboard</a>
 						</div>
 					}
 				</div>
 				<div class="navbar-end">
 					if displayName != "" {
 						<div class="navbar-item has-dropdown is-hoverable">
-							<a class="navbar-link">{ displayName }</a>
-							<div class="navbar-dropdown is-right">
-								<a class="navbar-item" href="/logout">Logout</a>
+							<a class="navbar-link" aria-haspopup="true">{ displayName }</a>
+							<div class="navbar-dropdown is-right" role="menu">
+								<a class="navbar-item" href="/logout" role="menuitem">Logout</a>
 							</div>
 						</div>
 					} else {
@@ -44,11 +50,13 @@ templ Layout(title string, displayName string) {
 					}
 				</div>
 			</nav>
-			<section class="section">
-				<div class="container">
-					{ children... }
-				</div>
-			</section>
+			<main>
+				<section class="section">
+					<div class="container">
+						{ children... }
+					</div>
+				</section>
+			</main>
 		</body>
 	</html>
 }
@@ -58,6 +66,12 @@ templ HomePage(displayName string) {
 		<div class="content">
 			<h1 class="title">Welcome to StitchMap</h1>
 			<p class="subtitle">Your crochet pattern builder and tracker.</p>
+			if displayName == "" {
+				<div class="buttons">
+					<a class="button is-primary is-large" href="/register">Get Started</a>
+					<a class="button is-light is-large" href="/login">Log In</a>
+				</div>
+			}
 		</div>
 	}
 }

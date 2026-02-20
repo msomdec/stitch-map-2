@@ -1222,3 +1222,218 @@ func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
 		t.Fatal("session should show current stitch 'sc'")
 	}
 }
+
+// TestFullHappyPath is the complete regression test covering the entire user journey:
+// register -> create custom stitch -> create pattern -> preview -> start session ->
+// navigate to completion -> verify session marked complete.
+func TestFullHappyPath(t *testing.T) {
+	auth, stitches, patterns, sessions := newTestServices(t)
+
+	if err := stitches.SeedPredefined(context.Background()); err != nil {
+		t.Fatalf("SeedPredefined: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions)
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// 1. Register a new user.
+	resp, err := client.PostForm(srv.URL+"/register", url.Values{
+		"email":        {"happy@example.com"},
+		"display_name": {"Happy Crocheter"},
+		"password":     {"password123"},
+	})
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("register: expected 303, got %d", resp.StatusCode)
+	}
+
+	// 2. Login.
+	resp, err = client.PostForm(srv.URL+"/login", url.Values{
+		"email":    {"happy@example.com"},
+		"password": {"password123"},
+	})
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("login: expected 303, got %d", resp.StatusCode)
+	}
+
+	// Verify dashboard is accessible.
+	resp, err = client.Get(srv.URL + "/dashboard")
+	if err != nil {
+		t.Fatalf("GET /dashboard: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dashboard: expected 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "Happy Crocheter") {
+		t.Fatal("dashboard should show user display name")
+	}
+
+	// 3. Create a custom stitch.
+	resp, err = client.PostForm(srv.URL+"/stitches", url.Values{
+		"abbreviation": {"msc"},
+		"name":         {"Magic Single Crochet"},
+		"category":     {"custom"},
+		"description":  {"A magical stitch"},
+	})
+	if err != nil {
+		t.Fatalf("create custom stitch: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create custom stitch: expected 303, got %d", resp.StatusCode)
+	}
+
+	// Verify stitch appears in library.
+	resp, err = client.Get(srv.URL + "/stitches")
+	if err != nil {
+		t.Fatalf("GET /stitches: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "msc") {
+		t.Fatal("stitch library should show custom stitch 'msc'")
+	}
+
+	// 4. Create a pattern using a predefined stitch (sc).
+	predefined, err := stitches.ListPredefined(context.Background())
+	if err != nil || len(predefined) == 0 {
+		t.Fatalf("ListPredefined: %v (count: %d)", err, len(predefined))
+	}
+	scID := ""
+	for _, s := range predefined {
+		if s.Abbreviation == "sc" {
+			scID = strconv.FormatInt(s.ID, 10)
+			break
+		}
+	}
+	if scID == "" {
+		t.Fatal("predefined 'sc' stitch not found")
+	}
+
+	resp, err = client.PostForm(srv.URL+"/patterns", url.Values{
+		"name":            {"Happy Path Pattern"},
+		"pattern_type":    {"round"},
+		"hook_size":       {"5.0mm"},
+		"yarn_weight":     {"Worsted"},
+		"description":     {"A full happy path test pattern"},
+		"group_label_0":   {"Round 1"},
+		"group_repeat_0":  {"1"},
+		"entry_stitch_0_0": {scID},
+		"entry_count_0_0":  {"3"},
+		"entry_repeat_0_0": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("create pattern: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create pattern: expected 303, got %d", resp.StatusCode)
+	}
+
+	// 5. View pattern list and find the pattern.
+	resp, err = client.Get(srv.URL + "/patterns")
+	if err != nil {
+		t.Fatalf("GET /patterns: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "Happy Path Pattern") {
+		t.Fatal("pattern list should contain the new pattern")
+	}
+	patternID := extractPatternID(t, string(body))
+
+	// 6. View the pattern detail (preview).
+	resp, err = client.Get(srv.URL + "/patterns/" + patternID)
+	if err != nil {
+		t.Fatalf("GET pattern detail: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("pattern detail: expected 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "Round 1") {
+		t.Fatal("pattern detail should show instruction group 'Round 1'")
+	}
+
+	// 7. Start a work session.
+	resp, err = client.PostForm(srv.URL+"/patterns/"+patternID+"/start-session", nil)
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("start session: expected 303, got %d", resp.StatusCode)
+	}
+	sessionURL := resp.Header.Get("Location")
+	if sessionURL == "" {
+		t.Fatal("expected session redirect location")
+	}
+
+	// Verify session view shows current stitch.
+	resp, err = client.Get(srv.URL + sessionURL)
+	if err != nil {
+		t.Fatalf("GET session: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("session view: expected 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "sc") {
+		t.Fatal("session page should show current stitch 'sc'")
+	}
+
+	// 8. Navigate forward through all 3 stitches to complete.
+	for i := 0; i < 3; i++ {
+		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
+		if err != nil {
+			t.Fatalf("next stitch %d: %v", i+1, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("next stitch %d: expected 303, got %d", i+1, resp.StatusCode)
+		}
+	}
+
+	// 9. Verify session is marked complete.
+	resp, err = client.Get(srv.URL + sessionURL)
+	if err != nil {
+		t.Fatalf("GET session after completion: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "Pattern Complete") {
+		t.Fatal("session page should show 'Pattern Complete' after navigating through all stitches")
+	}
+
+	// 10. Dashboard should still be accessible.
+	resp, err = client.Get(srv.URL + "/dashboard")
+	if err != nil {
+		t.Fatalf("GET /dashboard after completion: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dashboard after completion: expected 200, got %d", resp.StatusCode)
+	}
+}

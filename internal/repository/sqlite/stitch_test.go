@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"github.com/msomdec/stitch-map-2/internal/domain"
-	"github.com/msomdec/stitch-map-2/internal/repository/sqlite"
 )
 
 func TestStitchRepository_Create(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{
@@ -35,8 +34,8 @@ func TestStitchRepository_Create(t *testing.T) {
 
 func TestStitchRepository_Create_CustomStitch(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	user := &domain.User{Email: "stitch@example.com", DisplayName: "Stitcher", PasswordHash: "hash"}
@@ -66,8 +65,8 @@ func TestStitchRepository_Create_CustomStitch(t *testing.T) {
 
 func TestStitchRepository_Create_DuplicateAbbreviation(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	// Duplicate abbreviation for the same user triggers unique constraint.
@@ -90,8 +89,8 @@ func TestStitchRepository_Create_DuplicateAbbreviation(t *testing.T) {
 
 func TestStitchRepository_SameAbbreviationDifferentUsers(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	u1 := &domain.User{Email: "u1@example.com", DisplayName: "U1", PasswordHash: "hash"}
@@ -116,7 +115,7 @@ func TestStitchRepository_SameAbbreviationDifferentUsers(t *testing.T) {
 
 func TestStitchRepository_GetByID(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{Abbreviation: "byid", Name: "By ID", Category: "basic"}
@@ -138,7 +137,7 @@ func TestStitchRepository_GetByID(t *testing.T) {
 
 func TestStitchRepository_GetByID_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	_, err := repo.GetByID(ctx, 99999)
@@ -149,7 +148,7 @@ func TestStitchRepository_GetByID_NotFound(t *testing.T) {
 
 func TestStitchRepository_GetByAbbreviation(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{Abbreviation: "abbr", Name: "Abbreviation Test", Category: "basic"}
@@ -168,8 +167,8 @@ func TestStitchRepository_GetByAbbreviation(t *testing.T) {
 
 func TestStitchRepository_GetByAbbreviation_WithUserID(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	user := &domain.User{Email: "abbr@example.com", DisplayName: "Abbr", PasswordHash: "hash"}
@@ -199,7 +198,7 @@ func TestStitchRepository_GetByAbbreviation_WithUserID(t *testing.T) {
 
 func TestStitchRepository_GetByAbbreviation_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	_, err := repo.GetByAbbreviation(ctx, "nonexistent", nil)
@@ -210,8 +209,8 @@ func TestStitchRepository_GetByAbbreviation_NotFound(t *testing.T) {
 
 func TestStitchRepository_ListPredefined(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	// Create predefined and custom stitches.
@@ -249,8 +248,8 @@ func TestStitchRepository_ListPredefined(t *testing.T) {
 
 func TestStitchRepository_ListByUser(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
-	userRepo := sqlite.NewUserRepository(db)
+	repo := db.Stitches()
+	userRepo := db.Users()
 	ctx := context.Background()
 
 	u1 := &domain.User{Email: "u1@example.com", DisplayName: "U1", PasswordHash: "hash"}
@@ -285,7 +284,7 @@ func TestStitchRepository_ListByUser(t *testing.T) {
 
 func TestStitchRepository_Update(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{Abbreviation: "upd", Name: "Update Me", Category: "basic"}
@@ -313,7 +312,7 @@ func TestStitchRepository_Update(t *testing.T) {
 
 func TestStitchRepository_Update_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{ID: 99999, Abbreviation: "nf", Name: "Not Found"}
@@ -325,7 +324,7 @@ func TestStitchRepository_Update_NotFound(t *testing.T) {
 
 func TestStitchRepository_Delete(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	stitch := &domain.Stitch{Abbreviation: "del", Name: "Delete Me", Category: "basic"}
@@ -345,7 +344,7 @@ func TestStitchRepository_Delete(t *testing.T) {
 
 func TestStitchRepository_Delete_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewStitchRepository(db)
+	repo := db.Stitches()
 	ctx := context.Background()
 
 	err := repo.Delete(ctx, 99999)
@@ -353,6 +352,3 @@ func TestStitchRepository_Delete_NotFound(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
-
-// Verify compile-time interface compliance.
-var _ domain.StitchRepository = (*sqlite.StitchRepository)(nil)

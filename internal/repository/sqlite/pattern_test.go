@@ -11,9 +11,8 @@ import (
 
 func seedTestStitch(t *testing.T, db *sqlite.DB) int64 {
 	t.Helper()
-	repo := sqlite.NewStitchRepository(db)
 	s := &domain.Stitch{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"}
-	if err := repo.Create(context.Background(), s); err != nil {
+	if err := db.Stitches().Create(context.Background(), s); err != nil {
 		t.Fatalf("seed stitch: %v", err)
 	}
 	return s.ID
@@ -21,9 +20,8 @@ func seedTestStitch(t *testing.T, db *sqlite.DB) int64 {
 
 func seedTestUser(t *testing.T, db *sqlite.DB) int64 {
 	t.Helper()
-	repo := sqlite.NewUserRepository(db)
 	u := &domain.User{Email: "pattern@example.com", DisplayName: "Patt", PasswordHash: "hash"}
-	if err := repo.Create(context.Background(), u); err != nil {
+	if err := db.Users().Create(context.Background(), u); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
 	return u.ID
@@ -52,7 +50,7 @@ func makeTestPattern(userID int64, stitchID int64) *domain.Pattern {
 
 func TestPatternRepository_Create(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -85,7 +83,7 @@ func TestPatternRepository_Create(t *testing.T) {
 
 func TestPatternRepository_GetByID(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -126,7 +124,7 @@ func TestPatternRepository_GetByID(t *testing.T) {
 
 func TestPatternRepository_GetByID_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	_, err := repo.GetByID(ctx, 99999)
@@ -137,7 +135,7 @@ func TestPatternRepository_GetByID_NotFound(t *testing.T) {
 
 func TestPatternRepository_ListByUser(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -166,7 +164,7 @@ func TestPatternRepository_ListByUser(t *testing.T) {
 
 func TestPatternRepository_ListByUser_Empty(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -182,7 +180,7 @@ func TestPatternRepository_ListByUser_Empty(t *testing.T) {
 
 func TestPatternRepository_Update(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -229,7 +227,7 @@ func TestPatternRepository_Update(t *testing.T) {
 
 func TestPatternRepository_Update_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	p := &domain.Pattern{ID: 99999, Name: "Nonexistent"}
@@ -241,7 +239,7 @@ func TestPatternRepository_Update_NotFound(t *testing.T) {
 
 func TestPatternRepository_Delete(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -264,7 +262,7 @@ func TestPatternRepository_Delete(t *testing.T) {
 
 func TestPatternRepository_Delete_NotFound(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	err := repo.Delete(ctx, 99999)
@@ -275,7 +273,7 @@ func TestPatternRepository_Delete_NotFound(t *testing.T) {
 
 func TestPatternRepository_Delete_Cascades(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -300,7 +298,7 @@ func TestPatternRepository_Delete_Cascades(t *testing.T) {
 
 func TestPatternRepository_Duplicate(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -343,7 +341,7 @@ func TestPatternRepository_Duplicate(t *testing.T) {
 
 func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 	db := newTestDB(t)
-	repo := sqlite.NewPatternRepository(db)
+	repo := db.Patterns()
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
@@ -406,6 +404,3 @@ func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 		t.Fatalf("expected notes 'in each st around', got %q", g3.StitchEntries[0].Notes)
 	}
 }
-
-// Verify compile-time interface compliance.
-var _ domain.PatternRepository = (*sqlite.PatternRepository)(nil)

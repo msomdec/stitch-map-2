@@ -47,7 +47,7 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 			}
 			ctx = templ.InitializeContext(ctx)
 			if session.Status == domain.SessionStatusCompleted {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"notification is-success\"><p class=\"title is-4\">Pattern Complete!</p><p>You have completed <strong>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"notification is-success\" role=\"status\" aria-live=\"polite\"><p class=\"title is-4\">Pattern Complete!</p><p>You have completed <strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -78,14 +78,14 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</h1><p class=\"subtitle is-6 has-text-grey\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</h1><p class=\"subtitle is-6 has-text-grey\" aria-live=\"polite\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(progress.GroupLabel)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 24, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 24, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -124,7 +124,7 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" style=\"display:inline;\"><button class=\"button is-warning is-small\" type=\"submit\" title=\"Pause (P)\">Pause</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" style=\"display:inline;\"><button class=\"button is-warning is-small\" type=\"submit\" title=\"Pause (P)\" aria-label=\"Pause session\">Pause</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -143,7 +143,7 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" style=\"display:inline;\"><button class=\"button is-success is-small\" type=\"submit\">Resume</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" style=\"display:inline;\"><button class=\"button is-success is-small\" type=\"submit\" aria-label=\"Resume session\">Resume</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -161,29 +161,29 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" style=\"display:inline;\" onsubmit=\"return confirm('Abandon this session?');\"><button class=\"button is-danger is-small is-outlined\" type=\"submit\" title=\"Abandon (Esc)\">Abandon</button></form></div></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" style=\"display:inline;\" onsubmit=\"return confirm('Abandon this session? Your progress will be lost.')\"><button class=\"button is-danger is-small is-outlined\" type=\"submit\" title=\"Abandon (Esc)\" aria-label=\"Abandon session\">Abandon</button></form></div></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if session.Status == domain.SessionStatusPaused {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"notification is-warning\"><strong>Session Paused</strong> — Resume to continue tracking.</div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"notification is-warning\" role=\"status\" aria-live=\"polite\"><strong>Session Paused</strong> — Resume to continue tracking.</div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- Stitch Display --><div class=\"box has-text-centered py-6\"><div class=\"is-flex is-justify-content-center is-align-items-center\" style=\"gap: 2rem;\"><!-- Previous stitch --><div style=\"min-width: 80px;\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- Stitch Display --><div class=\"box has-text-centered py-6\" id=\"stitch-display\" aria-label=\"Current stitch tracker\" style=\"touch-action: pan-y;\"><div class=\"is-flex is-justify-content-center is-align-items-center\" style=\"gap: 2rem;\"><!-- Previous stitch --><div style=\"min-width: 80px;\" aria-label=\"Previous stitch\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if progress.PrevAbbr != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"tag is-medium is-light\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"tag is-medium is-light\" aria-hidden=\"false\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(progress.PrevAbbr)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 60, Col: 65}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 63, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -194,159 +194,198 @@ func WorkSessionPage(displayName string, session *domain.WorkSession, pattern *d
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><!-- Current stitch --><div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><!-- Current stitch --><div aria-live=\"assertive\" aria-label=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var11 string
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs("Current stitch: " + progress.CurrentName)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 67, Col: 88}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if progress.CurrentAbbr != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<p class=\"title is-1 mb-1\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var11 string
-					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(progress.CurrentAbbr)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 66, Col: 58}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</p><p class=\"subtitle is-5 has-text-grey\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<p class=\"title is-1 mb-1\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var12 string
-					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(progress.CurrentName)
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(progress.CurrentAbbr)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 67, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 69, Col: 58}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</p>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<p class=\"title is-3 has-text-grey\">—</p>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div><!-- Next stitch --><div style=\"min-width: 80px;\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if progress.NextAbbr != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<span class=\"tag is-medium is-light\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</p><p class=\"subtitle is-5 has-text-grey\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var13 string
-					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(progress.NextAbbr)
+					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(progress.CurrentName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 75, Col: 65}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 70, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</p>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<p class=\"title is-3 has-text-grey\" aria-label=\"Pattern complete\">—</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div></div></div><!-- Progress Bar --><div class=\"mb-4\"><div class=\"is-flex is-justify-content-space-between mb-1\"><span class=\"is-size-7 has-text-grey\">Progress</span> <span class=\"is-size-7 has-text-grey\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div><!-- Next stitch --><div style=\"min-width: 80px;\" aria-label=\"Next stitch\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d / %d (%.0f%%)", progress.CompletedStitches, progress.TotalStitches, progress.Percentage))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 84, Col: 151}
+				if progress.NextAbbr != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<span class=\"tag is-medium is-light\" aria-hidden=\"false\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var14 string
+					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(progress.NextAbbr)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 78, Col: 85}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</span></div><progress class=\"progress is-primary\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div></div></div><!-- Progress Bar --><div class=\"mb-4\" role=\"region\" aria-label=\"Pattern progress\"><div class=\"is-flex is-justify-content-space-between mb-1\"><span class=\"is-size-7 has-text-grey\">Progress</span> <span class=\"is-size-7 has-text-grey\" aria-live=\"polite\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.CompletedStitches))
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d / %d (%.0f%%)", progress.CompletedStitches, progress.TotalStitches, progress.Percentage))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 86, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 87, Col: 170}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" max=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span></div><progress class=\"progress is-primary\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.TotalStitches))
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.CompletedStitches))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 86, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 89, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" max=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", progress.Percentage))
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.TotalStitches))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 87, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 89, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</progress></div><!-- Navigation Buttons -->")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" aria-valuenow=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var18 string
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.CompletedStitches))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 90, Col: 63}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" aria-valuemin=\"0\" aria-valuemax=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var19 string
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(progress.TotalStitches))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 92, Col: 59}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var20 string
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", progress.Percentage))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 93, Col: 51}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</progress></div><!-- Navigation Buttons -->")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if session.Status == domain.SessionStatusActive {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"is-flex is-justify-content-center\" style=\"gap: 1rem;\"><form method=\"POST\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"is-flex is-justify-content-center\" style=\"gap: 1rem;\" role=\"group\" aria-label=\"Navigation controls\"><form method=\"POST\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var18 templ.SafeURL
-					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev"))
+					var templ_7745c5c3_Var21 templ.SafeURL
+					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 93, Col: 109}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 99, Col: 109}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" style=\"display:inline;\"><button class=\"button is-medium\" type=\"submit\" title=\"Previous stitch (Left Arrow / Backspace)\"><span>&#8592; Back</span></button></form><form method=\"POST\" action=\"")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var19 templ.SafeURL
-					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next"))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 98, Col: 109}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" style=\"display:inline;\" id=\"prev-form\"><button class=\"button is-medium\" type=\"submit\" title=\"Previous stitch (Left Arrow / Backspace)\" aria-label=\"Previous stitch\"><span aria-hidden=\"true\">&#8592;</span> Back</button></form><form method=\"POST\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" style=\"display:inline;\"><button class=\"button is-primary is-medium\" type=\"submit\" title=\"Next stitch (Right Arrow / Space)\"><span>Next &#8594;</span></button></form></div><p class=\"has-text-centered has-text-grey is-size-7 mt-3\">Keyboard: Space/Right = forward, Backspace/Left = backward, P = pause, Esc = abandon</p>")
+					var templ_7745c5c3_Var22 templ.SafeURL
+					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next"))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/worksession.templ`, Line: 104, Col: 109}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" style=\"display:inline;\" id=\"next-form\"><button class=\"button is-primary is-medium\" type=\"submit\" title=\"Next stitch (Right Arrow / Space)\" aria-label=\"Next stitch\">Next <span aria-hidden=\"true\">&#8594;</span></button></form></div><p class=\"has-text-centered has-text-grey is-size-7 mt-3\">Keyboard: Space/Right = forward, Backspace/Left = backward, P = pause, Esc = abandon</p><!-- Keyboard and swipe support --> <script>\n\t\t\t\t\t\t\t(function() {\n\t\t\t\t\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\t\t\t\t\tif (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;\n\t\t\t\t\t\t\t\t\tif (e.key === ' ' || e.key === 'ArrowRight') {\n\t\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\t\tdocument.getElementById('next-form').submit();\n\t\t\t\t\t\t\t\t\t} else if (e.key === 'Backspace' || e.key === 'ArrowLeft') {\n\t\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\t\tdocument.getElementById('prev-form').submit();\n\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t});\n\n\t\t\t\t\t\t\t\t// Touch/swipe support.\n\t\t\t\t\t\t\t\tvar touchStartX = 0;\n\t\t\t\t\t\t\t\tvar touchStartY = 0;\n\t\t\t\t\t\t\t\tvar display = document.getElementById('stitch-display');\n\t\t\t\t\t\t\t\tif (display) {\n\t\t\t\t\t\t\t\t\tdisplay.addEventListener('touchstart', function(e) {\n\t\t\t\t\t\t\t\t\t\ttouchStartX = e.changedTouches[0].screenX;\n\t\t\t\t\t\t\t\t\t\ttouchStartY = e.changedTouches[0].screenY;\n\t\t\t\t\t\t\t\t\t}, {passive: true});\n\t\t\t\t\t\t\t\t\tdisplay.addEventListener('touchend', function(e) {\n\t\t\t\t\t\t\t\t\t\tvar dx = e.changedTouches[0].screenX - touchStartX;\n\t\t\t\t\t\t\t\t\t\tvar dy = e.changedTouches[0].screenY - touchStartY;\n\t\t\t\t\t\t\t\t\t\tif (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {\n\t\t\t\t\t\t\t\t\t\t\tif (dx < 0) {\n\t\t\t\t\t\t\t\t\t\t\t\tdocument.getElementById('next-form').submit();\n\t\t\t\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\t\t\t\tdocument.getElementById('prev-form').submit();\n\t\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t}, {passive: true});\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t})();\n\t\t\t\t\t\t</script>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

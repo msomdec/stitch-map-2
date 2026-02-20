@@ -10,17 +10,12 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/domain"
 )
 
-// UserRepository implements domain.UserRepository using SQLite.
-type UserRepository struct {
+// userRepo implements domain.UserRepository using SQLite.
+type userRepo struct {
 	db *sql.DB
 }
 
-// NewUserRepository creates a new SQLite-backed UserRepository.
-func NewUserRepository(db *DB) *UserRepository {
-	return &UserRepository{db: db.SqlDB}
-}
-
-func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
+func (r *userRepo) Create(ctx context.Context, user *domain.User) error {
 	now := time.Now().UTC()
 	result, err := r.db.ExecContext(ctx,
 		`INSERT INTO users (email, display_name, password_hash, created_at, updated_at)
@@ -45,7 +40,7 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+func (r *userRepo) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	user := &domain.User{}
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, email, display_name, password_hash, created_at, updated_at
@@ -60,7 +55,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, e
 	return user, nil
 }
 
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (r *userRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	user := &domain.User{}
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, email, display_name, password_hash, created_at, updated_at

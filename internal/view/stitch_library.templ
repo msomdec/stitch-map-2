@@ -7,17 +7,18 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 	@Layout("Stitch Library", displayName) {
 		<h1 class="title">Stitch Library</h1>
 		if errMsg != "" {
-			<div class="notification is-danger">
+			<div class="notification is-danger" role="alert">
 				{ errMsg }
 			</div>
 		}
 		<!-- Filter and Search -->
 		<div class="box">
-			<form method="GET" action="/stitches">
+			<form method="GET" action="/stitches" role="search" aria-label="Filter stitches">
 				<div class="field is-grouped">
 					<div class="control">
+						<label class="is-sr-only" for="category-filter">Category</label>
 						<div class="select">
-							<select name="category">
+							<select name="category" id="category-filter" aria-label="Filter by category">
 								<option value="" if activeCategory == "" { selected }>All Categories</option>
 								<option value="basic" if activeCategory == "basic" { selected }>Basic</option>
 								<option value="increase" if activeCategory == "increase" { selected }>Increase</option>
@@ -31,14 +32,15 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 						</div>
 					</div>
 					<div class="control is-expanded">
-						<input class="input" type="text" name="search" placeholder="Search stitches..." value={ search }/>
+						<label class="is-sr-only" for="stitch-search">Search</label>
+						<input class="input" type="text" id="stitch-search" name="search" placeholder="Search stitches..." value={ search } aria-label="Search stitches"/>
 					</div>
 					<div class="control">
-						<button class="button is-primary" type="submit">Filter</button>
+						<button class="button is-primary" type="submit" aria-label="Apply filter">Filter</button>
 					</div>
 					if activeCategory != "" || search != "" {
 						<div class="control">
-							<a class="button is-light" href="/stitches">Clear</a>
+							<a class="button is-light" href="/stitches" aria-label="Clear filters">Clear</a>
 						</div>
 					}
 				</div>
@@ -47,16 +49,16 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 		<!-- Predefined Stitches -->
 		<h2 class="title is-4">Standard Stitches</h2>
 		if len(predefined) == 0 {
-			<p class="has-text-grey">No stitches match your filter.</p>
+			<p class="has-text-grey" role="status">No stitches match your filter.</p>
 		} else {
 			<div class="table-container">
-				<table class="table is-fullwidth is-striped is-hoverable">
+				<table class="table is-fullwidth is-striped is-hoverable" aria-label="Standard stitches">
 					<thead>
 						<tr>
-							<th>Abbreviation</th>
-							<th>Name</th>
-							<th>Category</th>
-							<th>Description</th>
+							<th scope="col">Abbreviation</th>
+							<th scope="col">Name</th>
+							<th scope="col">Category</th>
+							<th scope="col">Description</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -77,13 +79,13 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 		<!-- Create Custom Stitch Form -->
 		<div class="box">
 			<h3 class="subtitle is-5">Add Custom Stitch</h3>
-			<form method="POST" action="/stitches">
+			<form method="POST" action="/stitches" aria-label="Add custom stitch">
 				<div class="columns">
 					<div class="column is-2">
 						<div class="field">
 							<label class="label" for="abbreviation">Abbreviation</label>
 							<div class="control">
-								<input class="input" type="text" id="abbreviation" name="abbreviation" required placeholder="e.g., msc"/>
+								<input class="input" type="text" id="abbreviation" name="abbreviation" required placeholder="e.g., msc" aria-required="true"/>
 							</div>
 						</div>
 					</div>
@@ -91,7 +93,7 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 						<div class="field">
 							<label class="label" for="name">Name</label>
 							<div class="control">
-								<input class="input" type="text" id="name" name="name" required placeholder="e.g., Modified Single Crochet"/>
+								<input class="input" type="text" id="name" name="name" required placeholder="e.g., Modified Single Crochet" aria-required="true"/>
 							</div>
 						</div>
 					</div>
@@ -100,7 +102,7 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 							<label class="label" for="category">Category</label>
 							<div class="control">
 								<div class="select is-fullwidth">
-									<select id="category" name="category">
+									<select id="category" name="category" aria-label="Stitch category">
 										<option value="custom">Custom</option>
 										<option value="basic">Basic</option>
 										<option value="advanced">Advanced</option>
@@ -122,7 +124,7 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 						<div class="field">
 							<label class="label">&nbsp;</label>
 							<div class="control">
-								<button class="button is-success" type="submit">Add</button>
+								<button class="button is-success" type="submit" aria-label="Add custom stitch">Add</button>
 							</div>
 						</div>
 					</div>
@@ -130,17 +132,17 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 			</form>
 		</div>
 		if len(custom) == 0 {
-			<p class="has-text-grey">You haven't created any custom stitches yet.</p>
+			<p class="has-text-grey" role="status">You haven't created any custom stitches yet.</p>
 		} else {
 			<div class="table-container">
-				<table class="table is-fullwidth is-striped is-hoverable">
+				<table class="table is-fullwidth is-striped is-hoverable" aria-label="Your custom stitches">
 					<thead>
 						<tr>
-							<th>Abbreviation</th>
-							<th>Name</th>
-							<th>Category</th>
-							<th>Description</th>
-							<th>Actions</th>
+							<th scope="col">Abbreviation</th>
+							<th scope="col">Name</th>
+							<th scope="col">Category</th>
+							<th scope="col">Description</th>
+							<th scope="col">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -151,8 +153,10 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 								<td><span class={ "tag", categoryTagClass(s.Category) }>{ s.Category }</span></td>
 								<td>{ s.Description }</td>
 								<td>
-									<form method="POST" action={ templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete") } style="display:inline;">
-										<button class="button is-small is-danger is-outlined" type="submit">Delete</button>
+									<form method="POST" action={ templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete") } style="display:inline;"
+										onsubmit="return confirm('Delete this custom stitch? This cannot be undone.')" >
+										<button class="button is-small is-danger is-outlined" type="submit"
+											aria-label={ "Delete custom stitch " + s.Abbreviation }>Delete</button>
 									</form>
 								</td>
 							</tr>

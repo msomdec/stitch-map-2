@@ -13,7 +13,7 @@ import (
 func newTestStitchService(t *testing.T) (*service.StitchService, *sqlite.DB) {
 	t.Helper()
 	_, db := newTestAuthService(t)
-	stitchRepo := sqlite.NewStitchRepository(db)
+	stitchRepo := db.Stitches()
 	return service.NewStitchService(stitchRepo), db
 }
 
@@ -63,7 +63,7 @@ func TestStitchService_CreateCustom_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a user first.
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "custom@example.com", DisplayName: "Custom", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -92,7 +92,7 @@ func TestStitchService_CreateCustom_DefaultCategory(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "defcat@example.com", DisplayName: "DefCat", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -116,7 +116,7 @@ func TestStitchService_CreateCustom_RejectReservedAbbreviation(t *testing.T) {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "reserved@example.com", DisplayName: "Reserved", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -133,7 +133,7 @@ func TestStitchService_CreateCustom_InvalidInput(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "invalid@example.com", DisplayName: "Invalid", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -167,7 +167,7 @@ func TestStitchService_ListAll(t *testing.T) {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "listall@example.com", DisplayName: "ListAll", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -194,7 +194,7 @@ func TestStitchService_UpdateCustom_Success(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "update@example.com", DisplayName: "Update", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -224,7 +224,7 @@ func TestStitchService_UpdateCustom_WrongUser(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	u1 := &domain.User{Email: "owner@example.com", DisplayName: "Owner", PasswordHash: "hash"}
 	u2 := &domain.User{Email: "other@example.com", DisplayName: "Other", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, u1); err != nil {
@@ -254,7 +254,7 @@ func TestStitchService_UpdateCustom_RejectReservedAbbreviation(t *testing.T) {
 		t.Fatalf("SeedPredefined: %v", err)
 	}
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "updres@example.com", DisplayName: "UpdRes", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -276,7 +276,7 @@ func TestStitchService_DeleteCustom_Success(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	user := &domain.User{Email: "delete@example.com", DisplayName: "Delete", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("Create user: %v", err)
@@ -302,7 +302,7 @@ func TestStitchService_DeleteCustom_WrongUser(t *testing.T) {
 	svc, db := newTestStitchService(t)
 	ctx := context.Background()
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	u1 := &domain.User{Email: "delown@example.com", DisplayName: "Owner", PasswordHash: "hash"}
 	u2 := &domain.User{Email: "delother@example.com", DisplayName: "Other", PasswordHash: "hash"}
 	if err := userRepo.Create(ctx, u1); err != nil {

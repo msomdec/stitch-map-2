@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"net"
 	"net/http"
 
 	"github.com/msomdec/stitch-map-2/internal/domain"
@@ -44,6 +45,22 @@ func OptionalAuth(auth *service.AuthService, next http.Handler) http.Handler {
 		if err == nil && user != nil {
 			ctx := context.WithValue(r.Context(), userContextKey, user)
 			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RateLimit is middleware that enforces a per-IP rate limit using the provided TokenBucket.
+// Requests exceeding the limit receive a 429 Too Many Requests response.
+func RateLimit(tb *service.TokenBucket, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ip = r.RemoteAddr
+		}
+		if !tb.Allow(ip) {
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
 		}
 		next.ServeHTTP(w, r)
 	})

@@ -25,7 +25,7 @@ func newTestAuthService(t *testing.T) (*service.AuthService, *sqlite.DB) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	userRepo := sqlite.NewUserRepository(db)
+	userRepo := db.Users()
 	// Use cost 4 for fast tests.
 	auth := service.NewAuthService(userRepo, testJWTSecret, 4)
 	return auth, db
@@ -220,7 +220,7 @@ func TestAuthService_JWT_WrongSecret(t *testing.T) {
 	if err := db2.Migrate(ctx); err != nil {
 		t.Fatalf("Migrate DB2: %v", err)
 	}
-	userRepo2 := sqlite.NewUserRepository(db2)
+	userRepo2 := db2.Users()
 	auth2 := service.NewAuthService(userRepo2, "different-secret", 4)
 
 	_, err = auth2.ValidateToken(token)
