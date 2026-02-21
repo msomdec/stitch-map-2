@@ -91,3 +91,60 @@ The following questions must be answered and this section updated before impleme
 **Regression gate**: All existing tests pass. New integration test covers: update display name → verify JWT updated; update email (wrong password → error, duplicate email → error, success → JWT updated); update password (wrong current → error, mismatch confirm → error, success).
 
 ---
+
+### IMP-7: Pattern Editor — Page Overhaul
+
+**Problem**: The pattern editor page has accumulated UX clutter — redundant fields, confusing labels, an always-visible preview that wastes horizontal space, and no safeguards against accidental data loss. This improvement overhauls the editor into a cleaner, full-width layout with better terminology and user protection.
+
+**Changes**:
+
+#### Pattern Metadata Section
+
+1. **Add a "Difficulty" dropdown** (optional). Values: `Beginner`, `Intermediate`, `Advanced`, `Expert`. Stored as a new `difficulty` column (`TEXT NOT NULL DEFAULT ''`) on the `patterns` table (new migration). The domain `Pattern` struct gains a `Difficulty string` field.
+2. **Remove the Notes field.** The Description textarea already covers this logical space. Drop `notes` from the editor form. The `notes` column remains in the database (no destructive migration) but the editor no longer reads or writes it for new/edited patterns.
+
+#### Instruction Groups → "Pattern Overview"
+
+3. **Rename the "Instruction Groups" heading** to **"Pattern Overview"**.
+4. **Rename "Group Label"** to **"Part Name"** — the input placeholder should update accordingly (e.g., "e.g., Brim, Body, Round 1").
+5. **Rename "Repeat" on the group (part) level** to **"Quantity"**. The stitch entry "Repeat" column keeps its current name — only the group-level field changes.
+6. **Remove "Expected Count"** from group fields entirely (both the input and the derived-count helper text). The derived count calculation (`derivedExpectedCount`) can remain in code for potential future use but should not appear in the UI.
+
+#### Stitch Entries
+
+7. **Remove the "Into Stitch" column.** Drop the input and the column header from the entry row. The `into_stitch` column remains in the database but the editor no longer reads or writes it.
+8. **Remove the "Notes" column from stitch entries entirely.** Unlike other removals, this is a full removal — drop the `notes` column from the `stitch_entries` table via migration (`ALTER TABLE stitch_entries DROP COLUMN notes`; SQLite 3.35.0+ supports this). Remove the field from the `StitchEntry` domain struct and all repository code. Stitch-level notes added no value — per-entry context belongs at the part level instead.
+9. **Add a "Notes" field to each part (instruction group).** This is a new optional textarea within each part section, allowing users to attach free-form notes to a part (e.g., "work in BLO for this section", "join with sl st at end"). Stored as a new `notes` column (`TEXT NOT NULL DEFAULT ''`) on the `instruction_groups` table (included in the same migration as the stitch entry notes removal). The domain `InstructionGroup` struct gains a `Notes string` field.
+10. **Stitch entry columns after cleanup**: Stitch (dropdown, required), Count (number, required), Repeat (number, required). This simplifies the entry row to three columns.
+
+#### Numeric Inputs
+
+11. **Hide native browser spinner arrows** on all `<input type="number">` fields in the editor. Add CSS: `input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }` and `input[type=number] { -moz-appearance: textfield; }`. This can go in a `<style>` block in the layout or in a static CSS file.
+
+#### Dynamic Add/Remove
+
+12. **Users must be able to add and remove stitch entries within each part.** Each part section should have an "Add Stitch" button that appends a new empty entry row. Each entry row should have a remove/delete button (e.g., an `×` icon) to remove that entry — unless it is the only entry in the part (minimum 1 entry per part).
+13. **Users must be able to add and remove parts.** An "Add Part" button below the last part section appends a new empty part. Each part should have a remove/delete button — unless it is the only part (minimum 1 part per pattern). Adding and removing parts and entries is done via Datastar SSE (server round-trip to re-render the relevant DOM fragment), consistent with the existing interaction pattern.
+
+#### Preview → Modal
+
+14. **Remove the always-visible preview panel** from the right column. The editor form should take the full page width (remove the `columns` wrapper that creates the 8/4 split).
+15. **Add a "Preview" button** next to the "Save Pattern" button in the submit bar. Clicking it opens a Bulma modal containing the rendered pattern text preview and stitch count — the same content currently in the sidebar, but presented on-demand.
+16. The preview modal should have a close button and be dismissible via Esc or clicking the background overlay.
+
+#### Unsaved Changes Protection
+
+17. **Confirmation prompt on Save**: Before the form submits, show a confirmation dialog ("Save changes to this pattern?") to prevent accidental overwrites. This can be a simple `data-on-click` that triggers a Bulma modal with Confirm/Cancel buttons, where Confirm performs the actual form submission.
+18. **Confirmation prompt on Cancel**: The "Cancel" link should prompt ("Discard unsaved changes?") before navigating away. If confirmed, navigate to `/patterns`.
+19. **Confirmation prompt on navigation away**: If the user clicks a navbar link or any other link while on the editor page, prompt before leaving. Use a `beforeunload` event listener (added via Datastar or a small inline script) to catch browser-level navigation. For in-app Datastar-driven navigation, intercept with a confirmation modal.
+
+**Affected files**:
+- `internal/view/pattern_editor.templ` — primary UI changes
+- `internal/handler/pattern.go` — form parsing updates (remove into_stitch writes, add difficulty, add part notes, handle add/remove part/entry SSE endpoints)
+- `internal/domain/pattern.go` — add `Difficulty` field to `Pattern` struct; add `Notes` field to `InstructionGroup` struct; remove `Notes` field from `StitchEntry` struct
+- `internal/repository/sqlite/pattern.go` — update INSERT/UPDATE/SELECT to include `difficulty`, `instruction_groups.notes`; remove `stitch_entries.notes` from queries
+- `internal/repository/sqlite/migrations/` — new migration: add `difficulty` column to `patterns`, add `notes` column to `instruction_groups`, drop `notes` column from `stitch_entries`
+- `internal/service/pattern.go` — update validation if needed
+- `internal/view/layout.templ` or `static/style.css` — CSS for hiding number spinners
+
+**Regression gate**: All existing tests pass. Pattern create/edit/duplicate flows continue to work. Existing patterns with `into_stitch` data are not corrupted (column remains in DB, just not surfaced in the editor). The `stitch_entries.notes` column is dropped — any existing data there is lost (acceptable since this field was rarely used and part-level notes replace it).
