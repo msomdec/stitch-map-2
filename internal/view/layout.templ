@@ -8,7 +8,7 @@ templ Layout(title string, displayName string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title } - StitchMap</title>
 			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"/>
-			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
 			<style>
 				input[type=number]::-webkit-inner-spin-button,
 				input[type=number]::-webkit-outer-spin-button {
@@ -18,6 +18,14 @@ templ Layout(title string, displayName string) {
 				input[type=number] {
 					-moz-appearance: textfield;
 				}
+				/* Hide remove-part button when there's only one part */
+				#pattern-parts > .box:only-child .remove-part-btn {
+					display: none;
+				}
+				/* Hide remove-entry button when there's only one entry */
+				[id^="entries-"] > [id^="entry-"]:only-child .remove-entry-btn {
+					display: none;
+				}
 			</style>
 		</head>
 		<body>
@@ -26,8 +34,14 @@ templ Layout(title string, displayName string) {
 					<a class="navbar-item has-text-weight-bold" href="/" aria-label="StitchMap home">
 						StitchMap
 					</a>
-					<a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu"
-						onclick="document.getElementById('navbarMenu').classList.toggle('is-active');this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true')">
+					<a
+						role="button"
+						class="navbar-burger"
+						aria-label="menu"
+						aria-expanded="false"
+						data-target="navbarMenu"
+						onclick="document.getElementById('navbarMenu').classList.toggle('is-active');this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true')"
+					>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>

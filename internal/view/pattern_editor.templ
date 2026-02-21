@@ -111,35 +111,35 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 			</div>
 			<!-- Pattern Parts -->
 			<h2 class="title is-4">Pattern Overview</h2>
-			<div id="pattern-parts">
-				if pattern != nil && len(pattern.InstructionGroups) > 0 {
-					for gi, g := range pattern.InstructionGroups {
-						@groupFields(gi, g, stitches)
+			<div data-signals={ fmt.Sprintf("{nextidx: %d}", editorNextSignalIndex(pattern)) }>
+				<div id="pattern-parts">
+					if pattern != nil && len(pattern.InstructionGroups) > 0 {
+						for gi, g := range pattern.InstructionGroups {
+							@groupFields(gi, g, stitches)
+						}
+					} else {
+						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
 					}
-				} else {
-					@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
-				}
-			</div>
-			<!-- Add Part Button -->
-			<div class="mb-5">
-				<button
-					type="button"
-					class="button is-outlined"
-					data-on-click={ fmt.Sprintf("@post('/patterns/editor/add-part?gi=%d')", editorNextGroupIndex(pattern)) }
-				>
-					+ Add Part
-				</button>
+				</div>
+				<!-- Add Part Button -->
+				<div class="mb-5">
+					<button
+						type="button"
+						class="button is-primary is-outlined"
+						data-on:click="@post('/patterns/editor/add-part?gi=' + $nextidx); $nextidx = $nextidx + 1"
+					>
+						+ Add Part
+					</button>
+				</div>
 			</div>
 			<!-- Submit -->
 			<div class="field is-grouped">
 				<div class="control">
 					<button class="button is-primary" type="button" onclick="document.getElementById('save-modal').classList.add('is-active')">Save Pattern</button>
 				</div>
-				if pattern != nil && pattern.ID != 0 {
-					<div class="control">
-						<button type="button" class="button is-info" onclick="document.getElementById('preview-modal').classList.add('is-active')">Preview</button>
-					</div>
-				}
+				<div class="control">
+					<button type="button" class="button is-info" onclick="document.getElementById('preview-modal').classList.add('is-active')">Preview</button>
+				</div>
 				<div class="control">
 					<button type="button" class="button is-light" onclick="document.getElementById('cancel-modal').classList.add('is-active')">Cancel</button>
 				</div>
@@ -210,7 +210,17 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 }
 
 templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
-	<div class="box" id={ "part-" + strconv.Itoa(gi) }>
+	<div class="box" id={ "part-" + strconv.Itoa(gi) } style="position: relative;">
+		<button
+			type="button"
+			class="button is-danger is-outlined is-small remove-part-btn"
+			style="position: absolute; top: 0.75rem; right: 0.75rem;"
+			title="Remove part"
+			onclick="if(!confirm('Remove this part and all its stitches?')){event.stopImmediatePropagation();}"
+			data-on:click={ fmt.Sprintf("@post('/patterns/editor/remove-part/%d')", gi) }
+		>
+			&times;
+		</button>
 		<div class="columns">
 			<div class="column is-5">
 				<div class="field">
@@ -234,7 +244,7 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 					</div>
 				</div>
 			</div>
-			<div class="column is-4">
+			<div class="column is-5">
 				<div class="field">
 					<label class="label">
 						Notes <span class="has-text-grey is-size-7">(optional)</span>
@@ -242,21 +252,6 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 					<div class="control">
 						<input class="input" type="text" name={ "group_notes_" + strconv.Itoa(gi) }
 							value={ g.Notes } placeholder="Notes for this part"/>
-					</div>
-				</div>
-			</div>
-			<div class="column is-1">
-				<div class="field">
-					<label class="label">&nbsp;</label>
-					<div class="control">
-						<button
-							type="button"
-							class="button is-danger is-outlined is-small"
-							title="Remove part"
-							data-on-click={ fmt.Sprintf("@post('/patterns/editor/remove-part/%d')", gi) }
-						>
-							&times;
-						</button>
 					</div>
 				</div>
 			</div>
@@ -280,8 +275,8 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 		</div>
 		<button
 			type="button"
-			class="button is-small is-outlined mt-2"
-			data-on-click={ fmt.Sprintf("@post('/patterns/editor/add-entry/%d?ei=%d')", gi, editorNextEntryIndex(g)) }
+			class="button is-small is-primary is-outlined mt-2"
+			data-on:click={ fmt.Sprintf("@post('/patterns/editor/add-entry/%d?ei=' + $nextidx); $nextidx = $nextidx + 1", gi) }
 		>
 			+ Add Stitch
 		</button>
@@ -329,9 +324,10 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 		<div class="column is-1">
 			<button
 				type="button"
-				class="button is-danger is-outlined is-small"
+				class="button is-danger is-outlined is-small remove-entry-btn"
 				title="Remove stitch"
-				data-on-click={ fmt.Sprintf("@post('/patterns/editor/remove-entry/%d/%d')", gi, ei) }
+				onclick="if(!confirm('Remove this stitch?')){event.stopImmediatePropagation();}"
+				data-on:click={ fmt.Sprintf("@post('/patterns/editor/remove-entry/%d/%d')", gi, ei) }
 			>
 				&times;
 			</button>
@@ -398,18 +394,21 @@ func derivedExpectedCount(g domain.InstructionGroup) int {
 	return service.GroupStitchCount(&g) * g.RepeatCount
 }
 
-// editorNextGroupIndex returns the next available group index for dynamic add.
-func editorNextGroupIndex(pattern *domain.Pattern) int {
-	if pattern == nil || len(pattern.InstructionGroups) == 0 {
-		return 1
+// editorNextSignalIndex returns a starting index for the $nextidx Datastar signal.
+// Uses a high offset to avoid collisions with server-rendered indices (0, 1, 2...).
+func editorNextSignalIndex(pattern *domain.Pattern) int {
+	maxIdx := 0
+	if pattern != nil {
+		for gi, g := range pattern.InstructionGroups {
+			if gi > maxIdx {
+				maxIdx = gi
+			}
+			for ei := range g.StitchEntries {
+				if ei > maxIdx {
+					maxIdx = ei
+				}
+			}
+		}
 	}
-	return len(pattern.InstructionGroups)
-}
-
-// editorNextEntryIndex returns the next available entry index for dynamic add.
-func editorNextEntryIndex(g domain.InstructionGroup) int {
-	if len(g.StitchEntries) == 0 {
-		return 1
-	}
-	return len(g.StitchEntries)
+	return maxIdx + 100
 }
