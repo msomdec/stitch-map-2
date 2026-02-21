@@ -10,7 +10,7 @@ StitchMap is a web application that allows registered users to create, manage, a
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| **Language** | Go (latest stable) | Standard library preferred; external deps only when they reduce complexity significantly |
+| **Language** | Go 1.26.0 | Standard library preferred; external deps only when they reduce complexity significantly |
 | **HTTP Router** | `net/http` (stdlib) | Use Go 1.22+ enhanced routing with method+pattern support |
 | **HTML Rendering** | [Templ](https://templ.guide/) (`github.com/a-h/templ`) | Type-safe HTML components compiled to Go |
 | **Reactivity** | [Datastar](https://data-star.dev/) (`github.com/starfederation/datastar-go`) | Hypermedia-driven SSE reactivity; no JS build step |
@@ -486,7 +486,7 @@ Jobs:
 3. **templ-generate**: Install templ CLI, run `templ generate`, verify no diff (ensures generated files are committed)
 4. **vet**: `go vet ./...`
 
-Matrix: Latest stable Go version on `ubuntu-latest`.
+Matrix: Go 1.26.0 on `ubuntu-latest`.
 
 ---
 

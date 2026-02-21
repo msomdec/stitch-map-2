@@ -81,7 +81,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 // ValidateToken parses and validates a JWT token string.
 // Returns the user ID from the sub claim.
 func (s *AuthService) ValidateToken(tokenString string) (int64, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

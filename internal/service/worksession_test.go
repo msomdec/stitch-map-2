@@ -136,7 +136,7 @@ func TestNavigateForward_SimplePattern(t *testing.T) {
 	session := newSession()
 
 	// Navigate through all 6 stitches.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		completed := NavigateForward(session, pattern)
 		if completed {
 			t.Fatalf("completed too early at stitch %d", i+1)
@@ -168,7 +168,7 @@ func TestNavigateForward_MultipleEntries(t *testing.T) {
 	}
 
 	// Navigate through 5 more sc stitches (indices 0-4 of count).
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		completed = NavigateForward(session, pattern)
 		if completed {
 			t.Fatalf("completed too early at sc stitch %d", i+1)
@@ -187,7 +187,7 @@ func TestNavigateForward_StitchRepeats(t *testing.T) {
 	session := newSession()
 
 	// Each repeat: advance count from 0->1 (exhausting count=1), then increment repeat.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		completed := NavigateForward(session, pattern)
 		if completed {
 			t.Fatalf("completed too early at repeat %d", i+1)
@@ -241,7 +241,7 @@ func TestNavigateForward_MultipleGroups(t *testing.T) {
 	session := newSession()
 
 	// Group 1: 3 sc.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		completed := NavigateForward(session, pattern)
 		if completed {
 			t.Fatalf("completed too early at group 1 stitch %d", i+1)
@@ -254,7 +254,7 @@ func TestNavigateForward_MultipleGroups(t *testing.T) {
 	}
 
 	// Group 2: inc ×3 (count=1 per repeat).
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		completed := NavigateForward(session, pattern)
 		if completed {
 			t.Fatalf("completed too early at group 2 repeat %d", i+1)
@@ -408,7 +408,7 @@ func TestNavigateBackward_AcrossGroups(t *testing.T) {
 	session := newSession()
 
 	// Advance through all of group 1 (3 sc).
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		NavigateForward(session, pattern)
 	}
 	// Now at group 2.
@@ -437,7 +437,7 @@ func TestNavigateForwardAndBackward_FullRoundTrip(t *testing.T) {
 	total := StitchCount(pattern) // 9
 
 	// Navigate all the way forward.
-	for i := 0; i < total; i++ {
+	for i := range total {
 		completed := NavigateForward(session, pattern)
 		if i < total-1 && completed {
 			t.Fatalf("completed too early at stitch %d", i+1)

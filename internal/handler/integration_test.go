@@ -387,11 +387,11 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 	}
 	// Extract the path segment after /stitches/ up to /delete.
 	rest := body[idx+len("/stitches/"):]
-	slashIdx := strings.Index(rest, "/")
-	if slashIdx == -1 {
+	before, _, ok := strings.Cut(rest, "/")
+	if !ok {
 		t.Fatal("expected /delete path after stitch ID")
 	}
-	stitchID := rest[:slashIdx]
+	stitchID := before
 
 	resp, err = client.PostForm(srv.URL+"/stitches/"+stitchID+"/delete", nil)
 	if err != nil {
@@ -543,13 +543,13 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 
 	// 2. Create a pattern.
 	resp, err = client.PostForm(srv.URL+"/patterns", url.Values{
-		"name":           {"Test Amigurumi"},
-		"description":    {"A small amigurumi ball"},
-		"pattern_type":   {"round"},
-		"hook_size":      {"4.0mm"},
-		"yarn_weight":    {"Worsted"},
-		"group_label_0":  {"Round 1"},
-		"group_repeat_0": {"1"},
+		"name":             {"Test Amigurumi"},
+		"description":      {"A small amigurumi ball"},
+		"pattern_type":     {"round"},
+		"hook_size":        {"4.0mm"},
+		"yarn_weight":      {"Worsted"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
 		"entry_stitch_0_0": {scID},
 		"entry_count_0_0":  {"6"},
 		"entry_repeat_0_0": {"1"},
@@ -1090,7 +1090,7 @@ func TestIntegration_WorkSession_NavigateToCompletion(t *testing.T) {
 	}
 
 	// Navigate forward 3 times to complete the pattern.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
 		if err != nil {
 			t.Fatalf("POST next (stitch %d): %v", i+1, err)
@@ -1187,7 +1187,7 @@ func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
 	sessionURL := resp.Header.Get("Location")
 
 	// Navigate forward 2 times.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
 		if err != nil {
 			t.Fatalf("POST next: %v", err)
@@ -1331,13 +1331,13 @@ func TestFullHappyPath(t *testing.T) {
 	}
 
 	resp, err = client.PostForm(srv.URL+"/patterns", url.Values{
-		"name":            {"Happy Path Pattern"},
-		"pattern_type":    {"round"},
-		"hook_size":       {"5.0mm"},
-		"yarn_weight":     {"Worsted"},
-		"description":     {"A full happy path test pattern"},
-		"group_label_0":   {"Round 1"},
-		"group_repeat_0":  {"1"},
+		"name":             {"Happy Path Pattern"},
+		"pattern_type":     {"round"},
+		"hook_size":        {"5.0mm"},
+		"yarn_weight":      {"Worsted"},
+		"description":      {"A full happy path test pattern"},
+		"group_label_0":    {"Round 1"},
+		"group_repeat_0":   {"1"},
 		"entry_stitch_0_0": {scID},
 		"entry_count_0_0":  {"3"},
 		"entry_repeat_0_0": {"1"},
@@ -1405,7 +1405,7 @@ func TestFullHappyPath(t *testing.T) {
 	}
 
 	// 8. Navigate forward through all 3 stitches to complete.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		resp, err = client.PostForm(srv.URL+sessionURL+"/next", nil)
 		if err != nil {
 			t.Fatalf("next stitch %d: %v", i+1, err)

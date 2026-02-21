@@ -1,11 +1,12 @@
 module github.com/msomdec/stitch-map-2
 
-go 1.24.7
+go 1.26.0
 
 require (
 	github.com/a-h/templ v0.3.977
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	golang.org/x/crypto v0.48.0
+	modernc.org/sqlite v1.46.1
 )
 
 require (
@@ -19,5 +20,4 @@ require (
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.1 // indirect
 )

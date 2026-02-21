@@ -43,10 +43,7 @@ func (tb *TokenBucket) Allow(key string) bool {
 
 	now := time.Now()
 	elapsed := now.Sub(b.last).Seconds()
-	b.tokens += elapsed * tb.rate
-	if b.tokens > tb.capacity {
-		b.tokens = tb.capacity
-	}
+	b.tokens = min(b.tokens+elapsed*tb.rate, tb.capacity)
 	b.last = now
 
 	if b.tokens >= 1 {

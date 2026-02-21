@@ -10,7 +10,7 @@ func TestTokenBucket_AllowsUpToCapacity(t *testing.T) {
 	tb := service.NewTokenBucket(1, 3) // rate=1/s, capacity=3
 
 	// Should allow 3 requests immediately (full bucket).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if !tb.Allow("test-key") {
 			t.Fatalf("request %d should be allowed (bucket not yet empty)", i+1)
 		}
@@ -41,7 +41,7 @@ func TestTokenBucket_DifferentKeysAreIndependent(t *testing.T) {
 func TestTokenBucket_NewKeyStartsFull(t *testing.T) {
 	tb := service.NewTokenBucket(10, 5)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if !tb.Allow("new-key") {
 			t.Fatalf("new key request %d should be allowed (starts full)", i+1)
 		}

@@ -236,9 +236,8 @@ func retreatToPreviousGroup(session *domain.WorkSession, pattern *domain.Pattern
 func (s *WorkSessionService) AdvanceSession(ctx context.Context, session *domain.WorkSession, pattern *domain.Pattern) (bool, error) {
 	completed := NavigateForward(session, pattern)
 	if completed {
-		now := time.Now().UTC()
 		session.Status = domain.SessionStatusCompleted
-		session.CompletedAt = &now
+		session.CompletedAt = new(time.Now().UTC())
 	}
 	if err := s.sessions.Update(ctx, session); err != nil {
 		return false, fmt.Errorf("update session: %w", err)
@@ -259,10 +258,10 @@ type SessionProgress struct {
 	Percentage        float64
 	GroupLabel        string
 	GroupRepeatInfo   string // e.g., "Repeat 2 of 4"
-	CurrentAbbr      string // Current stitch abbreviation
+	CurrentAbbr       string // Current stitch abbreviation
 	CurrentName       string // Current stitch name
-	PrevAbbr         string // Previous stitch abbreviation (empty if at start)
-	NextAbbr         string // Next stitch abbreviation (empty if at end)
+	PrevAbbr          string // Previous stitch abbreviation (empty if at start)
+	NextAbbr          string // Next stitch abbreviation (empty if at end)
 }
 
 // ComputeProgress calculates the current progress through a pattern.
@@ -275,7 +274,7 @@ func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern, stitc
 	groups := pattern.InstructionGroups
 
 	// Count completed stitches up to the current position.
-	for gi := 0; gi < len(groups); gi++ {
+	for gi := range groups {
 		group := &groups[gi]
 		groupTotal := GroupStitchCount(group)
 
@@ -433,4 +432,3 @@ func getNextStitchAbbr(session *domain.WorkSession, pattern *domain.Pattern, loo
 
 	return ""
 }
-
