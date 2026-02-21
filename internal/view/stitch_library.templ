@@ -79,11 +79,14 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 		<!-- Create Custom Stitch Form -->
 		<div class="box">
 			<h3 class="subtitle is-5">Add Custom Stitch</h3>
+			<p class="help has-text-grey mb-3">Fields marked <span class="has-text-danger">*</span> are required</p>
 			<form method="POST" action="/stitches" aria-label="Add custom stitch">
 				<div class="columns">
 					<div class="column is-2">
 						<div class="field">
-							<label class="label" for="abbreviation">Abbreviation</label>
+							<label class="label" for="abbreviation">
+								Abbreviation <span class="has-text-danger" aria-label="required">*</span>
+							</label>
 							<div class="control">
 								<input class="input" type="text" id="abbreviation" name="abbreviation" required placeholder="e.g., msc" aria-required="true"/>
 							</div>
@@ -91,7 +94,9 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 					</div>
 					<div class="column is-3">
 						<div class="field">
-							<label class="label" for="name">Name</label>
+							<label class="label" for="name">
+								Name <span class="has-text-danger" aria-label="required">*</span>
+							</label>
 							<div class="control">
 								<input class="input" type="text" id="name" name="name" required placeholder="e.g., Modified Single Crochet" aria-required="true"/>
 							</div>
@@ -99,7 +104,9 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 					</div>
 					<div class="column is-2">
 						<div class="field">
-							<label class="label" for="category">Category</label>
+							<label class="label" for="category">
+								Category <span class="has-text-danger" aria-label="required">*</span>
+							</label>
 							<div class="control">
 								<div class="select is-fullwidth">
 									<select id="category" name="category" aria-label="Stitch category">
@@ -114,7 +121,9 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 					</div>
 					<div class="column is-4">
 						<div class="field">
-							<label class="label" for="description">Description</label>
+							<label class="label" for="description">
+								Description <span class="has-text-grey is-size-7">(optional)</span>
+							</label>
 							<div class="control">
 								<input class="input" type="text" id="description" name="description" placeholder="How to perform this stitch"/>
 							</div>

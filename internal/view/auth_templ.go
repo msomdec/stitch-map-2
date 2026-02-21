@@ -64,20 +64,20 @@ func LoginPage(errMsg string, email string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form method=\"POST\" action=\"/login\"><div class=\"field\"><label class=\"label\" for=\"email\">Email</label><div class=\"control\"><input class=\"input\" type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form method=\"POST\" action=\"/login\"><div class=\"field\"><label class=\"label\" for=\"email\">Email <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 17, Col: 117}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 19, Col: 117}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"password\">Password</label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"password\" name=\"password\" required placeholder=\"••••••••\"></div></div><div class=\"field\"><div class=\"control\"><button class=\"button is-primary is-fullwidth\" type=\"submit\">Log In</button></div></div></form><p class=\"has-text-centered mt-4\">Don't have an account? <a href=\"/register\">Register</a></p></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"password\">Password <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"password\" name=\"password\" required placeholder=\"••••••••\"></div></div><div class=\"field\"><div class=\"control\"><button class=\"button is-primary is-fullwidth\" type=\"submit\">Log In</button></div></div></form><p class=\"has-text-centered mt-4\">Don't have an account? <a href=\"/register\">Register</a></p></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -136,7 +136,7 @@ func RegisterPage(errMsg string, email string, displayName string) templ.Compone
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 47, Col: 14}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 51, Col: 14}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -147,33 +147,33 @@ func RegisterPage(errMsg string, email string, displayName string) templ.Compone
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<form method=\"POST\" action=\"/register\"><div class=\"field\"><label class=\"label\" for=\"email\">Email</label><div class=\"control\"><input class=\"input\" type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<form method=\"POST\" action=\"/register\"><div class=\"field\"><label class=\"label\" for=\"email\">Email <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 54, Col: 117}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 60, Col: 117}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"display_name\">Display Name</label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"display_name\" name=\"display_name\" required placeholder=\"Your Name\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"display_name\">Display Name <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"text\" id=\"display_name\" name=\"display_name\" required placeholder=\"Your Name\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(displayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 60, Col: 130}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/auth.templ`, Line: 68, Col: 130}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"password\">Password</label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"password\" name=\"password\" required placeholder=\"At least 8 characters\"></div></div><div class=\"field\"><label class=\"label\" for=\"confirm_password\">Confirm Password</label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required placeholder=\"Re-enter your password\"></div></div><div class=\"field\"><div class=\"control\"><button class=\"button is-primary is-fullwidth\" type=\"submit\">Register</button></div></div></form><p class=\"has-text-centered mt-4\">Already have an account? <a href=\"/login\">Log In</a></p></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></div></div><div class=\"field\"><label class=\"label\" for=\"password\">Password <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"password\" name=\"password\" required placeholder=\"At least 8 characters\"></div></div><div class=\"field\"><label class=\"label\" for=\"confirm_password\">Confirm Password <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required placeholder=\"Re-enter your password\"></div></div><div class=\"field\"><div class=\"control\"><button class=\"button is-primary is-fullwidth\" type=\"submit\">Register</button></div></div></form><p class=\"has-text-centered mt-4\">Already have an account? <a href=\"/login\">Log In</a></p></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

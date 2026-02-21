@@ -17,10 +17,13 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 					<h1 class="title">{ editorTitle(pattern) }</h1>
 					<!-- Pattern Metadata -->
 					<div class="box">
+						<p class="help has-text-grey mb-3">Fields marked <span class="has-text-danger">*</span> are required</p>
 						<div class="columns">
 							<div class="column is-6">
 								<div class="field">
-									<label class="label" for="name">Pattern Name</label>
+									<label class="label" for="name">
+										Pattern Name <span class="has-text-danger" aria-label="required">*</span>
+									</label>
 									<div class="control">
 										<input class="input" type="text" id="name" name="name" required
 											value={ patternFieldValue(pattern, "name") }
@@ -30,7 +33,9 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 							</div>
 							<div class="column is-3">
 								<div class="field">
-									<label class="label" for="pattern_type">Type</label>
+									<label class="label" for="pattern_type">
+										Type <span class="has-text-danger" aria-label="required">*</span>
+									</label>
 									<div class="control">
 										<div class="select is-fullwidth">
 											<select id="pattern_type" name="pattern_type">
@@ -45,7 +50,9 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 							</div>
 							<div class="column is-3">
 								<div class="field">
-									<label class="label" for="hook_size">Hook Size</label>
+									<label class="label" for="hook_size">
+										Hook Size <span class="has-text-grey is-size-7">(optional)</span>
+									</label>
 									<div class="control">
 										<input class="input" type="text" id="hook_size" name="hook_size"
 											value={ patternFieldValue(pattern, "hook_size") }
@@ -57,7 +64,9 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 						<div class="columns">
 							<div class="column is-6">
 								<div class="field">
-									<label class="label" for="description">Description</label>
+									<label class="label" for="description">
+										Description <span class="has-text-grey is-size-7">(optional)</span>
+									</label>
 									<div class="control">
 										<textarea class="textarea" id="description" name="description"
 											placeholder="Brief description of the pattern">{ patternFieldValue(pattern, "description") }</textarea>
@@ -66,7 +75,9 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 							</div>
 							<div class="column is-3">
 								<div class="field">
-									<label class="label" for="yarn_weight">Yarn Weight</label>
+									<label class="label" for="yarn_weight">
+										Yarn Weight <span class="has-text-grey is-size-7">(optional)</span>
+									</label>
 									<div class="control">
 										<input class="input" type="text" id="yarn_weight" name="yarn_weight"
 											value={ patternFieldValue(pattern, "yarn_weight") }
@@ -76,7 +87,9 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 							</div>
 							<div class="column is-3">
 								<div class="field">
-									<label class="label" for="notes">Notes</label>
+									<label class="label" for="notes">
+										Notes <span class="has-text-grey is-size-7">(optional)</span>
+									</label>
 									<div class="control">
 										<textarea class="textarea" id="notes" name="notes"
 											placeholder="General notes">{ patternFieldValue(pattern, "notes") }</textarea>
@@ -131,7 +144,9 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 		<div class="columns">
 			<div class="column is-4">
 				<div class="field">
-					<label class="label">Group Label</label>
+					<label class="label">
+						Group Label <span class="has-text-danger" aria-label="required">*</span>
+					</label>
 					<div class="control">
 						<input class="input" type="text" name={ "group_label_" + strconv.Itoa(gi) }
 							value={ g.Label } required placeholder="e.g., Round 1"/>
@@ -140,24 +155,40 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 			</div>
 			<div class="column is-2">
 				<div class="field">
-					<label class="label">Repeat</label>
+					<label class="label">
+						Repeat <span class="has-text-danger" aria-label="required">*</span>
+					</label>
 					<div class="control">
 						<input class="input" type="number" name={ "group_repeat_" + strconv.Itoa(gi) }
 							value={ strconv.Itoa(maxInt(g.RepeatCount, 1)) } min="1"/>
 					</div>
 				</div>
 			</div>
-			<div class="column is-2">
+			<div class="column is-3">
 				<div class="field">
-					<label class="label">Expected Count</label>
+					<label class="label">
+						Expected Count
+						<span class="has-text-grey is-size-7">(optional)</span>
+					</label>
 					<div class="control">
 						<input class="input" type="number" name={ "group_expected_" + strconv.Itoa(gi) }
-							value={ intPtrStr(g.ExpectedCount) } min="0" placeholder="--"/>
+							value={ intPtrStr(g.ExpectedCount) }
+							placeholder={ strconv.Itoa(derivedExpectedCount(g)) }
+							min="0"/>
 					</div>
+					<p class="help has-text-grey">Derived: { strconv.Itoa(derivedExpectedCount(g)) }. Leave blank to use derived value.</p>
 				</div>
 			</div>
 		</div>
 		<h3 class="subtitle is-6">Stitch Entries</h3>
+		<!-- Entry column headers -->
+		<div class="columns is-vcentered mb-0" style="font-size: 0.75rem; color: #888;">
+			<div class="column is-3">Stitch <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-1">Count <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-1">Repeat <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-3">Into Stitch <span class="has-text-grey">(optional)</span></div>
+			<div class="column is-4">Notes <span class="has-text-grey">(optional)</span></div>
+		</div>
 		if len(g.StitchEntries) > 0 {
 			for ei, e := range g.StitchEntries {
 				@entryFields(gi, ei, e, stitches)
@@ -189,7 +220,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 			<div class="field">
 				<div class="control">
 					<input class="input" type="number" name={ "entry_count_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
-						value={ strconv.Itoa(maxInt(e.Count, 1)) } min="1" placeholder="Ct" title="Count"/>
+						value={ strconv.Itoa(maxInt(e.Count, 1)) } min="1" title="Count"/>
 				</div>
 			</div>
 		</div>
@@ -197,7 +228,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 			<div class="field">
 				<div class="control">
 					<input class="input" type="number" name={ "entry_repeat_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
-						value={ strconv.Itoa(maxInt(e.RepeatCount, 1)) } min="1" placeholder="Rpt" title="Repeat"/>
+						value={ strconv.Itoa(maxInt(e.RepeatCount, 1)) } min="1" title="Repeat"/>
 				</div>
 			</div>
 		</div>
@@ -266,4 +297,10 @@ func intPtrStr(p *int) string {
 		return ""
 	}
 	return strconv.Itoa(*p)
+}
+
+// derivedExpectedCount computes the expected stitch count for a group
+// based on its stitch entries and repeat count.
+func derivedExpectedCount(g domain.InstructionGroup) int {
+	return service.GroupStitchCount(&g) * g.RepeatCount
 }

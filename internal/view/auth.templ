@@ -12,13 +12,17 @@ templ LoginPage(errMsg string, email string) {
 				}
 				<form method="POST" action="/login">
 					<div class="field">
-						<label class="label" for="email">Email</label>
+						<label class="label" for="email">
+							Email <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com" value={ email }/>
 						</div>
 					</div>
 					<div class="field">
-						<label class="label" for="password">Password</label>
+						<label class="label" for="password">
+							Password <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="password" id="password" name="password" required placeholder="••••••••"/>
 						</div>
@@ -49,25 +53,33 @@ templ RegisterPage(errMsg string, email string, displayName string) {
 				}
 				<form method="POST" action="/register">
 					<div class="field">
-						<label class="label" for="email">Email</label>
+						<label class="label" for="email">
+							Email <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com" value={ email }/>
 						</div>
 					</div>
 					<div class="field">
-						<label class="label" for="display_name">Display Name</label>
+						<label class="label" for="display_name">
+							Display Name <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="text" id="display_name" name="display_name" required placeholder="Your Name" value={ displayName }/>
 						</div>
 					</div>
 					<div class="field">
-						<label class="label" for="password">Password</label>
+						<label class="label" for="password">
+							Password <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="password" id="password" name="password" required placeholder="At least 8 characters"/>
 						</div>
 					</div>
 					<div class="field">
-						<label class="label" for="confirm_password">Confirm Password</label>
+						<label class="label" for="confirm_password">
+							Confirm Password <span class="has-text-danger" aria-label="required">*</span>
+						</label>
 						<div class="control">
 							<input class="input" type="password" id="confirm_password" name="confirm_password" required placeholder="Re-enter your password"/>
 						</div>

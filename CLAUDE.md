@@ -985,3 +985,34 @@ The following questions must be answered and this section updated before impleme
 - IMP-10 (SSE body assertions) should be implemented first; many suspected browser-only issues may turn out to be catchable at the HTTP level.
 
 **Revisit when**: IMP-6 and IMP-7 are both complete and the UI is considered stable.
+
+---
+
+### IMP-12: Dashboard — Remove Redundant Quick Links, Add Recent Patterns
+
+**Problem**: The dashboard sidebar contains three Quick Links buttons (My Patterns, New Pattern, Stitch Library). All three destinations are already reachable from the navbar, making the sidebar purely redundant. The space it occupies would be better used to surface information the user actually wants at a glance.
+
+**Current layout**:
+- Left column (8-wide): Active Sessions cards
+- Right column (4-wide): Quick Links buttons — My Patterns, New Pattern, Stitch Library
+
+**Changes**:
+
+1. **Remove the Quick Links sidebar entirely.** The three links duplicate the navbar and add no informational value.
+
+2. **Expand Active Sessions to full width.** With the sidebar gone, the sessions section takes the full column width, giving session cards more room.
+
+3. **Add a "Recent Patterns" section** below Active Sessions. Show the 3 most recently modified patterns as compact cards. This is genuinely useful — it provides a fast path back to work-in-progress patterns without navigating to the full list — and is not duplicated anywhere else in the UI.
+
+Each recent pattern card should show:
+- Pattern name
+- Pattern type badge (Round / Row)
+- Last modified timestamp (e.g., "Updated 2 days ago")
+- Actions: View, Edit, Start/Resume session (the latter conditional on whether an active session already exists for that pattern)
+
+**Implementation notes**:
+- The dashboard handler already calls `GetActiveByUser`. Add a call to `patterns.ListByUser`, sort by `UpdatedAt` descending, and take the first 3. No new repository method needed.
+- The `DashboardPage` templ component gains a `recentPatterns []domain.Pattern` parameter.
+- If the user has no patterns yet, show a brief empty state in the Recent Patterns section (e.g., "No patterns yet. Create your first pattern to get started.") with a link to `/patterns/new`.
+
+**What this does NOT change**: the Active Sessions section content or behaviour — that is addressed separately in IMP-6.

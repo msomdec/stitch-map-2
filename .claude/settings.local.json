@@ -9,7 +9,8 @@
       "Bash(go vet:*)",
       "Bash(go test:*)",
       "Bash(go tool vet:*)",
-      "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1)"
+      "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1)",
+      "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1 && go build ./... 2>&1)"
     ]
   }
 }
