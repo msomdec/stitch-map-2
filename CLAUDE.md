@@ -492,6 +492,8 @@ Matrix: Go 1.26.0 on `ubuntu-latest`.
 
 ## Implementation Phases
 
+> **Status**: The initial implementation (Phases 1–7) is complete as of 2026-02-20. The phase descriptions below are preserved for historical reference. Active work is tracked in the **Planned Improvements** section that follows.
+
 Each phase is independently implementable, testable, and deployable. Each phase must pass all existing tests before proceeding to the next.
 
 ---
@@ -761,3 +763,182 @@ Write tests where they add value — not for the sake of coverage metrics. Tests
 - Use `t.Helper()` in test helpers.
 - Prefer a single `newTestServices` helper (see `handler/middleware_test.go`) that creates a real in-memory SQLite database for tests — this avoids the complexity and maintenance burden of mock implementations.
 - Keep test names descriptive: `TestNavigation_ForwardThroughGroupRepeat`, not `TestCase1`.
+
+---
+
+## Planned Improvements
+
+These are post-v1 improvements to be implemented incrementally. Each item should be fully implemented, tested, and regression-checked before moving to the next.
+
+---
+
+### IMP-1: Registration — Confirm Password Field
+
+**Problem**: The registration form has a single password field. There is no protection against the user mistyping their password and being locked out.
+
+**Requirements**:
+- Add a second "Confirm Password" field to the registration form (`view/auth.templ`).
+- Validate on the server side (`service/auth.go`) that the two password values match before proceeding with registration.
+- Return a clear inline error if they do not match (e.g., "Passwords do not match").
+- The confirm field is required; treat a missing confirm value the same as a mismatch.
+
+---
+
+### IMP-2: Registration & Login — Form Validation Without Clearing
+
+**Problem**: When a registration or login form submission fails (validation error, duplicate email, wrong password, etc.), the form is cleared, forcing the user to re-enter all fields from scratch.
+
+**Requirements**:
+- On validation failure, re-render the form with the previously entered values pre-populated (except password fields, which should always be cleared for security).
+- Display inline field-level error messages adjacent to the offending field where possible (e.g., "Email is already in use" next to the email field), or a banner error for non-field-specific errors.
+- The form must never fully clear on a server-side error response.
+- Applies to both the registration and login forms.
+
+---
+
+### IMP-3: Forms — Required vs. Optional Field Distinction
+
+**Problem**: Most forms in the application do not visually distinguish required fields from optional ones, making it unclear to the user what they must fill in.
+
+**Requirements**:
+- Required fields must be marked with a visual indicator (e.g., an asterisk `*` in the label, styled with Bulma).
+- Optional fields should be labeled explicitly as "(optional)" in subdued text, or left unmarked if all required fields already carry the asterisk convention.
+- A brief legend (e.g., `* Required field`) should appear somewhere on forms that contain a mix of required and optional fields.
+- Applies to: registration form, login form, pattern editor (metadata fields), stitch library (custom stitch form), and any modal forms.
+- Required vs. optional classification:
+  - **Registration**: Email (required), Display Name (required), Password (required), Confirm Password (required)
+  - **Login**: Email (required), Password (required)
+  - **Pattern**: Name (required), Pattern Type (required), Description (optional), Hook Size (optional), Yarn Weight (optional), Notes (optional)
+  - **Instruction Group**: Label (required), Repeat Count (required, default 1), Expected Count (optional)
+  - **Stitch Entry**: Stitch (required), Count (required, default 1), Repeat Count (required, default 1), Into Stitch (optional), Notes (optional)
+  - **Custom Stitch**: Abbreviation (required), Name (required), Category (required), Description (optional)
+
+---
+
+### IMP-4: Pattern Editor — Derived Expected Stitch Count
+
+**Problem**: The "Expected Count" field for instruction groups is entirely manual. Users must calculate and enter the expected stitch count by hand, which is error-prone.
+
+**Requirements**:
+- When stitch entries are added, removed, or modified within a group, compute the expected stitch count automatically: `sum(entry.Count * entry.RepeatCount) * group.RepeatCount`.
+- Display the derived count as the default value for the Expected Count field.
+- The field must remain editable — the user can override the derived value if the pattern has logic the system cannot infer (e.g., increases/decreases that result in a different count than the raw sum).
+- Visually distinguish the derived (auto-computed) state from an overridden (user-edited) state (e.g., a small "auto" badge or subdued italic style when using the derived value).
+- If the user clears their override, revert to the derived value.
+- The derived calculation happens server-side via SSE response; do not implement client-side arithmetic.
+
+---
+
+### IMP-5: Pattern Editor — Numeric Input UI Overlap
+
+**Problem**: Numeric input fields (count, repeat count, expected count) in the pattern editor clash visually with the browser's native up/down spinner arrows, causing layout overlap and an inconsistent appearance.
+
+**Requirements**:
+- Suppress the browser's native number input spinners using CSS (`input[type=number]::-webkit-inner-spin-button { display: none; }` or equivalent), since Bulma does not do this by default.
+- Provide explicit increment/decrement buttons (e.g., `−` and `+` flanking the input) using Bulma's `field has-addons` layout, so users can adjust values without typing.
+- Minimum values: Count ≥ 1, Repeat Count ≥ 1, Expected Count ≥ 0 (0 = not set / derived).
+- Applies to all numeric inputs in the pattern editor: stitch entry count, stitch entry repeat count, instruction group repeat count, instruction group expected count.
+
+---
+
+### IMP-6: Work Session — Resume Discoverability & Dashboard UX
+
+**Context**: Position saving and resume already work correctly. Every forward/backward navigation persists the exact position to the database. Sessions can be paused/resumed via explicit buttons. The dashboard lists active/paused sessions with a "Resume" link. The core mechanics are sound.
+
+**Problems to fix**:
+
+1. **Dashboard session cards show "Pattern #[ID]" instead of the pattern name.** The session cards need to load and display the actual pattern name, requiring either a JOIN in the `GetActiveByUser` query or a secondary lookup.
+
+2. **Session cards lack useful context.** Currently the card shows only the pattern ID and status. It should show: pattern name, session status badge, last activity time, and current position summary (e.g., "Round 3, stitch 12 of 18") so the user can orient themselves before resuming.
+
+3. **The pattern list does not surface in-progress sessions.** A user who navigates to their pattern list has no indication that they already have an active or paused session for a given pattern. Each pattern card should show a "Resume" button (or "In Progress" badge) if a session exists for that pattern, alongside the existing "Start Working" action.
+
+4. **Navigating away from the tracker leaves sessions in an ambiguous active state.** If a user clicks a navbar link mid-session without pausing first, the session stays "active" indefinitely. The tracker page should auto-pause the session when the user navigates away (using a `beforeunload` SSE action or equivalent Datastar mechanism), so sessions are never left in a stale active state.
+
+5. **Esc key is documented but not wired.** The help text in the tracker UI lists "Esc = exit" but no keydown handler for Esc exists. This should either be wired to trigger a pause-and-navigate-to-dashboard action, or removed from the help text if out of scope.
+
+6. **Navbar order should place Dashboard first** (see IMP-8 below — but the nav reorder should be done as part of this improvement since it directly affects how users find their sessions).
+
+**Requirements**:
+- Session cards on the dashboard display the actual pattern name, status, last activity timestamp, and a human-readable position summary.
+- Pattern list cards show a "Resume" button / "In Progress" indicator when an active or paused session exists for that pattern.
+- Navigating away from the tracker auto-pauses the session so it is never left in a stale active state.
+- Esc key in the tracker either pauses and redirects to dashboard, or the help text is corrected to remove the Esc reference.
+- No changes to the underlying domain model or database schema are needed — this is purely a handler, query, and UI improvement.
+
+---
+
+### IMP-7: Custom CSS Design System (Replace Bulma)
+
+> **Status: NOT READY TO IMPLEMENT** — Design direction must be fully defined before any work begins. Do not implement any part of this improvement until the design specification below is complete and the placeholder notes have been replaced with concrete decisions.
+
+**Problem**: Bulma provides a generic utility-class look that does not reflect the desired visual identity of StitchMap. The goal is a custom CSS design system with a bright, sleek, and modern aesthetic.
+
+**Design Direction** *(to be defined)*:
+
+The following questions must be answered and this section updated before implementation begins:
+
+- **Color palette**: What are the primary, secondary, accent, background, surface, and text colors? (Target: bright, not dark-mode-first)
+- **Typography**: What font(s) should be used? Google Fonts, system stack, or self-hosted? What is the type scale?
+- **Component inventory**: Which Bulma components are actively used in the app and must have custom equivalents? (navbar, buttons, cards, form fields, notifications, progress bars, modals, tags, etc.)
+- **Layout system**: CSS Grid, Flexbox, or a custom column system? What are the breakpoints?
+- **Spacing & sizing scale**: What is the base unit (e.g., 4px or 8px grid)?
+- **Border radius & elevation**: Rounded corners? Box shadows or flat design?
+- **Interactive states**: How do buttons, inputs, and links behave on hover, focus, and active?
+- **Delivery method**: Single `static/style.css` file served from the Go app? Or still CDN-loaded?
+
+**Implementation notes** *(to be filled in once design is settled)*:
+
+- Bulma is currently loaded via CDN in `view/layout.templ`. Removing it is a single-line change, but every template that relies on Bulma class names will need to be updated.
+- Custom CSS should be served as a static file from the Go app (already has a `static/` directory) rather than from a CDN, so the design is fully self-contained.
+- No CSS preprocessors or build tools — plain CSS only, consistent with the project's no-build-step philosophy.
+- All Bulma helper classes used across `.templ` files must be catalogued before removal to ensure nothing is missed.
+
+---
+
+### IMP-8: Navbar — Reorder Header Items
+
+**Problem**: The current authenticated navbar order is: Patterns → Stitch Library → Dashboard. Dashboard is the user's primary landing point (active sessions, quick links), so it should be first.
+
+**Requirements**:
+- Reorder the authenticated `navbar-start` links to: **Dashboard → Patterns → Stitch Library**.
+- No other changes to the navbar structure or content.
+
+---
+
+### IMP-9: User Settings Page
+
+**Goal**: Authenticated users can update their account details from a dedicated settings page, accessed via the user dropdown in the top-right navbar.
+
+**Entry point**: Add a "Settings" item to the authenticated user dropdown menu in `view/layout.templ`, linking to `GET /settings`.
+
+**Editable fields** (all current user-level data points that can meaningfully be changed):
+
+1. **Display Name** — straightforward update; re-issue JWT on save so the new display name is reflected in the token claims immediately.
+2. **Email Address** — must check uniqueness against existing users before saving; re-issue JWT on success since email is embedded in token claims. Treat a changed email as a sensitive operation: require the user to confirm their current password before the change is applied.
+3. **Password** — require the user to enter their current password for verification, then enter and confirm a new password (matching the two-field pattern from IMP-1). Bcrypt the new password at the configured cost before storing.
+
+**Read-only info to display** (not editable, but useful context):
+- Account created date (`CreatedAt`)
+
+**Page structure** (`view/settings.templ`):
+- Three separate form sections (or Bulma `box` panels), each with its own save button and independent SSE submission:
+  - "Display Name" section
+  - "Email Address" section (with current-password confirmation field)
+  - "Change Password" section (current password + new password + confirm new password)
+- Each section shows its own inline success/error feedback via Datastar SSE without affecting the other sections.
+- Forms retain entered values on error (consistent with IMP-2).
+- Required fields marked per IMP-3 conventions.
+
+**Service layer** (`service/auth.go`):
+- `UpdateDisplayName(ctx, userID, newDisplayName) (*User, string, error)` — updates display name, returns updated user and a fresh JWT.
+- `UpdateEmail(ctx, userID, currentPassword, newEmail) (*User, string, error)` — verifies current password, checks email uniqueness, updates email, returns updated user and a fresh JWT.
+- `UpdatePassword(ctx, userID, currentPassword, newPassword, confirmPassword) error` — verifies current password, validates new password match and strength, bcrypts and stores.
+
+**Handler** (`handler/settings.go`):
+- `GET /settings` — renders the settings page pre-populated with current user data.
+- `POST /settings/display-name` — updates display name, re-sets `auth_token` cookie with new JWT.
+- `POST /settings/email` — updates email, re-sets `auth_token` cookie with new JWT.
+- `POST /settings/password` — updates password, no JWT change needed (password is not in token claims).
+
+**Regression gate**: All existing tests pass. New integration test covers: update display name → verify JWT updated; update email (wrong password → error, duplicate email → error, success → JWT updated); update password (wrong current → error, mismatch confirm → error, success).
