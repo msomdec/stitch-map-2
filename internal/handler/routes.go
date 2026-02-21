@@ -48,6 +48,12 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /patterns/{id}/delete", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDelete)))
 	mux.Handle("POST /patterns/{id}/duplicate", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDuplicate)))
 
+	// Pattern editor SSE endpoints (dynamic add/remove parts and entries).
+	mux.Handle("POST /patterns/editor/add-part", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleAddPart)))
+	mux.Handle("POST /patterns/editor/remove-part/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemovePart)))
+	mux.Handle("POST /patterns/editor/add-entry/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleAddEntry)))
+	mux.Handle("POST /patterns/editor/remove-entry/{gi}/{ei}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemoveEntry)))
+
 	// Work session routes (authenticated).
 	mux.Handle("POST /patterns/{id}/start-session", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleStart)))
 	mux.Handle("GET /sessions/{id}", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleView)))

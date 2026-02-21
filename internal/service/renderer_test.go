@@ -170,25 +170,6 @@ func TestRenderPatternText_WithIntoStitch(t *testing.T) {
 	}
 }
 
-func TestRenderPatternText_WithNotes(t *testing.T) {
-	pattern := &domain.Pattern{
-		InstructionGroups: []domain.InstructionGroup{
-			{
-				Label:       "Round 1",
-				RepeatCount: 1,
-				StitchEntries: []domain.StitchEntry{
-					{StitchID: 1, Count: 6, RepeatCount: 1, Notes: "in BLO"},
-				},
-			},
-		},
-	}
-	result := RenderPatternText(pattern, testStitches())
-	expected := "Round 1: 6 sc (in BLO) (6)"
-	if result != expected {
-		t.Fatalf("expected %q, got %q", expected, result)
-	}
-}
-
 func TestRenderPatternText_SingleStitch(t *testing.T) {
 	pattern := &domain.Pattern{
 		InstructionGroups: []domain.InstructionGroup{

@@ -107,6 +107,11 @@ func (s *PatternService) validate(ctx context.Context, pattern *domain.Pattern) 
 		return fmt.Errorf("%w: pattern type must be 'round' or 'row'", domain.ErrInvalidInput)
 	}
 
+	validDifficulties := map[string]bool{"": true, "Beginner": true, "Intermediate": true, "Advanced": true, "Expert": true}
+	if !validDifficulties[pattern.Difficulty] {
+		return fmt.Errorf("%w: difficulty must be Beginner, Intermediate, Advanced, or Expert", domain.ErrInvalidInput)
+	}
+
 	if len(pattern.InstructionGroups) == 0 {
 		return fmt.Errorf("%w: at least one instruction group is required", domain.ErrInvalidInput)
 	}

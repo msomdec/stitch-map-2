@@ -3,6 +3,7 @@ package view
 import "github.com/msomdec/stitch-map-2/internal/domain"
 import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
+import "fmt"
 
 templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, errMsg string) {
 	@Layout(editorTitle(pattern), displayName) {
@@ -11,152 +12,221 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				{ errMsg }
 			</div>
 		}
-		<div class="columns">
-			<div class="column is-8">
-				<form method="POST" action={ editorAction(pattern) }>
-					<h1 class="title">{ editorTitle(pattern) }</h1>
-					<!-- Pattern Metadata -->
-					<div class="box">
-						<p class="help has-text-grey mb-3">Fields marked <span class="has-text-danger">*</span> are required</p>
-						<div class="columns">
-							<div class="column is-6">
-								<div class="field">
-									<label class="label" for="name">
-										Pattern Name <span class="has-text-danger" aria-label="required">*</span>
-									</label>
-									<div class="control">
-										<input class="input" type="text" id="name" name="name" required
-											value={ patternFieldValue(pattern, "name") }
-											placeholder="e.g., Amigurumi Bear"/>
-									</div>
-								</div>
-							</div>
-							<div class="column is-3">
-								<div class="field">
-									<label class="label" for="pattern_type">
-										Type <span class="has-text-danger" aria-label="required">*</span>
-									</label>
-									<div class="control">
-										<div class="select is-fullwidth">
-											<select id="pattern_type" name="pattern_type">
-												<option value="round"
-													if pattern == nil || pattern.PatternType == domain.PatternTypeRound { selected }>Round</option>
-												<option value="row"
-													if pattern != nil && pattern.PatternType == domain.PatternTypeRow { selected }>Row</option>
-											</select>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="column is-3">
-								<div class="field">
-									<label class="label" for="hook_size">
-										Hook Size <span class="has-text-grey is-size-7">(optional)</span>
-									</label>
-									<div class="control">
-										<input class="input" type="text" id="hook_size" name="hook_size"
-											value={ patternFieldValue(pattern, "hook_size") }
-											placeholder="e.g., 5.0mm"/>
-									</div>
-								</div>
+		<form id="pattern-form" method="POST" action={ editorAction(pattern) }>
+			<h1 class="title">{ editorTitle(pattern) }</h1>
+			<!-- Pattern Metadata -->
+			<div class="box">
+				<p class="help has-text-grey mb-3">Fields marked <span class="has-text-danger">*</span> are required</p>
+				<div class="columns">
+					<div class="column is-5">
+						<div class="field">
+							<label class="label" for="name">
+								Pattern Name <span class="has-text-danger" aria-label="required">*</span>
+							</label>
+							<div class="control">
+								<input class="input" type="text" id="name" name="name" required
+									value={ patternFieldValue(pattern, "name") }
+									placeholder="e.g., Amigurumi Bear"/>
 							</div>
 						</div>
-						<div class="columns">
-							<div class="column is-6">
-								<div class="field">
-									<label class="label" for="description">
-										Description <span class="has-text-grey is-size-7">(optional)</span>
-									</label>
-									<div class="control">
-										<textarea class="textarea" id="description" name="description"
-											placeholder="Brief description of the pattern">{ patternFieldValue(pattern, "description") }</textarea>
-									</div>
-								</div>
-							</div>
-							<div class="column is-3">
-								<div class="field">
-									<label class="label" for="yarn_weight">
-										Yarn Weight <span class="has-text-grey is-size-7">(optional)</span>
-									</label>
-									<div class="control">
-										<input class="input" type="text" id="yarn_weight" name="yarn_weight"
-											value={ patternFieldValue(pattern, "yarn_weight") }
-											placeholder="e.g., Worsted"/>
-									</div>
-								</div>
-							</div>
-							<div class="column is-3">
-								<div class="field">
-									<label class="label" for="notes">
-										Notes <span class="has-text-grey is-size-7">(optional)</span>
-									</label>
-									<div class="control">
-										<textarea class="textarea" id="notes" name="notes"
-											placeholder="General notes">{ patternFieldValue(pattern, "notes") }</textarea>
-									</div>
+					</div>
+					<div class="column is-2">
+						<div class="field">
+							<label class="label" for="pattern_type">
+								Type <span class="has-text-danger" aria-label="required">*</span>
+							</label>
+							<div class="control">
+								<div class="select is-fullwidth">
+									<select id="pattern_type" name="pattern_type">
+										<option value="round"
+											if pattern == nil || pattern.PatternType == domain.PatternTypeRound { selected }>Round</option>
+										<option value="row"
+											if pattern != nil && pattern.PatternType == domain.PatternTypeRow { selected }>Row</option>
+									</select>
 								</div>
 							</div>
 						</div>
 					</div>
-					<!-- Instruction Groups -->
-					<h2 class="title is-4">Instruction Groups</h2>
-					if pattern != nil && len(pattern.InstructionGroups) > 0 {
-						for gi, g := range pattern.InstructionGroups {
-							@groupFields(gi, g, stitches)
-						}
-					} else {
-						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
-					}
-					<p class="help mb-4">
-						Add more groups by including group_label_N fields. For now, save and edit to add more groups.
-					</p>
-					<!-- Submit -->
-					<div class="field is-grouped">
-						<div class="control">
-							<button class="button is-primary" type="submit">Save Pattern</button>
-						</div>
-						<div class="control">
-							<a class="button is-light" href="/patterns">Cancel</a>
+					<div class="column is-2">
+						<div class="field">
+							<label class="label" for="difficulty">
+								Difficulty <span class="has-text-grey is-size-7">(optional)</span>
+							</label>
+							<div class="control">
+								<div class="select is-fullwidth">
+									<select id="difficulty" name="difficulty">
+										<option value=""
+											if pattern == nil || pattern.Difficulty == "" { selected }>-- Select --</option>
+										<option value="Beginner"
+											if pattern != nil && pattern.Difficulty == "Beginner" { selected }>Beginner</option>
+										<option value="Intermediate"
+											if pattern != nil && pattern.Difficulty == "Intermediate" { selected }>Intermediate</option>
+										<option value="Advanced"
+											if pattern != nil && pattern.Difficulty == "Advanced" { selected }>Advanced</option>
+										<option value="Expert"
+											if pattern != nil && pattern.Difficulty == "Expert" { selected }>Expert</option>
+									</select>
+								</div>
+							</div>
 						</div>
 					</div>
-				</form>
+					<div class="column is-3">
+						<div class="field">
+							<label class="label" for="hook_size">
+								Hook Size <span class="has-text-grey is-size-7">(optional)</span>
+							</label>
+							<div class="control">
+								<input class="input" type="text" id="hook_size" name="hook_size"
+									value={ patternFieldValue(pattern, "hook_size") }
+									placeholder="e.g., 5.0mm"/>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="columns">
+					<div class="column is-7">
+						<div class="field">
+							<label class="label" for="description">
+								Description <span class="has-text-grey is-size-7">(optional)</span>
+							</label>
+							<div class="control">
+								<textarea class="textarea" id="description" name="description"
+									placeholder="Brief description of the pattern">{ patternFieldValue(pattern, "description") }</textarea>
+							</div>
+						</div>
+					</div>
+					<div class="column is-5">
+						<div class="field">
+							<label class="label" for="yarn_weight">
+								Yarn Weight <span class="has-text-grey is-size-7">(optional)</span>
+							</label>
+							<div class="control">
+								<input class="input" type="text" id="yarn_weight" name="yarn_weight"
+									value={ patternFieldValue(pattern, "yarn_weight") }
+									placeholder="e.g., Worsted"/>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
-			<!-- Live Preview Panel -->
-			<div class="column is-4">
-				<div class="box" style="position: sticky; top: 1rem;">
-					<h2 class="title is-5">Preview</h2>
+			<!-- Pattern Parts -->
+			<h2 class="title is-4">Pattern Overview</h2>
+			<div id="pattern-parts">
+				if pattern != nil && len(pattern.InstructionGroups) > 0 {
+					for gi, g := range pattern.InstructionGroups {
+						@groupFields(gi, g, stitches)
+					}
+				} else {
+					@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
+				}
+			</div>
+			<!-- Add Part Button -->
+			<div class="mb-5">
+				<button
+					type="button"
+					class="button is-outlined"
+					data-on-click={ fmt.Sprintf("@post('/patterns/editor/add-part?gi=%d')", editorNextGroupIndex(pattern)) }
+				>
+					+ Add Part
+				</button>
+			</div>
+			<!-- Submit -->
+			<div class="field is-grouped">
+				<div class="control">
+					<button class="button is-primary" type="button" onclick="document.getElementById('save-modal').classList.add('is-active')">Save Pattern</button>
+				</div>
+				if pattern != nil && pattern.ID != 0 {
+					<div class="control">
+						<button type="button" class="button is-info" onclick="document.getElementById('preview-modal').classList.add('is-active')">Preview</button>
+					</div>
+				}
+				<div class="control">
+					<button type="button" class="button is-light" onclick="document.getElementById('cancel-modal').classList.add('is-active')">Cancel</button>
+				</div>
+			</div>
+		</form>
+		<!-- Save Confirmation Modal -->
+		<div id="save-modal" class="modal">
+			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+			<div class="modal-card">
+				<header class="modal-card-head">
+					<p class="modal-card-title">Save Pattern</p>
+					<button class="delete" aria-label="close" type="button" onclick="this.closest('.modal').classList.remove('is-active')"></button>
+				</header>
+				<section class="modal-card-body">
+					Save changes to this pattern?
+				</section>
+				<footer class="modal-card-foot">
+					<button class="button is-primary" type="button" onclick="window.__formSubmitting=true;document.getElementById('pattern-form').submit()">Save</button>
+					<button class="button" type="button" onclick="this.closest('.modal').classList.remove('is-active')">Cancel</button>
+				</footer>
+			</div>
+		</div>
+		<!-- Cancel Confirmation Modal -->
+		<div id="cancel-modal" class="modal">
+			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+			<div class="modal-card">
+				<header class="modal-card-head">
+					<p class="modal-card-title">Discard Changes</p>
+					<button class="delete" aria-label="close" type="button" onclick="this.closest('.modal').classList.remove('is-active')"></button>
+				</header>
+				<section class="modal-card-body">
+					Discard unsaved changes?
+				</section>
+				<footer class="modal-card-foot">
+					<button class="button is-danger" type="button" onclick="window.__formSubmitting=true;window.location.href='/patterns'">Discard</button>
+					<button class="button" type="button" onclick="this.closest('.modal').classList.remove('is-active')">Keep Editing</button>
+				</footer>
+			</div>
+		</div>
+		<!-- Preview Modal -->
+		<div id="preview-modal" class="modal">
+			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+			<div class="modal-content">
+				<div class="box">
+					<h2 class="title is-5">Pattern Preview</h2>
 					if pattern != nil && len(pattern.InstructionGroups) > 0 {
 						<pre class="pattern-text" style="white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem;">{ service.RenderPatternText(pattern, stitches) }</pre>
 						<p class="help has-text-grey mt-2">
 							{ strconv.Itoa(service.StitchCount(pattern)) + " stitches total" }
 						</p>
 					} else {
-						<p class="has-text-grey">Save your pattern to see a preview.</p>
+						<p class="has-text-grey">Save your pattern first to see a preview.</p>
 					}
 				</div>
 			</div>
+			<button class="modal-close is-large" aria-label="close" type="button" onclick="this.parentElement.classList.remove('is-active')"></button>
 		</div>
+		<!-- beforeunload protection -->
+		<script>
+			window.__formSubmitting = false;
+			window.addEventListener('beforeunload', function(e) {
+				if (!window.__formSubmitting) {
+					e.preventDefault();
+				}
+			});
+		</script>
 	}
 }
 
 templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
-	<div class="box">
+	<div class="box" id={ "part-" + strconv.Itoa(gi) }>
 		<div class="columns">
-			<div class="column is-4">
+			<div class="column is-5">
 				<div class="field">
 					<label class="label">
-						Group Label <span class="has-text-danger" aria-label="required">*</span>
+						Part Name <span class="has-text-danger" aria-label="required">*</span>
 					</label>
 					<div class="control">
 						<input class="input" type="text" name={ "group_label_" + strconv.Itoa(gi) }
-							value={ g.Label } required placeholder="e.g., Round 1"/>
+							value={ g.Label } required placeholder="e.g., Brim, Body, Round 1"/>
 					</div>
 				</div>
 			</div>
 			<div class="column is-2">
 				<div class="field">
 					<label class="label">
-						Repeat <span class="has-text-danger" aria-label="required">*</span>
+						Quantity <span class="has-text-danger" aria-label="required">*</span>
 					</label>
 					<div class="control">
 						<input class="input" type="number" name={ "group_repeat_" + strconv.Itoa(gi) }
@@ -164,44 +234,68 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 					</div>
 				</div>
 			</div>
-			<div class="column is-3">
+			<div class="column is-4">
 				<div class="field">
 					<label class="label">
-						Expected Count
-						<span class="has-text-grey is-size-7">(optional)</span>
+						Notes <span class="has-text-grey is-size-7">(optional)</span>
 					</label>
 					<div class="control">
-						<input class="input" type="number" name={ "group_expected_" + strconv.Itoa(gi) }
-							value={ intPtrStr(g.ExpectedCount) }
-							placeholder={ strconv.Itoa(derivedExpectedCount(g)) }
-							min="0"/>
+						<input class="input" type="text" name={ "group_notes_" + strconv.Itoa(gi) }
+							value={ g.Notes } placeholder="Notes for this part"/>
 					</div>
-					<p class="help has-text-grey">Derived: { strconv.Itoa(derivedExpectedCount(g)) }. Leave blank to use derived value.</p>
+				</div>
+			</div>
+			<div class="column is-1">
+				<div class="field">
+					<label class="label">&nbsp;</label>
+					<div class="control">
+						<button
+							type="button"
+							class="button is-danger is-outlined is-small"
+							title="Remove part"
+							data-on-click={ fmt.Sprintf("@post('/patterns/editor/remove-part/%d')", gi) }
+						>
+							&times;
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
-		<h3 class="subtitle is-6">Stitch Entries</h3>
+		<h3 class="subtitle is-6">Stitches</h3>
 		<!-- Entry column headers -->
 		<div class="columns is-vcentered mb-0" style="font-size: 0.75rem; color: #888;">
-			<div class="column is-3">Stitch <span class="has-text-danger" aria-label="required">*</span></div>
-			<div class="column is-1">Count <span class="has-text-danger" aria-label="required">*</span></div>
-			<div class="column is-1">Repeat <span class="has-text-danger" aria-label="required">*</span></div>
-			<div class="column is-3">Into Stitch <span class="has-text-grey">(optional)</span></div>
-			<div class="column is-4">Notes <span class="has-text-grey">(optional)</span></div>
+			<div class="column is-5">Stitch <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-2">Count <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-2">Repeat <span class="has-text-danger" aria-label="required">*</span></div>
+			<div class="column is-1"></div>
 		</div>
-		if len(g.StitchEntries) > 0 {
-			for ei, e := range g.StitchEntries {
-				@entryFields(gi, ei, e, stitches)
+		<div id={ "entries-" + strconv.Itoa(gi) }>
+			if len(g.StitchEntries) > 0 {
+				for ei, e := range g.StitchEntries {
+					@entryFields(gi, ei, e, stitches)
+				}
+			} else {
+				@entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches)
 			}
-		} else {
-			@entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches)
-		}
+		</div>
+		<button
+			type="button"
+			class="button is-small is-outlined mt-2"
+			data-on-click={ fmt.Sprintf("@post('/patterns/editor/add-entry/%d?ei=%d')", gi, editorNextEntryIndex(g)) }
+		>
+			+ Add Stitch
+		</button>
 	</div>
 }
 
+// GroupFieldsFragment is the exported version of groupFields for use by SSE handlers.
+templ GroupFieldsFragment(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
+	@groupFields(gi, g, stitches)
+}
+
 templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) {
-	<div class="columns is-vcentered mb-0">
-		<div class="column is-3">
+	<div class="columns is-vcentered mb-0" id={ "entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei) }>
+		<div class="column is-5">
 			<div class="field">
 				<div class="control">
 					<div class="select is-fullwidth">
@@ -216,7 +310,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 				</div>
 			</div>
 		</div>
-		<div class="column is-1">
+		<div class="column is-2">
 			<div class="field">
 				<div class="control">
 					<input class="input" type="number" name={ "entry_count_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
@@ -224,7 +318,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 				</div>
 			</div>
 		</div>
-		<div class="column is-1">
+		<div class="column is-2">
 			<div class="field">
 				<div class="control">
 					<input class="input" type="number" name={ "entry_repeat_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
@@ -232,23 +326,22 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 				</div>
 			</div>
 		</div>
-		<div class="column is-3">
-			<div class="field">
-				<div class="control">
-					<input class="input" type="text" name={ "entry_into_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
-						value={ e.IntoStitch } placeholder="Into stitch (optional)"/>
-				</div>
-			</div>
-		</div>
-		<div class="column is-4">
-			<div class="field">
-				<div class="control">
-					<input class="input" type="text" name={ "entry_notes_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei) }
-						value={ e.Notes } placeholder="Notes (optional)"/>
-				</div>
-			</div>
+		<div class="column is-1">
+			<button
+				type="button"
+				class="button is-danger is-outlined is-small"
+				title="Remove stitch"
+				data-on-click={ fmt.Sprintf("@post('/patterns/editor/remove-entry/%d/%d')", gi, ei) }
+			>
+				&times;
+			</button>
 		</div>
 	</div>
+}
+
+// EntryFieldsFragment is the exported version of entryFields for use by SSE handlers.
+templ EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) {
+	@entryFields(gi, ei, e, stitches)
 }
 
 func editorTitle(pattern *domain.Pattern) string {
@@ -278,8 +371,8 @@ func patternFieldValue(pattern *domain.Pattern, field string) string {
 		return pattern.HookSize
 	case "yarn_weight":
 		return pattern.YarnWeight
-	case "notes":
-		return pattern.Notes
+	case "difficulty":
+		return pattern.Difficulty
 	default:
 		return ""
 	}
@@ -303,4 +396,20 @@ func intPtrStr(p *int) string {
 // based on its stitch entries and repeat count.
 func derivedExpectedCount(g domain.InstructionGroup) int {
 	return service.GroupStitchCount(&g) * g.RepeatCount
+}
+
+// editorNextGroupIndex returns the next available group index for dynamic add.
+func editorNextGroupIndex(pattern *domain.Pattern) int {
+	if pattern == nil || len(pattern.InstructionGroups) == 0 {
+		return 1
+	}
+	return len(pattern.InstructionGroups)
+}
+
+// editorNextEntryIndex returns the next available entry index for dynamic add.
+func editorNextEntryIndex(g domain.InstructionGroup) int {
+	if len(g.StitchEntries) == 0 {
+		return 1
+	}
+	return len(g.StitchEntries)
 }

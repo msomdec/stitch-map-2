@@ -306,7 +306,7 @@ func TestPatternRepository_Duplicate(t *testing.T) {
 
 	original := makeTestPattern(userID, stitchID)
 	original.Name = "Original"
-	original.Notes = "Some notes"
+	original.Difficulty = "Beginner"
 	if err := repo.Create(ctx, original); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -322,8 +322,8 @@ func TestPatternRepository_Duplicate(t *testing.T) {
 	if dup.Name != "Original (Copy)" {
 		t.Fatalf("expected name 'Original (Copy)', got %q", dup.Name)
 	}
-	if dup.Notes != "Some notes" {
-		t.Fatalf("expected notes to be copied, got %q", dup.Notes)
+	if dup.Difficulty != "Beginner" {
+		t.Fatalf("expected difficulty to be copied, got %q", dup.Difficulty)
 	}
 	if len(dup.InstructionGroups) != len(original.InstructionGroups) {
 		t.Fatalf("expected same number of groups")
@@ -368,8 +368,9 @@ func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 			},
 			{
 				SortOrder: 2, Label: "Rounds 3-5", RepeatCount: 3,
+				Notes: "in each st around",
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 12, RepeatCount: 1, Notes: "in each st around"},
+					{SortOrder: 0, StitchID: stitchID, Count: 12, RepeatCount: 1},
 				},
 			},
 		},
@@ -400,7 +401,7 @@ func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 	if g3.RepeatCount != 3 {
 		t.Fatalf("expected repeat count 3, got %d", g3.RepeatCount)
 	}
-	if g3.StitchEntries[0].Notes != "in each st around" {
-		t.Fatalf("expected notes 'in each st around', got %q", g3.StitchEntries[0].Notes)
+	if g3.Notes != "in each st around" {
+		t.Fatalf("expected group notes 'in each st around', got %q", g3.Notes)
 	}
 }

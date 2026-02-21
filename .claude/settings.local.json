@@ -10,7 +10,13 @@
       "Bash(go test:*)",
       "Bash(go tool vet:*)",
       "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1)",
-      "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1 && go build ./... 2>&1)"
+      "Bash(cd /c/projects/stitch-map-2 && templ generate 2>&1 && go build ./... 2>&1)",
+      "WebFetch(domain:data-star.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(cd:*)",
+      "Bash(cd /c/projects/stitch-map-2 && go get github.com/starfederation/datastar-go/datastar@v1.1.0 2>&1)"
     ]
   }
 }

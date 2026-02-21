@@ -14,6 +14,9 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 					<h1 class="title">{ pattern.Name }</h1>
 					<p class="subtitle has-text-grey">
 						{ string(pattern.PatternType) }
+						if pattern.Difficulty != "" {
+							{ " · " + pattern.Difficulty }
+						}
 						if pattern.HookSize != "" {
 							{ " · " + pattern.HookSize }
 						}
@@ -37,11 +40,6 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 		if pattern.Description != "" {
 			<div class="content">
 				<p>{ pattern.Description }</p>
-			</div>
-		}
-		if pattern.Notes != "" {
-			<div class="notification is-info is-light">
-				<strong>Notes:</strong> { pattern.Notes }
 			</div>
 		}
 		<!-- Pattern Text Preview -->
@@ -68,6 +66,9 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 						}
 					</div>
 				</div>
+				if g.Notes != "" {
+					<p class="help has-text-grey-dark is-italic mb-2">{ g.Notes }</p>
+				}
 				if len(g.StitchEntries) > 0 {
 					<div class="content">
 						for _, e := range g.StitchEntries {
@@ -78,9 +79,6 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 								}
 								if e.RepeatCount > 1 {
 									{ fmt.Sprintf(" ×%d", e.RepeatCount) }
-								}
-								if e.IntoStitch != "" {
-									{ " " + e.IntoStitch }
 								}
 							</span>
 						}

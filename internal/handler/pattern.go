@@ -4,11 +4,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/msomdec/stitch-map-2/internal/domain"
 	"github.com/msomdec/stitch-map-2/internal/service"
 	"github.com/msomdec/stitch-map-2/internal/view"
+	"github.com/starfederation/datastar-go/datastar"
 )
 
 // PatternHandler handles pattern-related HTTP requests.
@@ -258,6 +261,102 @@ func (h *PatternHandler) HandleDuplicate(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/patterns", http.StatusSeeOther)
 }
 
+// HandleAddPart returns an SSE response that appends a new empty part section.
+func (h *PatternHandler) HandleAddPart(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	gi, err := strconv.Atoi(r.URL.Query().Get("gi"))
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	allStitches, err := h.stitches.ListAll(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("list stitches", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	sse := datastar.NewSSE(w, r)
+	g := domain.InstructionGroup{Label: "", RepeatCount: 1}
+	sse.PatchElementTempl(
+		view.GroupFieldsFragment(gi, g, allStitches),
+		datastar.WithSelectorID("pattern-parts"),
+		datastar.WithModeAppend(),
+	)
+}
+
+// HandleRemovePart returns an SSE response that removes a part section.
+func (h *PatternHandler) HandleRemovePart(w http.ResponseWriter, r *http.Request) {
+	gi := r.PathValue("gi")
+	if gi == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	sse := datastar.NewSSE(w, r)
+	sse.RemoveElementByID("part-" + gi)
+}
+
+// HandleAddEntry returns an SSE response that appends a new stitch entry row.
+func (h *PatternHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	gi := r.PathValue("gi")
+	if gi == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	giInt, err := strconv.Atoi(gi)
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	ei, err := strconv.Atoi(r.URL.Query().Get("ei"))
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	allStitches, err := h.stitches.ListAll(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("list stitches", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	sse := datastar.NewSSE(w, r)
+	e := domain.StitchEntry{Count: 1, RepeatCount: 1}
+	sse.PatchElementTempl(
+		view.EntryFieldsFragment(giInt, ei, e, allStitches),
+		datastar.WithSelectorID("entries-"+gi),
+		datastar.WithModeAppend(),
+	)
+}
+
+// HandleRemoveEntry returns an SSE response that removes a stitch entry row.
+func (h *PatternHandler) HandleRemoveEntry(w http.ResponseWriter, r *http.Request) {
+	gi := r.PathValue("gi")
+	ei := r.PathValue("ei")
+	if gi == "" || ei == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	sse := datastar.NewSSE(w, r)
+	sse.RemoveElementByID("entry-" + gi + "-" + ei)
+}
+
 func (h *PatternHandler) renderEditorWithError(w http.ResponseWriter, r *http.Request, user *domain.User, pattern *domain.Pattern, errMsg string) {
 	allStitches, _ := h.stitches.ListAll(r.Context(), user.ID)
 	w.WriteHeader(http.StatusUnprocessableEntity)
@@ -266,8 +365,8 @@ func (h *PatternHandler) renderEditorWithError(w http.ResponseWriter, r *http.Re
 
 // parsePatternForm reads pattern data from a form submission.
 // The form uses indexed field names for nested groups and entries:
-// group_label_0, group_repeat_0, group_expected_0
-// entry_stitch_0_0, entry_count_0_0, entry_repeat_0_0, entry_into_0_0, entry_notes_0_0
+// group_label_0, group_repeat_0, group_expected_0, group_notes_0
+// entry_stitch_0_0, entry_count_0_0, entry_repeat_0_0
 func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, err
@@ -285,15 +384,14 @@ func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 		PatternType: patternType,
 		HookSize:    r.FormValue("hook_size"),
 		YarnWeight:  r.FormValue("yarn_weight"),
-		Notes:       r.FormValue("notes"),
+		Difficulty:  r.FormValue("difficulty"),
 	}
 
-	// Parse instruction groups.
-	for gi := 0; ; gi++ {
+	// Collect all group indices from form keys (supports non-contiguous indices from dynamic add/remove).
+	groupIndices := collectFormIndices(r, "group_label_")
+
+	for sortOrder, gi := range groupIndices {
 		label := r.FormValue("group_label_" + strconv.Itoa(gi))
-		if label == "" {
-			break
-		}
 
 		repeatCount := intFormValue(r, "group_repeat_"+strconv.Itoa(gi), 1)
 		var expectedCount *int
@@ -304,31 +402,28 @@ func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 		}
 
 		group := domain.InstructionGroup{
-			SortOrder:     gi,
+			SortOrder:     sortOrder,
 			Label:         label,
 			RepeatCount:   repeatCount,
 			ExpectedCount: expectedCount,
+			Notes:         r.FormValue("group_notes_" + strconv.Itoa(gi)),
 		}
 
-		// Parse stitch entries for this group.
-		for ei := 0; ; ei++ {
-			stitchIDStr := r.FormValue("entry_stitch_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
-			if stitchIDStr == "" {
-				break
-			}
+		// Collect all entry indices for this group.
+		entryIndices := collectFormIndices(r, "entry_stitch_"+strconv.Itoa(gi)+"_")
 
+		for entrySortOrder, ei := range entryIndices {
+			stitchIDStr := r.FormValue("entry_stitch_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
 			stitchID, err := strconv.ParseInt(stitchIDStr, 10, 64)
 			if err != nil {
 				continue
 			}
 
 			entry := domain.StitchEntry{
-				SortOrder:   ei,
+				SortOrder:   entrySortOrder,
 				StitchID:    stitchID,
 				Count:       intFormValue(r, "entry_count_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
-				IntoStitch:  r.FormValue("entry_into_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei)),
 				RepeatCount: intFormValue(r, "entry_repeat_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
-				Notes:       r.FormValue("entry_notes_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei)),
 			}
 
 			group.StitchEntries = append(group.StitchEntries, entry)
@@ -338,6 +433,34 @@ func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 	}
 
 	return pattern, nil
+}
+
+// collectFormIndices scans form keys with the given prefix followed by a numeric index
+// and returns the indices in sorted order. This supports non-contiguous indices that
+// arise when parts/entries are dynamically added and removed.
+func collectFormIndices(r *http.Request, prefix string) []int {
+	seen := map[int]bool{}
+	for key := range r.Form {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		suffix := key[len(prefix):]
+		// For group-level keys, the suffix is just the index (e.g., "3").
+		// For entry-level keys, the suffix might be "3" from "entry_stitch_0_3".
+		// Take only the part before any underscore to handle nested prefixes.
+		if idx := strings.Index(suffix, "_"); idx >= 0 {
+			suffix = suffix[:idx]
+		}
+		if n, err := strconv.Atoi(suffix); err == nil {
+			seen[n] = true
+		}
+	}
+	indices := make([]int, 0, len(seen))
+	for n := range seen {
+		indices = append(indices, n)
+	}
+	sort.Ints(indices)
+	return indices
 }
 
 func intFormValue(r *http.Request, key string, defaultVal int) int {

@@ -23,10 +23,10 @@ func (r *patternRepo) Create(ctx context.Context, pattern *domain.Pattern) error
 
 	now := time.Now().UTC()
 	result, err := tx.ExecContext(ctx,
-		`INSERT INTO patterns (user_id, name, description, pattern_type, hook_size, yarn_weight, notes, created_at, updated_at)
+		`INSERT INTO patterns (user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		pattern.UserID, pattern.Name, pattern.Description, pattern.PatternType,
-		pattern.HookSize, pattern.YarnWeight, pattern.Notes, now, now,
+		pattern.HookSize, pattern.YarnWeight, pattern.Difficulty, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("insert pattern: %w", err)
@@ -54,10 +54,10 @@ func (r *patternRepo) Create(ctx context.Context, pattern *domain.Pattern) error
 func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, error) {
 	p := &domain.Pattern{}
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, notes, created_at, updated_at
+		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, created_at, updated_at
 		 FROM patterns WHERE id = ?`, id,
 	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.PatternType,
-		&p.HookSize, &p.YarnWeight, &p.Notes, &p.CreatedAt, &p.UpdatedAt)
+		&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrNotFound
@@ -75,7 +75,7 @@ func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, e
 
 func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, notes, created_at, updated_at
+		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, created_at, updated_at
 		 FROM patterns WHERE user_id = ? ORDER BY updated_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list patterns: %w", err)
@@ -86,7 +86,7 @@ func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pa
 	for rows.Next() {
 		var p domain.Pattern
 		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.PatternType,
-			&p.HookSize, &p.YarnWeight, &p.Notes, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pattern: %w", err)
 		}
 		patterns = append(patterns, p)
@@ -103,10 +103,10 @@ func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error
 
 	now := time.Now().UTC()
 	result, err := tx.ExecContext(ctx,
-		`UPDATE patterns SET name = ?, description = ?, pattern_type = ?, hook_size = ?, yarn_weight = ?, notes = ?, updated_at = ?
+		`UPDATE patterns SET name = ?, description = ?, pattern_type = ?, hook_size = ?, yarn_weight = ?, difficulty = ?, updated_at = ?
 		 WHERE id = ?`,
 		pattern.Name, pattern.Description, pattern.PatternType,
-		pattern.HookSize, pattern.YarnWeight, pattern.Notes, now, pattern.ID,
+		pattern.HookSize, pattern.YarnWeight, pattern.Difficulty, now, pattern.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update pattern: %w", err)
@@ -166,7 +166,7 @@ func (r *patternRepo) Duplicate(ctx context.Context, id int64, newUserID int64) 
 		PatternType:       original.PatternType,
 		HookSize:          original.HookSize,
 		YarnWeight:        original.YarnWeight,
-		Notes:             original.Notes,
+		Difficulty:        original.Difficulty,
 		InstructionGroups: original.InstructionGroups,
 	}
 
@@ -181,9 +181,9 @@ func insertGroups(ctx context.Context, tx *sql.Tx, patternID int64, groups []dom
 	for i := range groups {
 		g := &groups[i]
 		result, err := tx.ExecContext(ctx,
-			`INSERT INTO instruction_groups (pattern_id, sort_order, label, repeat_count, expected_count)
-			 VALUES (?, ?, ?, ?, ?)`,
-			patternID, g.SortOrder, g.Label, g.RepeatCount, g.ExpectedCount,
+			`INSERT INTO instruction_groups (pattern_id, sort_order, label, repeat_count, expected_count, notes)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			patternID, g.SortOrder, g.Label, g.RepeatCount, g.ExpectedCount, g.Notes,
 		)
 		if err != nil {
 			return fmt.Errorf("insert group %d: %w", i, err)
@@ -199,9 +199,9 @@ func insertGroups(ctx context.Context, tx *sql.Tx, patternID int64, groups []dom
 		for j := range g.StitchEntries {
 			e := &g.StitchEntries[j]
 			res, err := tx.ExecContext(ctx,
-				`INSERT INTO stitch_entries (instruction_group_id, sort_order, stitch_id, count, into_stitch, repeat_count, notes)
-				 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				groupID, e.SortOrder, e.StitchID, e.Count, e.IntoStitch, e.RepeatCount, e.Notes,
+				`INSERT INTO stitch_entries (instruction_group_id, sort_order, stitch_id, count, into_stitch, repeat_count)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+				groupID, e.SortOrder, e.StitchID, e.Count, e.IntoStitch, e.RepeatCount,
 			)
 			if err != nil {
 				return fmt.Errorf("insert entry %d/%d: %w", i, j, err)
@@ -220,7 +220,7 @@ func insertGroups(ctx context.Context, tx *sql.Tx, patternID int64, groups []dom
 
 func (r *patternRepo) loadGroups(ctx context.Context, patternID int64) ([]domain.InstructionGroup, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, pattern_id, sort_order, label, repeat_count, expected_count
+		`SELECT id, pattern_id, sort_order, label, repeat_count, expected_count, notes
 		 FROM instruction_groups WHERE pattern_id = ? ORDER BY sort_order`, patternID)
 	if err != nil {
 		return nil, fmt.Errorf("load groups: %w", err)
@@ -230,7 +230,7 @@ func (r *patternRepo) loadGroups(ctx context.Context, patternID int64) ([]domain
 	var groups []domain.InstructionGroup
 	for rows.Next() {
 		var g domain.InstructionGroup
-		if err := rows.Scan(&g.ID, &g.PatternID, &g.SortOrder, &g.Label, &g.RepeatCount, &g.ExpectedCount); err != nil {
+		if err := rows.Scan(&g.ID, &g.PatternID, &g.SortOrder, &g.Label, &g.RepeatCount, &g.ExpectedCount, &g.Notes); err != nil {
 			return nil, fmt.Errorf("scan group: %w", err)
 		}
 		groups = append(groups, g)
@@ -251,7 +251,7 @@ func (r *patternRepo) loadGroups(ctx context.Context, patternID int64) ([]domain
 
 func (r *patternRepo) loadEntries(ctx context.Context, groupID int64) ([]domain.StitchEntry, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, instruction_group_id, sort_order, stitch_id, count, into_stitch, repeat_count, notes
+		`SELECT id, instruction_group_id, sort_order, stitch_id, count, into_stitch, repeat_count
 		 FROM stitch_entries WHERE instruction_group_id = ? ORDER BY sort_order`, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("load entries: %w", err)
@@ -262,7 +262,7 @@ func (r *patternRepo) loadEntries(ctx context.Context, groupID int64) ([]domain.
 	for rows.Next() {
 		var e domain.StitchEntry
 		if err := rows.Scan(&e.ID, &e.InstructionGroupID, &e.SortOrder, &e.StitchID,
-			&e.Count, &e.IntoStitch, &e.RepeatCount, &e.Notes); err != nil {
+			&e.Count, &e.IntoStitch, &e.RepeatCount); err != nil {
 			return nil, fmt.Errorf("scan entry: %w", err)
 		}
 		entries = append(entries, e)

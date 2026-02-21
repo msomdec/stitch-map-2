@@ -100,10 +100,5 @@ func renderEntry(e *domain.StitchEntry, lookup map[int64]string) string {
 		fmt.Fprintf(&sb, " %s", e.IntoStitch)
 	}
 
-	// Append notes.
-	if e.Notes != "" {
-		fmt.Fprintf(&sb, " (%s)", e.Notes)
-	}
-
 	return sb.String()
 }

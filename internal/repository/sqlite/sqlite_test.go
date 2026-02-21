@@ -96,7 +96,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count schema_migrations: %v", err)
 	}
-	if count != 4 {
-		t.Fatalf("expected 4 migration records, got %d", count)
+	if count != 5 {
+		t.Fatalf("expected 5 migration records, got %d", count)
 	}
 }

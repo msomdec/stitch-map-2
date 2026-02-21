@@ -20,7 +20,7 @@ type Pattern struct {
 	PatternType       PatternType
 	HookSize          string
 	YarnWeight        string
-	Notes             string
+	Difficulty        string
 	InstructionGroups []InstructionGroup
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -34,6 +34,7 @@ type InstructionGroup struct {
 	RepeatCount   int
 	StitchEntries []StitchEntry
 	ExpectedCount *int
+	Notes         string
 }
 
 type StitchEntry struct {
@@ -44,7 +45,6 @@ type StitchEntry struct {
 	Count              int
 	IntoStitch         string
 	RepeatCount        int
-	Notes              string
 }
 
 type PatternRepository interface {
