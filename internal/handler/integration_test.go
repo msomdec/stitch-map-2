@@ -36,9 +36,10 @@ func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
 
 	// 1. Register a new user.
 	resp, err := client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"integ@example.com"},
-		"display_name": {"Integration User"},
-		"password":     {"password123"},
+		"email":            {"integ@example.com"},
+		"display_name":     {"Integration User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	if err != nil {
 		t.Fatalf("POST /register: %v", err)
@@ -138,9 +139,10 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 
 	// Register first.
 	resp, err := client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"wrong@example.com"},
-		"display_name": {"Wrong PW"},
-		"password":     {"password123"},
+		"email":            {"wrong@example.com"},
+		"display_name":     {"Wrong PW"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	if err != nil {
 		t.Fatalf("POST /register: %v", err)
@@ -177,9 +179,10 @@ func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
 	}
 
 	form := url.Values{
-		"email":        {"dup@example.com"},
-		"display_name": {"Dup User"},
-		"password":     {"password123"},
+		"email":            {"dup@example.com"},
+		"display_name":     {"Dup User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	}
 
 	// Register first time.
@@ -219,9 +222,10 @@ func TestIntegration_RegisterWeakPassword(t *testing.T) {
 	}
 
 	resp, err := client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"weak@example.com"},
-		"display_name": {"Weak PW"},
-		"password":     {"short"},
+		"email":            {"weak@example.com"},
+		"display_name":     {"Weak PW"},
+		"password":         {"short"},
+		"confirm_password": {"short"},
 	})
 	if err != nil {
 		t.Fatalf("POST /register: %v", err)
@@ -306,9 +310,10 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 
 	// Register and login.
 	resp, err := client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"stitch@example.com"},
-		"display_name": {"Stitch User"},
-		"password":     {"password123"},
+		"email":            {"stitch@example.com"},
+		"display_name":     {"Stitch User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	if err != nil {
 		t.Fatalf("POST /register: %v", err)
@@ -441,9 +446,10 @@ func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"filter@example.com"},
-		"display_name": {"Filter User"},
-		"password":     {"password123"},
+		"email":            {"filter@example.com"},
+		"display_name":     {"Filter User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"filter@example.com"},
@@ -501,9 +507,10 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"pattern@example.com"},
-		"display_name": {"Pattern User"},
-		"password":     {"password123"},
+		"email":            {"pattern@example.com"},
+		"display_name":     {"Pattern User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"pattern@example.com"},
@@ -662,9 +669,10 @@ func TestIntegration_Pattern_ViewWithTextPreview(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"preview@example.com"},
-		"display_name": {"Preview User"},
-		"password":     {"password123"},
+		"email":            {"preview@example.com"},
+		"display_name":     {"Preview User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"preview@example.com"},
@@ -771,9 +779,10 @@ func TestIntegration_Pattern_EditorPreview(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"editorpreview@example.com"},
-		"display_name": {"Editor Preview User"},
-		"password":     {"password123"},
+		"email":            {"editorpreview@example.com"},
+		"display_name":     {"Editor Preview User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"editorpreview@example.com"},
@@ -857,9 +866,10 @@ func TestIntegration_Pattern_Duplicate(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"dup-pattern@example.com"},
-		"display_name": {"Dup User"},
-		"password":     {"password123"},
+		"email":            {"dup-pattern@example.com"},
+		"display_name":     {"Dup User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"dup-pattern@example.com"},
@@ -1011,9 +1021,10 @@ func TestIntegration_WorkSession_NavigateToCompletion(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"session@example.com"},
-		"display_name": {"Session User"},
-		"password":     {"password123"},
+		"email":            {"session@example.com"},
+		"display_name":     {"Session User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"session@example.com"},
@@ -1137,9 +1148,10 @@ func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
 
 	// Register and login.
 	client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"backward@example.com"},
-		"display_name": {"Backward User"},
-		"password":     {"password123"},
+		"email":            {"backward@example.com"},
+		"display_name":     {"Backward User"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	client.PostForm(srv.URL+"/login", url.Values{
 		"email":    {"backward@example.com"},
@@ -1249,9 +1261,10 @@ func TestFullHappyPath(t *testing.T) {
 
 	// 1. Register a new user.
 	resp, err := client.PostForm(srv.URL+"/register", url.Values{
-		"email":        {"happy@example.com"},
-		"display_name": {"Happy Crocheter"},
-		"password":     {"password123"},
+		"email":            {"happy@example.com"},
+		"display_name":     {"Happy Crocheter"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
 	})
 	if err != nil {
 		t.Fatalf("register: %v", err)

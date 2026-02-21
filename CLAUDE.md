@@ -772,7 +772,7 @@ These are post-v1 improvements to be implemented incrementally. Each item should
 
 ---
 
-### IMP-1: Registration — Confirm Password Field
+### IMP-1: Registration — Confirm Password Field ✅ Complete
 
 **Problem**: The registration form has a single password field. There is no protection against the user mistyping their password and being locked out.
 
@@ -784,7 +784,7 @@ These are post-v1 improvements to be implemented incrementally. Each item should
 
 ---
 
-### IMP-2: Registration & Login — Form Validation Without Clearing
+### IMP-2: Registration & Login — Form Validation Without Clearing ✅ Complete
 
 **Problem**: When a registration or login form submission fails (validation error, duplicate email, wrong password, etc.), the form is cleared, forcing the user to re-enter all fields from scratch.
 

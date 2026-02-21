@@ -37,7 +37,9 @@ templ Layout(title string, displayName string) {
 						<div class="navbar-item has-dropdown is-hoverable">
 							<a class="navbar-link" aria-haspopup="true">{ displayName }</a>
 							<div class="navbar-dropdown is-right" role="menu">
-								<a class="navbar-item" href="/logout" role="menuitem">Logout</a>
+								<form method="POST" action="/logout">
+									<button class="navbar-item button is-ghost" type="submit" role="menuitem">Logout</button>
+								</form>
 							</div>
 						</div>
 					} else {

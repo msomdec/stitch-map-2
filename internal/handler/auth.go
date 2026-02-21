@@ -22,12 +22,12 @@ func NewAuthHandler(auth *service.AuthService) *AuthHandler {
 
 // ShowLogin renders the login page.
 func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
-	view.LoginPage("").Render(r.Context(), w)
+	view.LoginPage("", "").Render(r.Context(), w)
 }
 
 // ShowRegister renders the registration page.
 func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
-	view.RegisterPage("").Render(r.Context(), w)
+	view.RegisterPage("", "", "").Render(r.Context(), w)
 }
 
 // HandleRegister processes the registration form submission.
@@ -41,8 +41,9 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	displayName := r.FormValue("display_name")
 	password := r.FormValue("password")
+	confirmPassword := r.FormValue("confirm_password")
 
-	_, err := h.auth.Register(r.Context(), email, displayName, password)
+	_, err := h.auth.Register(r.Context(), email, displayName, password, confirmPassword)
 	if err != nil {
 		var errMsg string
 		if errors.Is(err, domain.ErrDuplicateEmail) {
@@ -54,7 +55,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			errMsg = "An unexpected error occurred. Please try again."
 		}
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		view.RegisterPage(errMsg).Render(r.Context(), w)
+		view.RegisterPage(errMsg, email, displayName).Render(r.Context(), w)
 		return
 	}
 
@@ -82,7 +83,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			errMsg = "An unexpected error occurred. Please try again."
 		}
 		w.WriteHeader(http.StatusUnauthorized)
-		view.LoginPage(errMsg).Render(r.Context(), w)
+		view.LoginPage(errMsg, email).Render(r.Context(), w)
 		return
 	}
 

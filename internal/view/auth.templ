@@ -1,6 +1,6 @@
 package view
 
-templ LoginPage(errMsg string) {
+templ LoginPage(errMsg string, email string) {
 	@Layout("Login", "") {
 		<div class="columns is-centered">
 			<div class="column is-4">
@@ -14,7 +14,7 @@ templ LoginPage(errMsg string) {
 					<div class="field">
 						<label class="label" for="email">Email</label>
 						<div class="control">
-							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com"/>
+							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com" value={ email }/>
 						</div>
 					</div>
 					<div class="field">
@@ -37,7 +37,7 @@ templ LoginPage(errMsg string) {
 	}
 }
 
-templ RegisterPage(errMsg string) {
+templ RegisterPage(errMsg string, email string, displayName string) {
 	@Layout("Register", "") {
 		<div class="columns is-centered">
 			<div class="column is-4">
@@ -51,19 +51,25 @@ templ RegisterPage(errMsg string) {
 					<div class="field">
 						<label class="label" for="email">Email</label>
 						<div class="control">
-							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com"/>
+							<input class="input" type="email" id="email" name="email" required placeholder="you@example.com" value={ email }/>
 						</div>
 					</div>
 					<div class="field">
 						<label class="label" for="display_name">Display Name</label>
 						<div class="control">
-							<input class="input" type="text" id="display_name" name="display_name" required placeholder="Your Name"/>
+							<input class="input" type="text" id="display_name" name="display_name" required placeholder="Your Name" value={ displayName }/>
 						</div>
 					</div>
 					<div class="field">
 						<label class="label" for="password">Password</label>
 						<div class="control">
 							<input class="input" type="password" id="password" name="password" required placeholder="At least 8 characters"/>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label" for="confirm_password">Confirm Password</label>
+						<div class="control">
+							<input class="input" type="password" id="confirm_password" name="confirm_password" required placeholder="Re-enter your password"/>
 						</div>
 					</div>
 					<div class="field">

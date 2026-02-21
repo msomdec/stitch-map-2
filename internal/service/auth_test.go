@@ -35,7 +35,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	user, err := auth.Register(ctx, "new@example.com", "New User", "password123")
+	user, err := auth.Register(ctx, "new@example.com", "New User", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -52,12 +52,12 @@ func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "dup@example.com", "User 1", "password123")
+	_, err := auth.Register(ctx, "dup@example.com", "User 1", "password123", "password123")
 	if err != nil {
 		t.Fatalf("first register: %v", err)
 	}
 
-	_, err = auth.Register(ctx, "dup@example.com", "User 2", "password456")
+	_, err = auth.Register(ctx, "dup@example.com", "User 2", "password456", "password456")
 	if !errors.Is(err, domain.ErrDuplicateEmail) {
 		t.Fatalf("expected ErrDuplicateEmail, got %v", err)
 	}
@@ -67,9 +67,19 @@ func TestAuthService_Register_WeakPassword(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "weak@example.com", "Weak", "short")
+	_, err := auth.Register(ctx, "weak@example.com", "Weak", "short", "short")
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestAuthService_Register_PasswordMismatch(t *testing.T) {
+	auth, _ := newTestAuthService(t)
+	ctx := context.Background()
+
+	_, err := auth.Register(ctx, "mismatch@example.com", "Mismatch", "password123", "different456")
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for password mismatch, got %v", err)
 	}
 }
 
@@ -90,7 +100,7 @@ func TestAuthService_Register_EmptyFields(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := auth.Register(ctx, tc.email, tc.display, tc.password)
+			_, err := auth.Register(ctx, tc.email, tc.display, tc.password, tc.password)
 			if !errors.Is(err, domain.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
@@ -102,7 +112,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "login@example.com", "Login User", "password123")
+	_, err := auth.Register(ctx, "login@example.com", "Login User", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -120,7 +130,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "wrongpw@example.com", "User", "password123")
+	_, err := auth.Register(ctx, "wrongpw@example.com", "User", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -145,7 +155,7 @@ func TestAuthService_JWT_GenerateAndValidate(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	user, err := auth.Register(ctx, "jwt@example.com", "JWT User", "password123")
+	user, err := auth.Register(ctx, "jwt@example.com", "JWT User", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -178,7 +188,7 @@ func TestAuthService_JWT_TamperedToken(t *testing.T) {
 	auth, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "tamper@example.com", "Tamper", "password123")
+	_, err := auth.Register(ctx, "tamper@example.com", "Tamper", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -200,7 +210,7 @@ func TestAuthService_JWT_WrongSecret(t *testing.T) {
 	auth1, _ := newTestAuthService(t)
 	ctx := context.Background()
 
-	_, err := auth1.Register(ctx, "secret@example.com", "Secret", "password123")
+	_, err := auth1.Register(ctx, "secret@example.com", "Secret", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}

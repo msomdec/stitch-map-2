@@ -36,7 +36,7 @@ func TestRequireAuth_ValidJWT(t *testing.T) {
 	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "valid@example.com", "Valid User", "password123")
+	_, err := auth.Register(ctx, "valid@example.com", "Valid User", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestRequireAuth_TamperedToken(t *testing.T) {
 	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "tamper@example.com", "Tamper", "password123")
+	_, err := auth.Register(ctx, "tamper@example.com", "Tamper", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestOptionalAuth_WithToken(t *testing.T) {
 	auth, _, _, _ := newTestServices(t)
 	ctx := context.Background()
 
-	_, err := auth.Register(ctx, "opt@example.com", "Optional", "password123")
+	_, err := auth.Register(ctx, "opt@example.com", "Optional", "password123", "password123")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}

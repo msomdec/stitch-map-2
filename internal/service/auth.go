@@ -29,9 +29,13 @@ func NewAuthService(users domain.UserRepository, jwtSecret string, bcryptCost in
 }
 
 // Register creates a new user account after validating inputs.
-func (s *AuthService) Register(ctx context.Context, email, displayName, password string) (*domain.User, error) {
+func (s *AuthService) Register(ctx context.Context, email, displayName, password, confirmPassword string) (*domain.User, error) {
 	if email == "" || displayName == "" || password == "" {
 		return nil, fmt.Errorf("%w: email, display name, and password are required", domain.ErrInvalidInput)
+	}
+
+	if password != confirmPassword {
+		return nil, fmt.Errorf("%w: passwords do not match", domain.ErrInvalidInput)
 	}
 
 	if len(password) < 8 {

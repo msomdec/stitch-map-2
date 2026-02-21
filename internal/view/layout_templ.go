@@ -70,7 +70,7 @@ func Layout(title string, displayName string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</a><div class=\"navbar-dropdown is-right\" role=\"menu\"><a class=\"navbar-item\" href=\"/logout\" role=\"menuitem\">Logout</a></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</a><div class=\"navbar-dropdown is-right\" role=\"menu\"><form method=\"POST\" action=\"/logout\"><button class=\"navbar-item button is-ghost\" type=\"submit\" role=\"menuitem\">Logout</button></form></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
