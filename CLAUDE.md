@@ -942,3 +942,46 @@ The following questions must be answered and this section updated before impleme
 - `POST /settings/password` — updates password, no JWT change needed (password is not in token claims).
 
 **Regression gate**: All existing tests pass. New integration test covers: update display name → verify JWT updated; update email (wrong password → error, duplicate email → error, success → JWT updated); update password (wrong current → error, mismatch confirm → error, success).
+
+---
+
+### IMP-10: Integration Test Layer — SSE Body & HTML Structure Assertions
+
+**Problem**: The existing `net/http/httptest` integration tests verify HTTP status codes and redirect targets but do not inspect SSE response payloads or the HTML structure of rendered fragments. This means Datastar wiring bugs (wrong target element ID, missing field in a re-rendered form, incorrect SSE event type) go undetected until manual testing.
+
+**Approach**: Add `github.com/PuerkitoBio/goquery` as a test-only dependency. `goquery` is a pure-Go HTML parser with a jQuery-style selector API, widely used in the Go ecosystem. It adds no runtime overhead and requires no build tooling.
+
+**What to assert with this layer**:
+- SSE response bodies contain the expected `data-swap-target` / element ID being patched.
+- Re-rendered form fragments contain the correct pre-populated field values after a validation error (verifying IMP-2 behaviour).
+- Required field indicators are present in rendered form HTML (verifying IMP-3 behaviour).
+- Session cards on the dashboard contain the pattern name, status badge, and position summary (verifying IMP-6 behaviour).
+- Settings page sections render the current user's display name and email pre-populated (verifying IMP-9 behaviour).
+
+**Scope**: Test helpers only — no new test binaries or separate test packages. Extend the existing `newTestServices` pattern with a `parseSSE(body string) *goquery.Document` helper that extracts the HTML payload from an SSE event and returns a queryable document.
+
+**What this layer does NOT cover**: browser-executed JavaScript, keyboard/touch event handlers, `beforeunload` lifecycle events, or visual layout. Those are tracked separately in IMP-11.
+
+**Dependency addition**: `github.com/PuerkitoBio/goquery` — add to `go.mod` as a direct dependency (it is used in `_test.go` files, but Go does not distinguish test-only module dependencies).
+
+---
+
+### IMP-11: Browser Automation Test Suite (Idea — Not Scheduled)
+
+> **Status: IDEA TRACKING ONLY** — This is a forward-looking note, not a scheduled work item. Do not implement until the keyboard/touch flows and auto-pause behaviour (IMP-6) are stable and the benefit of browser-level coverage clearly outweighs the maintenance cost of flaky browser tests.
+
+**Concept**: A small `go-rod` (pure Go, Chrome DevTools Protocol) test suite covering the handful of user flows that are genuinely only verifiable in a real browser. `go-rod` requires no Node.js or npm — only Go and a Chrome/Chromium binary, both present on standard CI runners.
+
+**Candidate flows for browser coverage** (when the time comes):
+- Keyboard navigation in the work session tracker (Space/Arrow forward, Backspace/Arrow backward, Esc pause-and-exit).
+- Auto-pause on navigate-away: click a navbar link mid-session and verify the session status becomes "paused" in the database.
+- Swipe/touch gesture navigation in the tracker on a simulated mobile viewport.
+- Datastar signal binding on the pattern editor: add a stitch entry and verify the SSE-updated fragment appears in the correct DOM location.
+
+**Why deferred**:
+- Browser tests are slower and more prone to timing-related flakiness than HTTP tests.
+- The flows above do not yet have stable implementations (IMP-6 auto-pause is not built; keyboard Esc is unwired).
+- IMP-7 (custom CSS) will restructure the DOM significantly — browser tests written against the current Bulma markup would need to be rewritten.
+- IMP-10 (SSE body assertions) should be implemented first; many suspected browser-only issues may turn out to be catchable at the HTTP level.
+
+**Revisit when**: IMP-6 and IMP-7 are both complete and the UI is considered stable.
