@@ -237,7 +237,8 @@ func (s *WorkSessionService) AdvanceSession(ctx context.Context, session *domain
 	completed := NavigateForward(session, pattern)
 	if completed {
 		session.Status = domain.SessionStatusCompleted
-		session.CompletedAt = new(time.Now().UTC())
+		now := time.Now().UTC()
+		session.CompletedAt = &now
 	}
 	if err := s.sessions.Update(ctx, session); err != nil {
 		return false, fmt.Errorf("update session: %w", err)
