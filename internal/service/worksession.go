@@ -263,6 +263,17 @@ type SessionProgress struct {
 	CurrentName       string // Current stitch name
 	PrevAbbr          string // Previous stitch abbreviation (empty if at start)
 	NextAbbr          string // Next stitch abbreviation (empty if at end)
+	Groups            []GroupProgress
+}
+
+// GroupProgress tracks progress for an individual instruction group.
+type GroupProgress struct {
+	Label            string
+	RepeatCount      int
+	CurrentRepeat    int    // 1-based, only meaningful when Status == "current"
+	Status           string // "completed", "current", "upcoming"
+	CompletedInGroup int
+	TotalInGroup     int
 }
 
 // ComputeProgress calculates the current progress through a pattern.
@@ -338,6 +349,46 @@ func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern, stitc
 		progress.PrevAbbr = getPrevStitchAbbr(session, pattern, lookup)
 		// Next stitch info.
 		progress.NextAbbr = getNextStitchAbbr(session, pattern, lookup)
+	}
+
+	// Build per-group progress.
+	progress.Groups = make([]GroupProgress, len(groups))
+	for gi := range groups {
+		group := &groups[gi]
+		singleRepeatCount := GroupStitchCount(group)
+		totalInGroup := singleRepeatCount * group.RepeatCount
+
+		gp := GroupProgress{
+			Label:        group.Label,
+			RepeatCount:  group.RepeatCount,
+			TotalInGroup: totalInGroup,
+		}
+
+		if gi < session.CurrentGroupIndex {
+			gp.Status = "completed"
+			gp.CompletedInGroup = totalInGroup
+		} else if gi == session.CurrentGroupIndex {
+			gp.Status = "current"
+			gp.CurrentRepeat = session.CurrentGroupRepeat + 1 // 1-based
+			// Completed stitches within this group: full repeats + partial current repeat.
+			completedInGroup := singleRepeatCount * session.CurrentGroupRepeat
+			for ei := 0; ei < len(group.StitchEntries); ei++ {
+				entry := &group.StitchEntries[ei]
+				entryTotal := entry.Count * entry.RepeatCount
+				if ei < session.CurrentStitchIndex {
+					completedInGroup += entryTotal
+				} else if ei == session.CurrentStitchIndex {
+					completedInGroup += entry.Count * session.CurrentStitchRepeat
+					completedInGroup += session.CurrentStitchCount
+				}
+			}
+			gp.CompletedInGroup = completedInGroup
+		} else {
+			gp.Status = "upcoming"
+			gp.CompletedInGroup = 0
+		}
+
+		progress.Groups[gi] = gp
 	}
 
 	return progress

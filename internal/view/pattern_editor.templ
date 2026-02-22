@@ -157,7 +157,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 					Save changes to this pattern?
 				</section>
 				<footer class="modal-card-foot">
-					<button class="button is-primary" type="button" onclick="window.__formSubmitting=true;document.getElementById('pattern-form').submit()">Save</button>
+					<button class="button is-primary" type="button" onclick="var f=document.getElementById('pattern-form');if(f.reportValidity()){window.__formSubmitting=true;f.submit();}">Save</button>
 					<button class="button" type="button" onclick="this.closest('.modal').classList.remove('is-active')">Cancel</button>
 				</footer>
 			</div>
@@ -216,8 +216,7 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 			class="button is-danger is-outlined is-small remove-part-btn"
 			style="position: absolute; top: 0.75rem; right: 0.75rem;"
 			title="Remove part"
-			onclick="if(!confirm('Remove this part and all its stitches?')){event.stopImmediatePropagation();}"
-			data-on:click={ fmt.Sprintf("@post('/patterns/editor/remove-part/%d')", gi) }
+			onclick={ removePartOnclick(strconv.Itoa(gi)) }
 		>
 			&times;
 		</button>
@@ -326,8 +325,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 				type="button"
 				class="button is-danger is-outlined is-small remove-entry-btn"
 				title="Remove stitch"
-				onclick="if(!confirm('Remove this stitch?')){event.stopImmediatePropagation();}"
-				data-on:click={ fmt.Sprintf("@post('/patterns/editor/remove-entry/%d/%d')", gi, ei) }
+				onclick={ removeEntryOnclick("entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei)) }
 			>
 				&times;
 			</button>
@@ -411,4 +409,16 @@ func editorNextSignalIndex(pattern *domain.Pattern) int {
 		}
 	}
 	return maxIdx + 100
+}
+
+script removePartOnclick(partID string) {
+	showConfirmModal('Remove Part', 'Remove this part and all its stitches?', function() {
+		document.getElementById('part-' + partID).remove();
+	})
+}
+
+script removeEntryOnclick(entryID string) {
+	showConfirmModal('Remove Stitch', 'Remove this stitch entry?', function() {
+		document.getElementById(entryID).remove();
+	})
 }

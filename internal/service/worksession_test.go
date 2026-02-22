@@ -561,3 +561,109 @@ func TestNavigateForward_SingleStitch(t *testing.T) {
 		t.Fatal("single stitch pattern should be completed after one forward")
 	}
 }
+
+func TestComputeProgress_GroupsStatus_AtStart(t *testing.T) {
+	pattern := complexPattern() // 3 groups
+	session := newSession()
+	stitches := testStitches()
+
+	progress := ComputeProgress(session, pattern, stitches)
+
+	if len(progress.Groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(progress.Groups))
+	}
+	if progress.Groups[0].Status != "current" {
+		t.Fatalf("expected group 0 status 'current', got %q", progress.Groups[0].Status)
+	}
+	if progress.Groups[1].Status != "upcoming" {
+		t.Fatalf("expected group 1 status 'upcoming', got %q", progress.Groups[1].Status)
+	}
+	if progress.Groups[2].Status != "upcoming" {
+		t.Fatalf("expected group 2 status 'upcoming', got %q", progress.Groups[2].Status)
+	}
+	if progress.Groups[1].CompletedInGroup != 0 {
+		t.Fatalf("expected upcoming group completed 0, got %d", progress.Groups[1].CompletedInGroup)
+	}
+}
+
+func TestComputeProgress_GroupsStatus_MiddleGroup(t *testing.T) {
+	pattern := complexPattern() // Round 1: MR + 2sc (3), Round 2: inc×2 (2), Round 3 ×2: 2sc (4)
+	session := newSession()
+	stitches := testStitches()
+
+	// Advance through all of group 0 (3 stitches) into group 1.
+	for range 3 {
+		NavigateForward(session, pattern)
+	}
+
+	progress := ComputeProgress(session, pattern, stitches)
+
+	if progress.Groups[0].Status != "completed" {
+		t.Fatalf("expected group 0 status 'completed', got %q", progress.Groups[0].Status)
+	}
+	if progress.Groups[0].CompletedInGroup != progress.Groups[0].TotalInGroup {
+		t.Fatalf("expected completed group 0: %d/%d", progress.Groups[0].CompletedInGroup, progress.Groups[0].TotalInGroup)
+	}
+	if progress.Groups[1].Status != "current" {
+		t.Fatalf("expected group 1 status 'current', got %q", progress.Groups[1].Status)
+	}
+	if progress.Groups[2].Status != "upcoming" {
+		t.Fatalf("expected group 2 status 'upcoming', got %q", progress.Groups[2].Status)
+	}
+}
+
+func TestComputeProgress_GroupsCompletedInGroup(t *testing.T) {
+	pattern := simplePattern() // 6 sc in one group
+	session := newSession()
+	stitches := testStitches()
+
+	// Advance 4 of 6 stitches.
+	for range 4 {
+		NavigateForward(session, pattern)
+	}
+
+	progress := ComputeProgress(session, pattern, stitches)
+
+	if len(progress.Groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(progress.Groups))
+	}
+	g := progress.Groups[0]
+	if g.Status != "current" {
+		t.Fatalf("expected status 'current', got %q", g.Status)
+	}
+	if g.CompletedInGroup != 4 {
+		t.Fatalf("expected 4 completed in group, got %d", g.CompletedInGroup)
+	}
+	if g.TotalInGroup != 6 {
+		t.Fatalf("expected 6 total in group, got %d", g.TotalInGroup)
+	}
+}
+
+func TestComputeProgress_GroupsWithRepeats(t *testing.T) {
+	pattern := groupRepeatPattern() // "Rounds 3-5" ×3, 2 sc per repeat
+	session := newSession()
+	stitches := testStitches()
+
+	// Advance through first repeat (2 stitches) into second repeat.
+	NavigateForward(session, pattern)
+	NavigateForward(session, pattern)
+
+	progress := ComputeProgress(session, pattern, stitches)
+
+	if len(progress.Groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(progress.Groups))
+	}
+	g := progress.Groups[0]
+	if g.RepeatCount != 3 {
+		t.Fatalf("expected repeat count 3, got %d", g.RepeatCount)
+	}
+	if g.CurrentRepeat != 2 {
+		t.Fatalf("expected current repeat 2 (1-based), got %d", g.CurrentRepeat)
+	}
+	if g.TotalInGroup != 6 {
+		t.Fatalf("expected 6 total in group (2×3), got %d", g.TotalInGroup)
+	}
+	if g.CompletedInGroup != 2 {
+		t.Fatalf("expected 2 completed in group, got %d", g.CompletedInGroup)
+	}
+}

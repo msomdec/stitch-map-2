@@ -243,7 +243,7 @@ func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []d
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div><!-- Add Part Button --><div class=\"mb-5\"><button type=\"button\" class=\"button is-primary is-outlined\" data-on:click=\"@post('/patterns/editor/add-part?gi=' + $nextidx); $nextidx = $nextidx + 1\">+ Add Part</button></div></div><!-- Submit --><div class=\"field is-grouped\"><div class=\"control\"><button class=\"button is-primary\" type=\"button\" onclick=\"document.getElementById('save-modal').classList.add('is-active')\">Save Pattern</button></div><div class=\"control\"><button type=\"button\" class=\"button is-info\" onclick=\"document.getElementById('preview-modal').classList.add('is-active')\">Preview</button></div><div class=\"control\"><button type=\"button\" class=\"button is-light\" onclick=\"document.getElementById('cancel-modal').classList.add('is-active')\">Cancel</button></div></div></form><!-- Save Confirmation Modal --> <div id=\"save-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-card\"><header class=\"modal-card-head\"><p class=\"modal-card-title\">Save Pattern</p><button class=\"delete\" aria-label=\"close\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\"></button></header><section class=\"modal-card-body\">Save changes to this pattern?</section><footer class=\"modal-card-foot\"><button class=\"button is-primary\" type=\"button\" onclick=\"window.__formSubmitting=true;document.getElementById('pattern-form').submit()\">Save</button> <button class=\"button\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\">Cancel</button></footer></div></div><!-- Cancel Confirmation Modal --> <div id=\"cancel-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-card\"><header class=\"modal-card-head\"><p class=\"modal-card-title\">Discard Changes</p><button class=\"delete\" aria-label=\"close\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\"></button></header><section class=\"modal-card-body\">Discard unsaved changes?</section><footer class=\"modal-card-foot\"><button class=\"button is-danger\" type=\"button\" onclick=\"window.__formSubmitting=true;window.location.href='/patterns'\">Discard</button> <button class=\"button\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\">Keep Editing</button></footer></div></div><!-- Preview Modal --> <div id=\"preview-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-content\"><div class=\"box\"><h2 class=\"title is-5\">Pattern Preview</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div><!-- Add Part Button --><div class=\"mb-5\"><button type=\"button\" class=\"button is-primary is-outlined\" data-on:click=\"@post('/patterns/editor/add-part?gi=' + $nextidx); $nextidx = $nextidx + 1\">+ Add Part</button></div></div><!-- Submit --><div class=\"field is-grouped\"><div class=\"control\"><button class=\"button is-primary\" type=\"button\" onclick=\"document.getElementById('save-modal').classList.add('is-active')\">Save Pattern</button></div><div class=\"control\"><button type=\"button\" class=\"button is-info\" onclick=\"document.getElementById('preview-modal').classList.add('is-active')\">Preview</button></div><div class=\"control\"><button type=\"button\" class=\"button is-light\" onclick=\"document.getElementById('cancel-modal').classList.add('is-active')\">Cancel</button></div></div></form><!-- Save Confirmation Modal --> <div id=\"save-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-card\"><header class=\"modal-card-head\"><p class=\"modal-card-title\">Save Pattern</p><button class=\"delete\" aria-label=\"close\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\"></button></header><section class=\"modal-card-body\">Save changes to this pattern?</section><footer class=\"modal-card-foot\"><button class=\"button is-primary\" type=\"button\" onclick=\"var f=document.getElementById('pattern-form');if(f.reportValidity()){window.__formSubmitting=true;f.submit();}\">Save</button> <button class=\"button\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\">Cancel</button></footer></div></div><!-- Cancel Confirmation Modal --> <div id=\"cancel-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-card\"><header class=\"modal-card-head\"><p class=\"modal-card-title\">Discard Changes</p><button class=\"delete\" aria-label=\"close\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\"></button></header><section class=\"modal-card-body\">Discard unsaved changes?</section><footer class=\"modal-card-foot\"><button class=\"button is-danger\" type=\"button\" onclick=\"window.__formSubmitting=true;window.location.href='/patterns'\">Discard</button> <button class=\"button\" type=\"button\" onclick=\"this.closest('.modal').classList.remove('is-active')\">Keep Editing</button></footer></div></div><!-- Preview Modal --> <div id=\"preview-modal\" class=\"modal\"><div class=\"modal-background\" onclick=\"this.parentElement.classList.remove('is-active')\"></div><div class=\"modal-content\"><div class=\"box\"><h2 class=\"title is-5\">Pattern Preview</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -332,111 +332,115 @@ func groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) te
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" style=\"position: relative;\"><button type=\"button\" class=\"button is-danger is-outlined is-small remove-part-btn\" style=\"position: absolute; top: 0.75rem; right: 0.75rem;\" title=\"Remove part\" onclick=\"if(!confirm('Remove this part and all its stitches?')){event.stopImmediatePropagation();}\" data-on:click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" style=\"position: relative;\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@post('/patterns/editor/remove-part/%d')", gi))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 220, Col: 78}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, removePartOnclick(strconv.Itoa(gi)))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\">&times;</button><div class=\"columns\"><div class=\"column is-5\"><div class=\"field\"><label class=\"label\">Part Name <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"text\" name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<button type=\"button\" class=\"button is-danger is-outlined is-small remove-part-btn\" style=\"position: absolute; top: 0.75rem; right: 0.75rem;\" title=\"Remove part\" onclick=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var15 templ.ComponentScript = removePartOnclick(strconv.Itoa(gi))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15.Call)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\">&times;</button><div class=\"columns\"><div class=\"column is-5\"><div class=\"field\"><label class=\"label\">Part Name <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"text\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs("group_label_" + strconv.Itoa(gi))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 231, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 230, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(g.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 232, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 231, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" required placeholder=\"e.g., Brim, Body, Round 1\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><label class=\"label\">Quantity <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" required placeholder=\"e.g., Brim, Body, Round 1\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><label class=\"label\">Quantity <span class=\"has-text-danger\" aria-label=\"required\">*</span></label><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("group_repeat_" + strconv.Itoa(gi))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 242, Col: 82}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 241, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(maxInt(g.RepeatCount, 1)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 243, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 242, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" min=\"1\"></div></div></div><div class=\"column is-5\"><div class=\"field\"><label class=\"label\">Notes <span class=\"has-text-grey is-size-7\">(optional)</span></label><div class=\"control\"><input class=\"input\" type=\"text\" name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" min=\"1\"></div></div></div><div class=\"column is-5\"><div class=\"field\"><label class=\"label\">Notes <span class=\"has-text-grey is-size-7\">(optional)</span></label><div class=\"control\"><input class=\"input\" type=\"text\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("group_notes_" + strconv.Itoa(gi))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 253, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 252, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(g.Notes)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 254, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 253, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" placeholder=\"Notes for this part\"></div></div></div></div><h3 class=\"subtitle is-6\">Stitches</h3><!-- Entry column headers --><div class=\"columns is-vcentered mb-0\" style=\"font-size: 0.75rem; color: #888;\"><div class=\"column is-5\">Stitch <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-2\">Count <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-2\">Repeat <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-1\"></div></div><div id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" placeholder=\"Notes for this part\"></div></div></div></div><h3 class=\"subtitle is-6\">Stitches</h3><!-- Entry column headers --><div class=\"columns is-vcentered mb-0\" style=\"font-size: 0.75rem; color: #888;\"><div class=\"column is-5\">Stitch <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-2\">Count <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-2\">Repeat <span class=\"has-text-danger\" aria-label=\"required\">*</span></div><div class=\"column is-1\"></div></div><div id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("entries-" + strconv.Itoa(gi))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 267, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 266, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -453,20 +457,20 @@ func groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) te
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</div><button type=\"button\" class=\"button is-small is-primary is-outlined mt-2\" data-on:click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div><button type=\"button\" class=\"button is-small is-primary is-outlined mt-2\" data-on:click=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@post('/patterns/editor/add-entry/%d?ei=' + $nextidx); $nextidx = $nextidx + 1", gi))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 279, Col: 116}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 278, Col: 116}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\">+ Add Stitch</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\">+ Add Stitch</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -525,157 +529,161 @@ func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch)
 			templ_7745c5c3_Var25 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"columns is-vcentered mb-0\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<div class=\"columns is-vcentered mb-0\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs("entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 292, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 291, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"><div class=\"column is-5\"><div class=\"field\"><div class=\"control\"><div class=\"select is-fullwidth\"><select name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"><div class=\"column is-5\"><div class=\"field\"><div class=\"control\"><div class=\"select is-fullwidth\"><select name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var27 string
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs("entry_stitch_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 297, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 296, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\" required><option value=\"\">Select stitch</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" required><option value=\"\">Select stitch</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, s := range stitches {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<option value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(s.ID, 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 300, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 299, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if s.ID == e.StitchID {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " selected")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(s.Abbreviation)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 301, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 300, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " - ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, " - ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(s.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 301, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 300, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</option>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</option>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</select></div></div></div></div><div class=\"column is-2\"><div class=\"field\"><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</select></div></div></div></div><div class=\"column is-2\"><div class=\"field\"><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs("entry_count_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 311, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 310, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(maxInt(e.Count, 1)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 312, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 311, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\" min=\"1\" title=\"Count\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\" min=\"1\" title=\"Count\"></div></div></div><div class=\"column is-2\"><div class=\"field\"><div class=\"control\"><input class=\"input\" type=\"number\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs("entry_repeat_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 319, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 318, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(maxInt(e.RepeatCount, 1)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 320, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 319, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\" min=\"1\" title=\"Repeat\"></div></div></div><div class=\"column is-1\"><button type=\"button\" class=\"button is-danger is-outlined is-small remove-entry-btn\" title=\"Remove stitch\" onclick=\"if(!confirm('Remove this stitch?')){event.stopImmediatePropagation();}\" data-on:click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" min=\"1\" title=\"Repeat\"></div></div></div><div class=\"column is-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var35 string
-		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@post('/patterns/editor/remove-entry/%d/%d')", gi, ei))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 330, Col: 87}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, removeEntryOnclick("entry-"+strconv.Itoa(gi)+"-"+strconv.Itoa(ei)))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\">&times;</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<button type=\"button\" class=\"button is-danger is-outlined is-small remove-entry-btn\" title=\"Remove stitch\" onclick=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var35 templ.ComponentScript = removeEntryOnclick("entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35.Call)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\">&times;</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -784,6 +792,30 @@ func editorNextSignalIndex(pattern *domain.Pattern) int {
 		}
 	}
 	return maxIdx + 100
+}
+
+func removePartOnclick(partID string) templ.ComponentScript {
+	return templ.ComponentScript{
+		Name: `__templ_removePartOnclick_50f5`,
+		Function: `function __templ_removePartOnclick_50f5(partID){showConfirmModal('Remove Part', 'Remove this part and all its stitches?', function() {
+		document.getElementById('part-' + partID).remove();
+	})
+}`,
+		Call:       templ.SafeScript(`__templ_removePartOnclick_50f5`, partID),
+		CallInline: templ.SafeScriptInline(`__templ_removePartOnclick_50f5`, partID),
+	}
+}
+
+func removeEntryOnclick(entryID string) templ.ComponentScript {
+	return templ.ComponentScript{
+		Name: `__templ_removeEntryOnclick_3b28`,
+		Function: `function __templ_removeEntryOnclick_3b28(entryID){showConfirmModal('Remove Stitch', 'Remove this stitch entry?', function() {
+		document.getElementById(entryID).remove();
+	})
+}`,
+		Call:       templ.SafeScript(`__templ_removeEntryOnclick_3b28`, entryID),
+		CallInline: templ.SafeScriptInline(`__templ_removeEntryOnclick_3b28`, entryID),
+	}
 }
 
 var _ = templruntime.GeneratedTemplate

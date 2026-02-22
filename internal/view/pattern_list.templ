@@ -71,10 +71,11 @@ templ patternCard(p domain.Pattern) {
 					aria-label={ "Duplicate pattern " + p.Name }>Duplicate</button>
 			</form>
 			<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/delete") } style="display:contents;"
-				onsubmit="return confirm('Delete this pattern? This cannot be undone.')">
-				<button class="card-footer-item has-text-danger" type="submit"
+				id={ "delete-pattern-form-" + strconv.FormatInt(p.ID, 10) }>
+				<button class="card-footer-item has-text-danger" type="button"
 					style="border:none;background:none;cursor:pointer;"
-					aria-label={ "Delete pattern " + p.Name }>Delete</button>
+					aria-label={ "Delete pattern " + p.Name }
+					onclick={ deletePatternOnclick("delete-pattern-form-" + strconv.FormatInt(p.ID, 10), p.Name) }>Delete</button>
 			</form>
 		</footer>
 	</div>
@@ -85,4 +86,10 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "..."
+}
+
+script deletePatternOnclick(formID string, name string) {
+	showConfirmModal('Delete Pattern', 'Delete "' + name + '"? This cannot be undone.', function() {
+		document.getElementById(formID).submit();
+	})
 }

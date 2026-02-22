@@ -83,6 +83,40 @@ templ Layout(title string, displayName string) {
 					</div>
 				</section>
 			</main>
+			<!-- Shared Confirm Modal -->
+			<div id="confirm-modal" class="modal">
+				<div class="modal-background" onclick="closeConfirmModal()"></div>
+				<div class="modal-card">
+					<header class="modal-card-head">
+						<p class="modal-card-title" id="confirm-modal-title">Confirm</p>
+						<button class="delete" aria-label="close" type="button" onclick="closeConfirmModal()"></button>
+					</header>
+					<section class="modal-card-body">
+						<p id="confirm-modal-message">Are you sure?</p>
+					</section>
+					<footer class="modal-card-foot">
+						<button class="button is-danger" type="button" id="confirm-modal-action" onclick="executeConfirmAction()">Confirm</button>
+						<button class="button" type="button" onclick="closeConfirmModal()">Cancel</button>
+					</footer>
+				</div>
+			</div>
+			<script>
+				var __confirmCallback = null;
+				function showConfirmModal(title, message, actionFn) {
+					document.getElementById('confirm-modal-title').textContent = title;
+					document.getElementById('confirm-modal-message').textContent = message;
+					__confirmCallback = actionFn;
+					document.getElementById('confirm-modal').classList.add('is-active');
+				}
+				function executeConfirmAction() {
+					if (__confirmCallback) { __confirmCallback(); }
+					closeConfirmModal();
+				}
+				function closeConfirmModal() {
+					document.getElementById('confirm-modal').classList.remove('is-active');
+					__confirmCallback = null;
+				}
+			</script>
 		</body>
 	</html>
 }

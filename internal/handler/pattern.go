@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -414,9 +415,14 @@ func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 
 		for entrySortOrder, ei := range entryIndices {
 			stitchIDStr := r.FormValue("entry_stitch_" + strconv.Itoa(gi) + "_" + strconv.Itoa(ei))
+			if stitchIDStr == "" {
+				return nil, fmt.Errorf("%w: %s entry %d has no stitch selected",
+					domain.ErrInvalidInput, group.Label, entrySortOrder+1)
+			}
 			stitchID, err := strconv.ParseInt(stitchIDStr, 10, 64)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("%w: %s entry %d has an invalid stitch",
+					domain.ErrInvalidInput, group.Label, entrySortOrder+1)
 			}
 
 			entry := domain.StitchEntry{

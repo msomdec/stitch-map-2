@@ -381,25 +381,55 @@ func StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" style=\"display:inline;\" onsubmit=\"return confirm('Delete this custom stitch? This cannot be undone.')\"><button class=\"button is-small is-danger is-outlined\" type=\"submit\" aria-label=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" style=\"display:inline;\" id=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var18 string
-					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("Delete custom stitch " + s.Abbreviation)
+					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("delete-stitch-form-" + strconv.FormatInt(s.ID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 168, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 166, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\">Delete</button></form></td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, deleteStitchOnclick("delete-stitch-form-"+strconv.FormatInt(s.ID, 10), s.Abbreviation))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<button class=\"button is-small is-danger is-outlined\" type=\"button\" aria-label=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var19 string
+					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("Delete custom stitch " + s.Abbreviation)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/stitch_library.templ`, Line: 168, Col: 64}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\" onclick=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var20 templ.ComponentScript = deleteStitchOnclick("delete-stitch-form-"+strconv.FormatInt(s.ID, 10), s.Abbreviation)
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20.Call)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\">Delete</button></form></td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</tbody></table></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</tbody></table></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -432,6 +462,18 @@ func categoryTagClass(category string) string {
 		return "is-dark"
 	default:
 		return "is-light"
+	}
+}
+
+func deleteStitchOnclick(formID string, abbreviation string) templ.ComponentScript {
+	return templ.ComponentScript{
+		Name: `__templ_deleteStitchOnclick_f83d`,
+		Function: `function __templ_deleteStitchOnclick_f83d(formID, abbreviation){showConfirmModal('Delete Stitch', 'Delete custom stitch "' + abbreviation + '"? This cannot be undone.', function() {
+		document.getElementById(formID).submit();
+	})
+}`,
+		Call:       templ.SafeScript(`__templ_deleteStitchOnclick_f83d`, formID, abbreviation),
+		CallInline: templ.SafeScriptInline(`__templ_deleteStitchOnclick_f83d`, formID, abbreviation),
 	}
 }
 

@@ -163,9 +163,10 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 								<td>{ s.Description }</td>
 								<td>
 									<form method="POST" action={ templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete") } style="display:inline;"
-										onsubmit="return confirm('Delete this custom stitch? This cannot be undone.')" >
-										<button class="button is-small is-danger is-outlined" type="submit"
-											aria-label={ "Delete custom stitch " + s.Abbreviation }>Delete</button>
+										id={ "delete-stitch-form-" + strconv.FormatInt(s.ID, 10) }>
+										<button class="button is-small is-danger is-outlined" type="button"
+											aria-label={ "Delete custom stitch " + s.Abbreviation }
+											onclick={ deleteStitchOnclick("delete-stitch-form-" + strconv.FormatInt(s.ID, 10), s.Abbreviation) }>Delete</button>
 									</form>
 								</td>
 							</tr>
@@ -196,4 +197,10 @@ func categoryTagClass(category string) string {
 	default:
 		return "is-light"
 	}
+}
+
+script deleteStitchOnclick(formID string, abbreviation string) {
+	showConfirmModal('Delete Stitch', 'Delete custom stitch "' + abbreviation + '"? This cannot be undone.', function() {
+		document.getElementById(formID).submit();
+	})
 }

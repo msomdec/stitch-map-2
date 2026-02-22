@@ -41,12 +41,47 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 									</form>
 								}
 								<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/abandon") } style="display:inline;"
-									onsubmit="return confirm('Abandon this session? Your progress will be lost.')">
-									<button class="button is-danger is-small is-outlined" type="submit" title="Abandon (Esc)" aria-label="Abandon session">Abandon</button>
+									id="abandon-form">
+									<button class="button is-danger is-small is-outlined" type="button" title="Abandon (Esc)" aria-label="Abandon session"
+										onclick="showConfirmModal('Abandon Session', 'Abandon this session? Your progress will be lost.', function() { document.getElementById('abandon-form').submit(); })">Abandon</button>
 								</form>
 							</div>
 						</div>
 					</div>
+					<!-- Parts Overview Strip -->
+					if len(progress.Groups) > 1 {
+						<div class="mb-4" role="navigation" aria-label="Pattern parts overview">
+							<div class="tags are-medium" style="flex-wrap: wrap; gap: 0.25rem;">
+								for _, g := range progress.Groups {
+									if g.Status == "completed" {
+										<span class="tag is-success" title={ g.Label + " — complete" }>
+											&#10003; { g.Label }
+											if g.RepeatCount > 1 {
+												{ " ×" + strconv.Itoa(g.RepeatCount) }
+											}
+										</span>
+									}
+									if g.Status == "current" {
+										<span class="tag is-primary is-light" style="border: 2px solid hsl(171, 100%, 41%); font-weight: bold;"
+											title={ g.Label + " — in progress" }>
+											{ g.Label }
+											if g.RepeatCount > 1 {
+												{ " (" + strconv.Itoa(g.CurrentRepeat) + "/" + strconv.Itoa(g.RepeatCount) + ")" }
+											}
+										</span>
+									}
+									if g.Status == "upcoming" {
+										<span class="tag is-light" title={ g.Label + " — upcoming" }>
+											{ g.Label }
+											if g.RepeatCount > 1 {
+												{ " ×" + strconv.Itoa(g.RepeatCount) }
+											}
+										</span>
+									}
+								}
+							</div>
+						</div>
+					}
 					if session.Status == domain.SessionStatusPaused {
 						<div class="notification is-warning" role="status" aria-live="polite">
 							<strong>Session Paused</strong> — Resume to continue tracking.
@@ -80,6 +115,27 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 							</div>
 						</div>
 					</div>
+					<!-- Per-Group Progress Bar -->
+					if len(progress.Groups) > 1 {
+						for _, g := range progress.Groups {
+							if g.Status == "current" {
+								<div class="mb-3" role="region" aria-label={ g.Label + " progress" }>
+									<div class="is-flex is-justify-content-space-between mb-1">
+										<span class="is-size-7 has-text-grey">{ g.Label }</span>
+										<span class="is-size-7 has-text-grey" aria-live="polite">{ fmt.Sprintf("%d / %d", g.CompletedInGroup, g.TotalInGroup) }</span>
+									</div>
+									<progress class="progress is-info is-small" value={ strconv.Itoa(g.CompletedInGroup) } max={ strconv.Itoa(g.TotalInGroup) }
+										aria-valuenow={ strconv.Itoa(g.CompletedInGroup) }
+										aria-valuemin="0"
+										aria-valuemax={ strconv.Itoa(g.TotalInGroup) }>
+										if g.TotalInGroup > 0 {
+											{ fmt.Sprintf("%.0f%%", float64(g.CompletedInGroup)/float64(g.TotalInGroup)*100) }
+										}
+									</progress>
+								</div>
+							}
+						}
+					}
 					<!-- Progress Bar -->
 					<div class="mb-4" role="region" aria-label="Pattern progress">
 						<div class="is-flex is-justify-content-space-between mb-1">
