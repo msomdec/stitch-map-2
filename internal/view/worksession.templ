@@ -15,7 +15,8 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 			</div>
 		} else {
 			<div class="columns">
-				<div class="column is-8 is-offset-2">
+				<div class="column is-8 is-offset-2"
+					data-on-keydown__window={ sessionKeydownHandler(session.ID) }>
 					<!-- Pattern Name and Controls -->
 					<div class="level mb-2">
 						<div class="level-left">
@@ -31,27 +32,24 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 						<div class="level-right">
 							<div class="buttons">
 								if session.Status == domain.SessionStatusActive {
-									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/pause") } style="display:inline;">
+									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/pause") } class="form-contents" id="pause-form">
 										<button class="button is-warning is-small" type="submit" title="Pause (P)" aria-label="Pause session">Pause</button>
 									</form>
 								}
 								if session.Status == domain.SessionStatusPaused {
-									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/resume") } style="display:inline;">
+									<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/resume") } class="form-contents">
 										<button class="button is-success is-small" type="submit" aria-label="Resume session">Resume</button>
 									</form>
 								}
-								<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/abandon") } style="display:inline;"
-									id="abandon-form">
-									<button class="button is-danger is-small is-outlined" type="button" title="Abandon (Esc)" aria-label="Abandon session"
-										onclick="showConfirmModal('Abandon Session', 'Abandon this session? Your progress will be lost.', function() { document.getElementById('abandon-form').submit(); })">Abandon</button>
-								</form>
+								<button class="button is-danger is-small is-outlined" type="button" title="Abandon (Esc)" aria-label="Abandon session"
+									data-on-click={ fmt.Sprintf("$confirmTitle='Abandon Session'; $confirmMsg='Abandon this session? Your progress will be lost.'; $confirmUrl='/sessions/%d/abandon'; $confirmOpen=true", session.ID) }>Abandon</button>
 							</div>
 						</div>
 					</div>
 					<!-- Parts Overview Strip -->
 					if len(progress.Groups) > 1 {
 						<div class="mb-4" role="navigation" aria-label="Pattern parts overview">
-							<div class="tags are-medium" style="flex-wrap: wrap; gap: 0.25rem;">
+							<div class="tags are-medium">
 								for _, g := range progress.Groups {
 									if g.Status == "completed" {
 										<span class="tag is-success" title={ g.Label + " — complete" }>
@@ -62,7 +60,7 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 										</span>
 									}
 									if g.Status == "current" {
-										<span class="tag is-primary is-light" style="border: 2px solid hsl(171, 100%, 41%); font-weight: bold;"
+										<span class="tag is-primary is-light tag-current"
 											title={ g.Label + " — in progress" }>
 											{ g.Label }
 											if g.RepeatCount > 1 {
@@ -91,9 +89,9 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 					<div class="box has-text-centered py-6" id="stitch-display"
 						aria-label="Current stitch tracker"
 						style="touch-action: pan-y;">
-						<div class="is-flex is-justify-content-center is-align-items-center" style="gap: 2rem;">
+						<div class="is-flex is-justify-content-center is-align-items-center stitch-display-row">
 							<!-- Previous stitch -->
-							<div style="min-width: 80px;" aria-label="Previous stitch">
+							<div class="stitch-context" aria-label="Previous stitch">
 								if progress.PrevAbbr != "" {
 									<span class="tag is-medium is-light" aria-hidden="false">{ progress.PrevAbbr }</span>
 								}
@@ -108,7 +106,7 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 								}
 							</div>
 							<!-- Next stitch -->
-							<div style="min-width: 80px;" aria-label="Next stitch">
+							<div class="stitch-context" aria-label="Next stitch">
 								if progress.NextAbbr != "" {
 									<span class="tag is-medium is-light" aria-hidden="false">{ progress.NextAbbr }</span>
 								}
@@ -151,13 +149,13 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 					</div>
 					<!-- Navigation Buttons -->
 					if session.Status == domain.SessionStatusActive {
-						<div class="is-flex is-justify-content-center" style="gap: 1rem;" role="group" aria-label="Navigation controls">
-							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev") } style="display:inline;" id="prev-form">
+						<div class="buttons is-centered" role="group" aria-label="Navigation controls">
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/prev") } class="form-contents" id="prev-form">
 								<button class="button is-medium" type="submit" title="Previous stitch (Left Arrow / Backspace)" aria-label="Previous stitch">
 									<span aria-hidden="true">&#8592;</span> Back
 								</button>
 							</form>
-							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next") } style="display:inline;" id="next-form">
+							<form method="POST" action={ templ.SafeURL("/sessions/" + strconv.FormatInt(session.ID, 10) + "/next") } class="form-contents" id="next-form">
 								<button class="button is-primary is-medium" type="submit" title="Next stitch (Right Arrow / Space)" aria-label="Next stitch">
 									Next <span aria-hidden="true">&#8594;</span>
 								</button>
@@ -166,21 +164,9 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 						<p class="has-text-centered has-text-grey is-size-7 mt-3">
 							Keyboard: Space/Right = forward, Backspace/Left = backward, P = pause, Esc = abandon
 						</p>
-						<!-- Keyboard and swipe support -->
+						<!-- Touch/swipe support -->
 						<script>
 							(function() {
-								document.addEventListener('keydown', function(e) {
-									if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-									if (e.key === ' ' || e.key === 'ArrowRight') {
-										e.preventDefault();
-										document.getElementById('next-form').submit();
-									} else if (e.key === 'Backspace' || e.key === 'ArrowLeft') {
-										e.preventDefault();
-										document.getElementById('prev-form').submit();
-									}
-								});
-
-								// Touch/swipe support.
 								var touchStartX = 0;
 								var touchStartY = 0;
 								var display = document.getElementById('stitch-display');
@@ -208,4 +194,15 @@ templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *
 			</div>
 		}
 	}
+}
+
+func sessionKeydownHandler(sessionID int64) string {
+	return fmt.Sprintf(
+		"if (evt.target.tagName === 'INPUT' || evt.target.tagName === 'TEXTAREA') return; "+
+			"if (evt.key === ' ' || evt.key === 'ArrowRight') { evt.preventDefault(); document.getElementById('next-form').submit(); } "+
+			"else if (evt.key === 'Backspace' || evt.key === 'ArrowLeft') { evt.preventDefault(); document.getElementById('prev-form').submit(); } "+
+			"else if (evt.key === 'p' || evt.key === 'P') { var pf = document.getElementById('pause-form'); if (pf) pf.submit(); } "+
+			"else if (evt.key === 'Escape') { $confirmTitle='Abandon Session'; $confirmMsg='Abandon this session? Your progress will be lost.'; $confirmUrl='/sessions/%d/abandon'; $confirmOpen=true; }",
+		sessionID,
+	)
 }

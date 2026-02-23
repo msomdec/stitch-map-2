@@ -148,3 +148,278 @@ The following questions must be answered and this section updated before impleme
 - `internal/view/layout.templ` or `static/style.css` — CSS for hiding number spinners
 
 **Regression gate**: All existing tests pass. Pattern create/edit/duplicate flows continue to work. Existing patterns with `into_stitch` data are not corrupted (column remains in DB, just not surfaced in the editor). The `stitch_entries.notes` column is dropped — any existing data there is lost (acceptable since this field was rarely used and part-level notes replace it).
+
+---
+
+### IMP-8: UI Consistency — Spacing, Button Grouping & Datastar Adoption
+
+**Problem**: The UI has accumulated inconsistent button spacing, inline `style` attributes that duplicate Bulma utilities, forms with `style="display:inline"` that break flex/button-group spacing, and vanilla JavaScript for interactions that Datastar handles more cleanly. This improvement standardises spacing across all pages using Bulma's built-in layout components and migrates remaining vanilla JS interaction patterns to Datastar where it simplifies the code or improves maintainability.
+
+**Scope**: This is a purely front-end change — no database migrations, no domain/service changes, no new HTTP endpoints. All changes are in `.templ` files and the layout `<style>` block.
+
+---
+
+#### Part A: Spacing & Button Grouping
+
+These changes replace ad-hoc inline styles with idiomatic Bulma layout patterns. The guiding rules:
+
+- **Buttons side-by-side**: wrap in `<div class="buttons">`. Bulma handles the gap automatically.
+- **Form submit/cancel actions**: use `<div class="field is-grouped">` with `<div class="control">` wrappers.
+- **Left/right distribution** (title + action buttons): use `<div class="level">` with `level-left` / `level-right`.
+- **Vertical spacing between sections**: use Bulma spacing helpers (`mb-4`, `mt-5`, etc.) instead of inline `style="gap: …"` or `style="margin-top: …"`.
+- **Never use `style="display:inline"`** on `<form>` elements — it collapses flex spacing. Instead, either (a) remove the form wrapper entirely and use a Datastar `data-on:click="@post(…)"` on the button directly (preferred, see Part B), or (b) leave the form unstyled and let it participate normally in flex layout.
+
+##### A1. Dashboard — Quick Links buttons (`dashboard.templ`)
+
+**Before**: `<div class="buttons are-medium" style="flex-direction: column; align-items: flex-start;">`
+
+**After**: Replace with a simple vertical stack using individual `mb-2` spacing on `is-fullwidth` buttons (no `buttons` wrapper needed, since these are stacked, not side-by-side):
+
+```html
+<div>
+    <a class="button is-primary is-fullwidth is-medium mb-2" href="/patterns">My Patterns</a>
+    <a class="button is-link is-fullwidth is-medium mb-2" href="/patterns/new">New Pattern</a>
+    <a class="button is-info is-fullwidth is-medium" href="/stitches">Stitch Library</a>
+</div>
+```
+
+##### A2. Pattern View — Action buttons (`pattern_view.templ`)
+
+**Before**: `<form style="display:inline;">` inside `.buttons` — the inline form breaks Bulma's flexbox gap.
+
+**After**: Remove the form wrapper for the Duplicate button; use a Datastar `data-on:click="@post(…)"` directly on the button (see B3). If keeping forms, remove `style="display:inline;"` and let the form participate in flex layout normally.
+
+##### A3. Work Session — Control buttons (`worksession.templ`, lines 31–49)
+
+**Before**: Multiple `<form style="display:inline;">` elements inside a `.buttons` container.
+
+**After**: Remove form wrappers; use Datastar `data-on:click="@post(…)"` on the buttons directly (see B2). This eliminates the inline-form spacing issue entirely.
+
+##### A4. Work Session — Navigation buttons (`worksession.templ`, lines 154–165)
+
+**Before**: `<div class="is-flex is-justify-content-center" style="gap: 1rem;">` with `<form style="display:inline;">` wrappers.
+
+**After**: Use a `<div class="buttons is-centered">` container. Remove form wrappers; use Datastar `data-on:click="@post(…)"` on the buttons directly (see B2). Bulma's `.buttons` provides consistent gap without inline styles.
+
+##### A5. Work Session — Parts overview strip (`worksession.templ`, line 54)
+
+**Before**: `<div class="tags are-medium" style="flex-wrap: wrap; gap: 0.25rem;">`
+
+**After**: Bulma's `.tags` already wraps and provides spacing. Remove the inline `style` entirely — the default `.tags` behaviour is correct.
+
+##### A6. Work Session — Current stitch display (`worksession.templ`, line 94)
+
+**Before**: `style="gap: 2rem;"` and `style="min-width: 80px;"` on child divs.
+
+**After**: Add a small CSS utility class in the layout `<style>` block (e.g., `.stitch-display-row { gap: 2rem; }` and `.stitch-context { min-width: 80px; }`). Reference these classes instead of inline styles. This keeps presentation in CSS rather than scattered across templates.
+
+##### A7. Work Session — Current stitch highlight border (`worksession.templ`, line 65)
+
+**Before**: `style="border: 2px solid hsl(171, 100%, 41%); font-weight: bold;"`
+
+**After**: Define a `.tag-current` CSS class in the layout `<style>` block and reference it. Bulma doesn't have a built-in modifier for this, so a tiny custom class is appropriate.
+
+##### A8. Stitch Library — "Add" button column (`stitch_library.templ`, lines 132–139)
+
+**Before**: The "Add" button sits in a `column is-1` with an `&nbsp;` label to align it with sibling form fields. The narrow column makes the button cramped, especially on mobile.
+
+**After**: Move the submit button out of the `columns` row entirely and place it below the form inputs in a `<div class="field">` wrapper. This avoids the cramped single-column alignment issue and gives the button room to breathe.
+
+##### A9. Stitch Library — Delete button form (`stitch_library.templ`, line 165)
+
+**Before**: `<form style="display:inline;">` in a table cell.
+
+**After**: Remove the form wrapper; use Datastar `data-on:click` to handle the delete flow (see B4).
+
+##### A10. Pattern List — Card footer forms (`pattern_list.templ`, lines 60–79)
+
+**Before**: `<form style="display:contents;">` wrappers with buttons styled via `style="border:none;background:none;cursor:pointer;"`.
+
+**After**: Keep the card-footer structure (it works well for card actions), but replace the inline `style` attributes with a small CSS class (`.card-footer-button`) defined in the layout `<style>` block:
+
+```css
+.card-footer-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+```
+
+##### A11. Pattern Editor — Part box remove button (`pattern_editor.templ`, lines 213–222)
+
+**Before**: Remove button positioned with `style="position: absolute; top: 0.75rem; right: 0.75rem;"`.
+
+**After**: Define a `.box-close-btn` CSS class in the layout `<style>` block for this positioning pattern. This keeps the template markup clean and ensures consistent positioning if the same pattern is used elsewhere.
+
+##### A12. Pattern View — Pattern text preview (`pattern_view.templ`, line 49)
+
+**Before**: `style="white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace;"`
+
+**After**: Define a `.pattern-text` CSS class in the layout `<style>` block (the class is already referenced but has no definition — only inline styles). Similarly update the same inline style in `pattern_editor.templ` line 189.
+
+```css
+.pattern-text {
+    white-space: pre-wrap;
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+```
+
+---
+
+#### Part B: Datastar Adoption
+
+These changes convert vanilla JavaScript interactions to Datastar declarative patterns. The goal is not to eliminate all JS, but to use Datastar where it results in less code, better consistency with the existing SSE-driven architecture, and fewer `<script>` blocks scattered across templates.
+
+**Guiding rule**: If a button's only job is to POST to an endpoint and the response is a page redirect or SSE patch, use `data-on:click="@post('/…')"` instead of wrapping it in a `<form>`. If a button toggles UI state (modal visibility, navbar menu), use Datastar signals instead of inline `onclick` with `classList.toggle`.
+
+##### B1. Navbar burger toggle (`layout.templ`, lines 37–48)
+
+**Before**: Inline `onclick` that toggles `is-active` on the navbar menu via `document.getElementById` and updates `aria-expanded`.
+
+**After**: Use a Datastar signal for menu state:
+
+```html
+<div data-signals="{navOpen: false}">
+    <a role="button" class="navbar-burger"
+       data-class-is-active="$navOpen"
+       aria-expanded="false"
+       data-attr-aria-expanded="$navOpen"
+       data-on:click="$navOpen = !$navOpen">
+        …
+    </a>
+</div>
+```
+
+And on the `#navbarMenu` div: `data-class-is-active="$navOpen"`.
+
+##### B2. Work Session — Pause/Resume/Abandon/Navigation buttons (`worksession.templ`)
+
+**Before**: Each button is wrapped in a `<form method="POST" style="display:inline;">` with `type="submit"`.
+
+**After**: Remove form wrappers. Use `data-on:click="@post('/sessions/{id}/pause')"` (and similarly for resume, abandon, prev, next) directly on the button elements. For abandon, the confirmation modal is still shown first (see B5).
+
+This eliminates:
+- All `style="display:inline;"` on forms
+- The need for form IDs (`prev-form`, `next-form`, `abandon-form`)
+- The vanilla JS keyboard handler that submits forms by ID (replaced in B6)
+
+##### B3. Pattern View — Duplicate button (`pattern_view.templ`, line 33)
+
+**Before**: `<form method="POST" style="display:inline;"><button type="submit">Duplicate</button></form>`
+
+**After**: `<button class="button is-info" data-on:click="@post('/patterns/{id}/duplicate')">Duplicate</button>`
+
+##### B4. Stitch Library — Delete custom stitch (`stitch_library.templ`, lines 165–170)
+
+**Before**: `<form style="display:inline;">` with a `<button type="button" onclick={deleteStitchOnclick(…)}>` that calls `showConfirmModal` → `form.submit()`.
+
+**After**: Remove the form wrapper. Use a Datastar-driven confirmation flow (see B5) that posts directly via `@post('/stitches/{id}/delete')`.
+
+##### B5. Confirmation modal — Datastar signal-driven (`layout.templ`, lines 86–119)
+
+**Before**: The shared confirm modal uses three global JS functions (`showConfirmModal`, `executeConfirmAction`, `closeConfirmModal`) and a global `__confirmCallback` variable. Callers invoke it with inline `onclick` handlers and pass a callback that typically calls `form.submit()`.
+
+**After**: Convert to a Datastar signal-driven modal. Define signals on the `<body>` or a wrapper element:
+
+```html
+<div data-signals="{confirmOpen: false, confirmTitle: '', confirmMsg: '', confirmUrl: ''}">
+```
+
+The modal uses `data-class-is-active="$confirmOpen"`. The "Confirm" button uses `data-on:click="@post($confirmUrl); $confirmOpen = false"`. Callers open the modal by setting the signals:
+
+```html
+data-on:click="$confirmTitle = 'Delete Pattern'; $confirmMsg = 'Delete this pattern?'; $confirmUrl = '/patterns/5/delete'; $confirmOpen = true"
+```
+
+This eliminates:
+- The global `__confirmCallback` variable
+- The three global JS functions
+- All `<script>` blocks for `deletePatternOnclick`, `deleteStitchOnclick`, and the work session abandon handler
+- Form wrappers that existed solely to be `.submit()`ed from the callback
+
+**Note**: The pattern editor's `removePartOnclick` and `removeEntryOnclick` perform client-side DOM removal (not a server POST), so they do **not** fit this pattern. Keep those as-is — they are legitimate client-side operations that remove DOM nodes from the form before submission.
+
+##### B6. Work Session — Keyboard navigation (`worksession.templ`, lines 170–205)
+
+**Before**: A `<script>` block with `document.addEventListener('keydown', …)` that submits forms by ID, and a touch/swipe handler.
+
+**After**: Use Datastar's `data-on:keydown.window` on the stitch display container:
+
+```html
+<div id="stitch-display"
+     data-on:keydown.window="
+         if (evt.target.tagName === 'INPUT' || evt.target.tagName === 'TEXTAREA') return;
+         if (evt.key === ' ' || evt.key === 'ArrowRight') { evt.preventDefault(); @post('/sessions/{id}/next'); }
+         else if (evt.key === 'Backspace' || evt.key === 'ArrowLeft') { evt.preventDefault(); @post('/sessions/{id}/prev'); }
+         else if (evt.key === 'p' || evt.key === 'P') { @post('/sessions/{id}/pause'); }
+         else if (evt.key === 'Escape') { $confirmTitle='Abandon Session'; $confirmMsg='Abandon this session? Your progress will be lost.'; $confirmUrl='/sessions/{id}/abandon'; $confirmOpen=true; }
+     ">
+```
+
+The touch/swipe handler can remain as a small `<script>` block — Datastar doesn't have a built-in swipe gesture directive, so vanilla JS is appropriate here. However, instead of calling `form.submit()`, the swipe handler should use `fetch('/sessions/{id}/next', {method:'POST'}).then(() => window.location.reload())` or simply navigate via `window.location.href`. Alternatively, the swipe handler can click the Datastar-enabled button to trigger the `@post`.
+
+##### B7. Pattern Editor — Modal triggers (`pattern_editor.templ`, lines 138, 141, 144)
+
+**Before**: `onclick="document.getElementById('save-modal').classList.add('is-active')"` and similar for preview and cancel modals.
+
+**After**: Use Datastar signals:
+
+```html
+<div data-signals="{showSave: false, showPreview: false, showCancel: false}">
+```
+
+Each button: `data-on:click="$showSave = true"` (etc.)
+Each modal: `data-class-is-active="$showSave"` on the `.modal` div.
+Each close button/background: `data-on:click="$showSave = false"`.
+
+This eliminates all `onclick` handlers in the modal section and makes modal state inspectable via Datastar devtools.
+
+##### B8. Pattern List — Delete pattern confirmation (`pattern_list.templ`, lines 73–79, 91–95)
+
+**Before**: `<form style="display:contents;">` with `onclick={deletePatternOnclick(…)}` that calls `showConfirmModal` → `form.submit()`.
+
+**After**: Remove the form wrapper. Use the Datastar signal-driven confirm modal from B5:
+
+```html
+<button class="card-footer-item has-text-danger card-footer-button" type="button"
+    data-on:click="$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"{name}\"? This cannot be undone.'; $confirmUrl='/patterns/{id}/delete'; $confirmOpen=true">
+    Delete
+</button>
+```
+
+Remove the `deletePatternOnclick` templ `script` block entirely.
+
+##### B9. Pattern List — Start Session & Duplicate forms (`pattern_list.templ`, lines 60–72)
+
+**Before**: `<form method="POST" style="display:contents;">` wrappers for Start and Duplicate actions in card footers.
+
+**After**: Remove form wrappers. Use `data-on:click="@post('/patterns/{id}/start-session')"` and `data-on:click="@post('/patterns/{id}/duplicate')"` on the button elements directly.
+
+---
+
+#### What NOT to change
+
+- **Auth forms** (login/register) — these are traditional full-page form submissions that redirect on success. Datastar SSE would add complexity for no UX benefit here; the forms work correctly as-is.
+- **Stitch Library search/filter form** — this is a `GET` form that filters results. It works well as a standard form submission with page reload. No benefit to Datastar here.
+- **Pattern Editor save form** — the main form submission (`pattern-form`) uses traditional POST. The `beforeunload` protection and the save confirmation modal interact with this form. Converting to Datastar SSE would require rethinking the entire form submission flow, which is out of scope.
+- **Pattern Editor `removePartOnclick` / `removeEntryOnclick`** — these perform client-side DOM removal, not server round-trips. They are appropriate as JS and would not benefit from Datastar `@post`.
+
+---
+
+#### Affected files
+
+- `internal/view/layout.templ` — navbar burger (B1), confirm modal rewrite (B5), new CSS utility classes (A6, A7, A10, A11, A12), remove global JS functions
+- `internal/view/dashboard.templ` — Quick Links button stack (A1)
+- `internal/view/pattern_list.templ` — card footer forms → Datastar (A10, B8, B9), remove `deletePatternOnclick` script
+- `internal/view/pattern_view.templ` — duplicate form → Datastar (A2, B3), pattern-text inline style → CSS class (A12)
+- `internal/view/pattern_editor.templ` — modal triggers → Datastar signals (B7), pattern-text inline style → CSS class (A12)
+- `internal/view/stitch_library.templ` — Add button repositioning (A8), delete form → Datastar (A9, B4), remove `deleteStitchOnclick` script
+- `internal/view/worksession.templ` — all spacing fixes (A3–A7), button forms → Datastar (B2), keyboard navigation → Datastar (B6)
+
+**No changes to**: `domain/`, `service/`, `repository/`, `handler/`, migrations, or tests. All handlers already accept POST requests and respond with redirects — the Datastar `@post` calls will trigger the same server-side code paths.
+
+**Regression gate**: All existing tests pass. All pages render correctly. Pattern CRUD, work session navigation, stitch library management, delete confirmations, and keyboard shortcuts continue to function. No visual regressions — spacing should improve, not change semantics.

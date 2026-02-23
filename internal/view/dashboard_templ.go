@@ -94,7 +94,7 @@ func DashboardPage(displayName string, activeSessions []domain.WorkSession) temp
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"column is-4\"><h2 class=\"title is-4\">Quick Links</h2><div class=\"buttons are-medium\" style=\"flex-direction: column; align-items: flex-start;\"><a class=\"button is-primary is-fullwidth\" href=\"/patterns\">My Patterns</a> <a class=\"button is-link is-fullwidth\" href=\"/patterns/new\">New Pattern</a> <a class=\"button is-info is-fullwidth\" href=\"/stitches\">Stitch Library</a></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"column is-4\"><h2 class=\"title is-4\">Quick Links</h2><div><a class=\"button is-primary is-fullwidth is-medium mb-2\" href=\"/patterns\">My Patterns</a> <a class=\"button is-link is-fullwidth is-medium mb-2\" href=\"/patterns/new\">New Pattern</a> <a class=\"button is-info is-fullwidth is-medium mb-2\" href=\"/stitches\">Stitch Library</a></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

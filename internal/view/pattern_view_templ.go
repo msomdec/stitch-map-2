@@ -157,7 +157,7 @@ func PatternViewPage(displayName string, pattern *domain.Pattern, stitches []dom
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" style=\"display:inline;\"><button class=\"button is-info\" type=\"submit\">Duplicate</button></form><a class=\"button is-light\" href=\"/patterns\">Back to Patterns</a></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"form-contents\"><button class=\"button is-info\" type=\"submit\">Duplicate</button></form><a class=\"button is-light\" href=\"/patterns\">Back to Patterns</a></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -180,14 +180,14 @@ func PatternViewPage(displayName string, pattern *domain.Pattern, stitches []dom
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " <!-- Pattern Text Preview --> <div class=\"box\"><h2 class=\"title is-5\">Pattern Text</h2><div class=\"content\"><pre class=\"pattern-text\" style=\"white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace;\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " <!-- Pattern Text Preview --> <div class=\"box\"><h2 class=\"title is-5\">Pattern Text</h2><div class=\"content\"><pre class=\"pattern-text\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(service.RenderPatternText(pattern, stitches))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_view.templ`, Line: 49, Col: 187}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_view.templ`, Line: 49, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {

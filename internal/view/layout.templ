@@ -26,10 +26,41 @@ templ Layout(title string, displayName string) {
 				[id^="entries-"] > [id^="entry-"]:only-child .remove-entry-btn {
 					display: none;
 				}
+				/* Form inside flex containers — makes form invisible to layout */
+				.form-contents { display: contents; }
+				/* Pattern text preview */
+				.pattern-text {
+					white-space: pre-wrap;
+					background: #f5f5f5;
+					padding: 1rem;
+					border-radius: 4px;
+					font-family: monospace;
+					font-size: 0.85rem;
+				}
+				/* Card footer button — removes default button chrome */
+				.card-footer-button {
+					border: none;
+					background: none;
+					cursor: pointer;
+				}
+				/* Absolutely-positioned close/remove button inside a .box */
+				.box-close-btn {
+					position: absolute;
+					top: 0.75rem;
+					right: 0.75rem;
+				}
+				/* Work session current-part tag highlight */
+				.tag-current {
+					border: 2px solid hsl(171, 100%, 41%);
+					font-weight: bold;
+				}
+				/* Work session stitch display layout */
+				.stitch-display-row { gap: 2rem; }
+				.stitch-context { min-width: 80px; }
 			</style>
 		</head>
 		<body>
-			<nav class="navbar is-primary" role="navigation" aria-label="main navigation">
+			<nav class="navbar is-primary" role="navigation" aria-label="main navigation" data-signals="{navOpen: false}">
 				<div class="navbar-brand">
 					<a class="navbar-item has-text-weight-bold" href="/" aria-label="StitchMap home">
 						StitchMap
@@ -40,14 +71,15 @@ templ Layout(title string, displayName string) {
 						aria-label="menu"
 						aria-expanded="false"
 						data-target="navbarMenu"
-						onclick="document.getElementById('navbarMenu').classList.toggle('is-active');this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true')"
+						data-on-click="$navOpen = !$navOpen"
+						data-class-is-active="$navOpen"
 					>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>
 					</a>
 				</div>
-				<div id="navbarMenu" class="navbar-menu">
+				<div id="navbarMenu" class="navbar-menu" data-class-is-active="$navOpen">
 					if displayName != "" {
 						<div class="navbar-start" role="menubar">
 							<a class="navbar-item" href="/patterns" role="menuitem">Patterns</a>
@@ -83,40 +115,27 @@ templ Layout(title string, displayName string) {
 					</div>
 				</section>
 			</main>
-			<!-- Shared Confirm Modal -->
-			<div id="confirm-modal" class="modal">
-				<div class="modal-background" onclick="closeConfirmModal()"></div>
-				<div class="modal-card">
-					<header class="modal-card-head">
-						<p class="modal-card-title" id="confirm-modal-title">Confirm</p>
-						<button class="delete" aria-label="close" type="button" onclick="closeConfirmModal()"></button>
-					</header>
-					<section class="modal-card-body">
-						<p id="confirm-modal-message">Are you sure?</p>
-					</section>
-					<footer class="modal-card-foot">
-						<button class="button is-danger" type="button" id="confirm-modal-action" onclick="executeConfirmAction()">Confirm</button>
-						<button class="button" type="button" onclick="closeConfirmModal()">Cancel</button>
-					</footer>
+			<!-- Shared Confirm Modal (Datastar signals) -->
+			<div data-signals="{confirmOpen: false, confirmTitle: 'Confirm', confirmMsg: 'Are you sure?', confirmUrl: ''}">
+				<div id="confirm-modal" class="modal" data-class-is-active="$confirmOpen">
+					<div class="modal-background" data-on-click="$confirmOpen = false"></div>
+					<div class="modal-card">
+						<header class="modal-card-head">
+							<p class="modal-card-title" data-text="$confirmTitle"></p>
+							<button class="delete" aria-label="close" type="button" data-on-click="$confirmOpen = false"></button>
+						</header>
+						<section class="modal-card-body">
+							<p data-text="$confirmMsg"></p>
+						</section>
+						<footer class="modal-card-foot">
+							<form method="POST" data-attr-action="$confirmUrl">
+								<button class="button is-danger" type="submit">Confirm</button>
+							</form>
+							<button class="button" type="button" data-on-click="$confirmOpen = false">Cancel</button>
+						</footer>
+					</div>
 				</div>
 			</div>
-			<script>
-				var __confirmCallback = null;
-				function showConfirmModal(title, message, actionFn) {
-					document.getElementById('confirm-modal-title').textContent = title;
-					document.getElementById('confirm-modal-message').textContent = message;
-					__confirmCallback = actionFn;
-					document.getElementById('confirm-modal').classList.add('is-active');
-				}
-				function executeConfirmAction() {
-					if (__confirmCallback) { __confirmCallback(); }
-					closeConfirmModal();
-				}
-				function closeConfirmModal() {
-					document.getElementById('confirm-modal').classList.remove('is-active');
-					__confirmCallback = null;
-				}
-			</script>
 		</body>
 	</html>
 }

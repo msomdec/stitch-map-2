@@ -133,60 +133,60 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				</div>
 			</div>
 			<!-- Submit -->
-			<div class="field is-grouped">
+			<div class="field is-grouped" data-signals="{showSave: false, showPreview: false, showCancel: false}">
 				<div class="control">
-					<button class="button is-primary" type="button" onclick="document.getElementById('save-modal').classList.add('is-active')">Save Pattern</button>
+					<button class="button is-primary" type="button" data-on-click="$showSave = true">Save Pattern</button>
 				</div>
 				<div class="control">
-					<button type="button" class="button is-info" onclick="document.getElementById('preview-modal').classList.add('is-active')">Preview</button>
+					<button type="button" class="button is-info" data-on-click="$showPreview = true">Preview</button>
 				</div>
 				<div class="control">
-					<button type="button" class="button is-light" onclick="document.getElementById('cancel-modal').classList.add('is-active')">Cancel</button>
+					<button type="button" class="button is-light" data-on-click="$showCancel = true">Cancel</button>
 				</div>
 			</div>
 		</form>
 		<!-- Save Confirmation Modal -->
-		<div id="save-modal" class="modal">
-			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+		<div id="save-modal" class="modal" data-class-is-active="$showSave">
+			<div class="modal-background" data-on-click="$showSave = false"></div>
 			<div class="modal-card">
 				<header class="modal-card-head">
 					<p class="modal-card-title">Save Pattern</p>
-					<button class="delete" aria-label="close" type="button" onclick="this.closest('.modal').classList.remove('is-active')"></button>
+					<button class="delete" aria-label="close" type="button" data-on-click="$showSave = false"></button>
 				</header>
 				<section class="modal-card-body">
 					Save changes to this pattern?
 				</section>
 				<footer class="modal-card-foot">
 					<button class="button is-primary" type="button" onclick="var f=document.getElementById('pattern-form');if(f.reportValidity()){window.__formSubmitting=true;f.submit();}">Save</button>
-					<button class="button" type="button" onclick="this.closest('.modal').classList.remove('is-active')">Cancel</button>
+					<button class="button" type="button" data-on-click="$showSave = false">Cancel</button>
 				</footer>
 			</div>
 		</div>
 		<!-- Cancel Confirmation Modal -->
-		<div id="cancel-modal" class="modal">
-			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+		<div id="cancel-modal" class="modal" data-class-is-active="$showCancel">
+			<div class="modal-background" data-on-click="$showCancel = false"></div>
 			<div class="modal-card">
 				<header class="modal-card-head">
 					<p class="modal-card-title">Discard Changes</p>
-					<button class="delete" aria-label="close" type="button" onclick="this.closest('.modal').classList.remove('is-active')"></button>
+					<button class="delete" aria-label="close" type="button" data-on-click="$showCancel = false"></button>
 				</header>
 				<section class="modal-card-body">
 					Discard unsaved changes?
 				</section>
 				<footer class="modal-card-foot">
 					<button class="button is-danger" type="button" onclick="window.__formSubmitting=true;window.location.href='/patterns'">Discard</button>
-					<button class="button" type="button" onclick="this.closest('.modal').classList.remove('is-active')">Keep Editing</button>
+					<button class="button" type="button" data-on-click="$showCancel = false">Keep Editing</button>
 				</footer>
 			</div>
 		</div>
 		<!-- Preview Modal -->
-		<div id="preview-modal" class="modal">
-			<div class="modal-background" onclick="this.parentElement.classList.remove('is-active')"></div>
+		<div id="preview-modal" class="modal" data-class-is-active="$showPreview">
+			<div class="modal-background" data-on-click="$showPreview = false"></div>
 			<div class="modal-content">
 				<div class="box">
 					<h2 class="title is-5">Pattern Preview</h2>
 					if pattern != nil && len(pattern.InstructionGroups) > 0 {
-						<pre class="pattern-text" style="white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem;">{ service.RenderPatternText(pattern, stitches) }</pre>
+						<pre class="pattern-text">{ service.RenderPatternText(pattern, stitches) }</pre>
 						<p class="help has-text-grey mt-2">
 							{ strconv.Itoa(service.StitchCount(pattern)) + " stitches total" }
 						</p>
@@ -195,7 +195,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 					}
 				</div>
 			</div>
-			<button class="modal-close is-large" aria-label="close" type="button" onclick="this.parentElement.classList.remove('is-active')"></button>
+			<button class="modal-close is-large" aria-label="close" type="button" data-on-click="$showPreview = false"></button>
 		</div>
 		<!-- beforeunload protection -->
 		<script>
@@ -210,11 +210,10 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 }
 
 templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
-	<div class="box" id={ "part-" + strconv.Itoa(gi) } style="position: relative;">
+	<div class="box is-relative" id={ "part-" + strconv.Itoa(gi) }>
 		<button
 			type="button"
-			class="button is-danger is-outlined is-small remove-part-btn"
-			style="position: absolute; top: 0.75rem; right: 0.75rem;"
+			class="button is-danger is-outlined is-small remove-part-btn box-close-btn"
 			title="Remove part"
 			onclick={ removePartOnclick(strconv.Itoa(gi)) }
 		>
@@ -257,7 +256,7 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 		</div>
 		<h3 class="subtitle is-6">Stitches</h3>
 		<!-- Entry column headers -->
-		<div class="columns is-vcentered mb-0" style="font-size: 0.75rem; color: #888;">
+		<div class="columns is-vcentered mb-0 is-size-7 has-text-grey">
 			<div class="column is-5">Stitch <span class="has-text-danger" aria-label="required">*</span></div>
 			<div class="column is-2">Count <span class="has-text-danger" aria-label="required">*</span></div>
 			<div class="column is-2">Repeat <span class="has-text-danger" aria-label="required">*</span></div>
@@ -412,13 +411,13 @@ func editorNextSignalIndex(pattern *domain.Pattern) int {
 }
 
 script removePartOnclick(partID string) {
-	showConfirmModal('Remove Part', 'Remove this part and all its stitches?', function() {
+	if (confirm('Remove this part and all its stitches?')) {
 		document.getElementById('part-' + partID).remove();
-	})
+	}
 }
 
 script removeEntryOnclick(entryID string) {
-	showConfirmModal('Remove Stitch', 'Remove this stitch entry?', function() {
+	if (confirm('Remove this stitch entry?')) {
 		document.getElementById(entryID).remove();
-	})
+	}
 }

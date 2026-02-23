@@ -1,7 +1,7 @@
 package view
 
 import "github.com/msomdec/stitch-map-2/internal/domain"
-import "strconv"
+import "fmt"
 
 templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom []domain.Stitch, activeCategory string, search string, errMsg string) {
 	@Layout("Stitch Library", displayName) {
@@ -119,7 +119,7 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 							</div>
 						</div>
 					</div>
-					<div class="column is-4">
+					<div class="column is-5">
 						<div class="field">
 							<label class="label" for="description">
 								Description <span class="has-text-grey is-size-7">(optional)</span>
@@ -129,13 +129,10 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 							</div>
 						</div>
 					</div>
-					<div class="column is-1">
-						<div class="field">
-							<label class="label">&nbsp;</label>
-							<div class="control">
-								<button class="button is-success" type="submit" aria-label="Add custom stitch">Add</button>
-							</div>
-						</div>
+				</div>
+				<div class="field">
+					<div class="control">
+						<button class="button is-success" type="submit" aria-label="Add custom stitch">Add Stitch</button>
 					</div>
 				</div>
 			</form>
@@ -162,12 +159,9 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 								<td><span class={ "tag", categoryTagClass(s.Category) }>{ s.Category }</span></td>
 								<td>{ s.Description }</td>
 								<td>
-									<form method="POST" action={ templ.SafeURL("/stitches/" + strconv.FormatInt(s.ID, 10) + "/delete") } style="display:inline;"
-										id={ "delete-stitch-form-" + strconv.FormatInt(s.ID, 10) }>
-										<button class="button is-small is-danger is-outlined" type="button"
-											aria-label={ "Delete custom stitch " + s.Abbreviation }
-											onclick={ deleteStitchOnclick("delete-stitch-form-" + strconv.FormatInt(s.ID, 10), s.Abbreviation) }>Delete</button>
-									</form>
+									<button class="button is-small is-danger is-outlined" type="button"
+										aria-label={ "Delete custom stitch " + s.Abbreviation }
+										data-on-click={ fmt.Sprintf("$confirmTitle='Delete Stitch'; $confirmMsg='Delete custom stitch \"%s\"? This cannot be undone.'; $confirmUrl='/stitches/%d/delete'; $confirmOpen=true", s.Abbreviation, s.ID) }>Delete</button>
 								</td>
 							</tr>
 						}
@@ -197,10 +191,4 @@ func categoryTagClass(category string) string {
 	default:
 		return "is-light"
 	}
-}
-
-script deleteStitchOnclick(formID string, abbreviation string) {
-	showConfirmModal('Delete Stitch', 'Delete custom stitch "' + abbreviation + '"? This cannot be undone.', function() {
-		document.getElementById(formID).submit();
-	})
 }
