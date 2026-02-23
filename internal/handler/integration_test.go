@@ -1107,12 +1107,12 @@ func TestIntegration_WorkSession_NavigateToCompletion(t *testing.T) {
 			t.Fatalf("POST next (stitch %d): %v", i+1, err)
 		}
 		resp.Body.Close()
-		if resp.StatusCode != http.StatusSeeOther {
-			t.Fatalf("next stitch %d: expected 303, got %d", i+1, resp.StatusCode)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("next stitch %d: expected 200, got %d", i+1, resp.StatusCode)
 		}
 	}
 
-	// Session should now be completed.
+	// Session should now be completed — verify via GET (full page render).
 	resp, err = client.Get(srv.URL + sessionURL)
 	if err != nil {
 		t.Fatalf("GET session after completion: %v", err)
@@ -1213,8 +1213,8 @@ func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
 		t.Fatalf("POST prev: %v", err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("prev: expected 303, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("prev: expected 200, got %d", resp.StatusCode)
 	}
 
 	// View session — should show progress at 1/4 (stitch count position 1).
@@ -1424,8 +1424,8 @@ func TestFullHappyPath(t *testing.T) {
 			t.Fatalf("next stitch %d: %v", i+1, err)
 		}
 		resp.Body.Close()
-		if resp.StatusCode != http.StatusSeeOther {
-			t.Fatalf("next stitch %d: expected 303, got %d", i+1, resp.StatusCode)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("next stitch %d: expected 200, got %d", i+1, resp.StatusCode)
 		}
 	}
 

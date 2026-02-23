@@ -70,7 +70,7 @@ templ patternCard(p domain.Pattern) {
 			</form>
 			<button class="card-footer-item has-text-danger card-footer-button" type="button"
 				aria-label={ "Delete pattern " + p.Name }
-				data-on-click={ fmt.Sprintf("$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"%s\"? This cannot be undone.'; $confirmUrl='/patterns/%d/delete'; $confirmOpen=true", p.Name, p.ID) }>Delete</button>
+				data-on:click={ fmt.Sprintf("$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"%s\"? This cannot be undone.'; $confirmUrl='/patterns/%d/delete'; $confirmOpen=true", p.Name, p.ID) }>Delete</button>
 		</footer>
 	</div>
 }

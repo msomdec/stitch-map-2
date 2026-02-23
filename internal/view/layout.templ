@@ -71,15 +71,15 @@ templ Layout(title string, displayName string) {
 						aria-label="menu"
 						aria-expanded="false"
 						data-target="navbarMenu"
-						data-on-click="$navOpen = !$navOpen"
-						data-class-is-active="$navOpen"
+						data-on:click="$navOpen = !$navOpen"
+						data-class:is-active="$navOpen"
 					>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>
 						<span aria-hidden="true"></span>
 					</a>
 				</div>
-				<div id="navbarMenu" class="navbar-menu" data-class-is-active="$navOpen">
+				<div id="navbarMenu" class="navbar-menu" data-class:is-active="$navOpen">
 					if displayName != "" {
 						<div class="navbar-start" role="menubar">
 							<a class="navbar-item" href="/patterns" role="menuitem">Patterns</a>
@@ -117,21 +117,21 @@ templ Layout(title string, displayName string) {
 			</main>
 			<!-- Shared Confirm Modal (Datastar signals) -->
 			<div data-signals="{confirmOpen: false, confirmTitle: 'Confirm', confirmMsg: 'Are you sure?', confirmUrl: ''}">
-				<div id="confirm-modal" class="modal" data-class-is-active="$confirmOpen">
-					<div class="modal-background" data-on-click="$confirmOpen = false"></div>
+				<div id="confirm-modal" class="modal" data-class:is-active="$confirmOpen">
+					<div class="modal-background" data-on:click="$confirmOpen = false"></div>
 					<div class="modal-card">
 						<header class="modal-card-head">
 							<p class="modal-card-title" data-text="$confirmTitle"></p>
-							<button class="delete" aria-label="close" type="button" data-on-click="$confirmOpen = false"></button>
+							<button class="delete" aria-label="close" type="button" data-on:click="$confirmOpen = false"></button>
 						</header>
 						<section class="modal-card-body">
 							<p data-text="$confirmMsg"></p>
 						</section>
 						<footer class="modal-card-foot">
-							<form method="POST" data-attr-action="$confirmUrl">
+							<form method="POST" data-attr:action="$confirmUrl">
 								<button class="button is-danger" type="submit">Confirm</button>
 							</form>
-							<button class="button" type="button" data-on-click="$confirmOpen = false">Cancel</button>
+							<button class="button" type="button" data-on:click="$confirmOpen = false">Cancel</button>
 						</footer>
 					</div>
 				</div>

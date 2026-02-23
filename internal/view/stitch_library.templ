@@ -161,7 +161,7 @@ templ StitchLibraryPage(displayName string, predefined []domain.Stitch, custom [
 								<td>
 									<button class="button is-small is-danger is-outlined" type="button"
 										aria-label={ "Delete custom stitch " + s.Abbreviation }
-										data-on-click={ fmt.Sprintf("$confirmTitle='Delete Stitch'; $confirmMsg='Delete custom stitch \"%s\"? This cannot be undone.'; $confirmUrl='/stitches/%d/delete'; $confirmOpen=true", s.Abbreviation, s.ID) }>Delete</button>
+										data-on:click={ fmt.Sprintf("$confirmTitle='Delete Stitch'; $confirmMsg='Delete custom stitch \"%s\"? This cannot be undone.'; $confirmUrl='/stitches/%d/delete'; $confirmOpen=true", s.Abbreviation, s.ID) }>Delete</button>
 								</td>
 							</tr>
 						}

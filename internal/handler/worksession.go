@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/domain"
 	"github.com/msomdec/stitch-map-2/internal/service"
 	"github.com/msomdec/stitch-map-2/internal/view"
+	"github.com/starfederation/datastar-go/datastar"
 )
 
 // WorkSessionHandler handles work session HTTP requests.
@@ -119,7 +121,8 @@ func (h *WorkSessionHandler) HandleForward(w http.ResponseWriter, r *http.Reques
 	}
 
 	if session.Status != domain.SessionStatusActive {
-		http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+		sse := datastar.NewSSE(w, r)
+		sse.Redirect(fmt.Sprintf("/sessions/%d", session.ID))
 		return
 	}
 
@@ -129,7 +132,7 @@ func (h *WorkSessionHandler) HandleForward(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+	h.patchTracker(w, r, session, pattern, user.ID)
 }
 
 // HandleBackward retreats the session by one stitch.
@@ -147,7 +150,8 @@ func (h *WorkSessionHandler) HandleBackward(w http.ResponseWriter, r *http.Reque
 	}
 
 	if session.Status != domain.SessionStatusActive {
-		http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+		sse := datastar.NewSSE(w, r)
+		sse.Redirect(fmt.Sprintf("/sessions/%d", session.ID))
 		return
 	}
 
@@ -157,7 +161,7 @@ func (h *WorkSessionHandler) HandleBackward(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+	h.patchTracker(w, r, session, pattern, user.ID)
 }
 
 // HandlePause pauses an active session.
@@ -168,7 +172,7 @@ func (h *WorkSessionHandler) HandlePause(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	session, _, err := h.loadSessionAndPattern(r, user.ID)
+	session, pattern, err := h.loadSessionAndPattern(r, user.ID)
 	if err != nil {
 		handleSessionError(w, err)
 		return
@@ -180,7 +184,7 @@ func (h *WorkSessionHandler) HandlePause(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+	h.patchTracker(w, r, session, pattern, user.ID)
 }
 
 // HandleResume resumes a paused session.
@@ -191,7 +195,7 @@ func (h *WorkSessionHandler) HandleResume(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	session, _, err := h.loadSessionAndPattern(r, user.ID)
+	session, pattern, err := h.loadSessionAndPattern(r, user.ID)
 	if err != nil {
 		handleSessionError(w, err)
 		return
@@ -203,7 +207,7 @@ func (h *WorkSessionHandler) HandleResume(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	http.Redirect(w, r, "/sessions/"+strconv.FormatInt(session.ID, 10), http.StatusSeeOther)
+	h.patchTracker(w, r, session, pattern, user.ID)
 }
 
 // HandleAbandon deletes a work session.
@@ -238,6 +242,22 @@ func (h *WorkSessionHandler) HandleAbandon(w http.ResponseWriter, r *http.Reques
 	}
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+// patchTracker sends an SSE patch to update the tracker fragment.
+func (h *WorkSessionHandler) patchTracker(w http.ResponseWriter, r *http.Request, session *domain.WorkSession, pattern *domain.Pattern, userID int64) {
+	allStitches, err := h.stitches.ListAll(r.Context(), userID)
+	if err != nil {
+		slog.Error("list stitches for tracker patch", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	progress := service.ComputeProgress(session, pattern, allStitches)
+	sse := datastar.NewSSE(w, r)
+	sse.PatchElementTempl(
+		view.WorkSessionTrackerFragment(session, pattern, progress),
+		datastar.WithSelectorID("tracker-content"),
+	)
 }
 
 func (h *WorkSessionHandler) loadSessionAndPattern(r *http.Request, userID int64) (*domain.WorkSession, *domain.Pattern, error) {

@@ -135,53 +135,53 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 			<!-- Submit -->
 			<div class="field is-grouped" data-signals="{showSave: false, showPreview: false, showCancel: false}">
 				<div class="control">
-					<button class="button is-primary" type="button" data-on-click="$showSave = true">Save Pattern</button>
+					<button class="button is-primary" type="button" data-on:click="$showSave = true">Save Pattern</button>
 				</div>
 				<div class="control">
-					<button type="button" class="button is-info" data-on-click="$showPreview = true">Preview</button>
+					<button type="button" class="button is-info" data-on:click="$showPreview = true">Preview</button>
 				</div>
 				<div class="control">
-					<button type="button" class="button is-light" data-on-click="$showCancel = true">Cancel</button>
+					<button type="button" class="button is-light" data-on:click="$showCancel = true">Cancel</button>
 				</div>
 			</div>
 		</form>
 		<!-- Save Confirmation Modal -->
-		<div id="save-modal" class="modal" data-class-is-active="$showSave">
-			<div class="modal-background" data-on-click="$showSave = false"></div>
+		<div id="save-modal" class="modal" data-class:is-active="$showSave">
+			<div class="modal-background" data-on:click="$showSave = false"></div>
 			<div class="modal-card">
 				<header class="modal-card-head">
 					<p class="modal-card-title">Save Pattern</p>
-					<button class="delete" aria-label="close" type="button" data-on-click="$showSave = false"></button>
+					<button class="delete" aria-label="close" type="button" data-on:click="$showSave = false"></button>
 				</header>
 				<section class="modal-card-body">
 					Save changes to this pattern?
 				</section>
 				<footer class="modal-card-foot">
 					<button class="button is-primary" type="button" onclick="var f=document.getElementById('pattern-form');if(f.reportValidity()){window.__formSubmitting=true;f.submit();}">Save</button>
-					<button class="button" type="button" data-on-click="$showSave = false">Cancel</button>
+					<button class="button" type="button" data-on:click="$showSave = false">Cancel</button>
 				</footer>
 			</div>
 		</div>
 		<!-- Cancel Confirmation Modal -->
-		<div id="cancel-modal" class="modal" data-class-is-active="$showCancel">
-			<div class="modal-background" data-on-click="$showCancel = false"></div>
+		<div id="cancel-modal" class="modal" data-class:is-active="$showCancel">
+			<div class="modal-background" data-on:click="$showCancel = false"></div>
 			<div class="modal-card">
 				<header class="modal-card-head">
 					<p class="modal-card-title">Discard Changes</p>
-					<button class="delete" aria-label="close" type="button" data-on-click="$showCancel = false"></button>
+					<button class="delete" aria-label="close" type="button" data-on:click="$showCancel = false"></button>
 				</header>
 				<section class="modal-card-body">
 					Discard unsaved changes?
 				</section>
 				<footer class="modal-card-foot">
 					<button class="button is-danger" type="button" onclick="window.__formSubmitting=true;window.location.href='/patterns'">Discard</button>
-					<button class="button" type="button" data-on-click="$showCancel = false">Keep Editing</button>
+					<button class="button" type="button" data-on:click="$showCancel = false">Keep Editing</button>
 				</footer>
 			</div>
 		</div>
 		<!-- Preview Modal -->
-		<div id="preview-modal" class="modal" data-class-is-active="$showPreview">
-			<div class="modal-background" data-on-click="$showPreview = false"></div>
+		<div id="preview-modal" class="modal" data-class:is-active="$showPreview">
+			<div class="modal-background" data-on:click="$showPreview = false"></div>
 			<div class="modal-content">
 				<div class="box">
 					<h2 class="title is-5">Pattern Preview</h2>
@@ -195,7 +195,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 					}
 				</div>
 			</div>
-			<button class="modal-close is-large" aria-label="close" type="button" data-on-click="$showPreview = false"></button>
+			<button class="modal-close is-large" aria-label="close" type="button" data-on:click="$showPreview = false"></button>
 		</div>
 		<!-- beforeunload protection -->
 		<script>
