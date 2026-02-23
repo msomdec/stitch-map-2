@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '../types';
 import { authApi, type LoginRequest, type RegisterRequest } from '../api/auth';
-import { ApiClientError } from '../api/client';
+import { ApiClientError, setOnUnauthorized } from '../api/client';
 
 interface AuthState {
   user: User | null;
@@ -16,52 +16,59 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  loading: false,
-  error: null,
-  initialized: false,
+export const useAuthStore = create<AuthState>((set) => {
+  // Wire up global 401 handler so any API 401 clears stale auth.
+  setOnUnauthorized(() => {
+    set({ user: null });
+  });
 
-  login: async (data) => {
-    set({ loading: true, error: null });
-    try {
-      const res = await authApi.login(data);
-      set({ user: res.user, loading: false });
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Login failed';
-      set({ error: message, loading: false });
-      throw err;
-    }
-  },
+  return {
+    user: null,
+    loading: false,
+    error: null,
+    initialized: false,
 
-  register: async (data) => {
-    set({ loading: true, error: null });
-    try {
-      await authApi.register(data);
-      set({ loading: false });
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Registration failed';
-      set({ error: message, loading: false });
-      throw err;
-    }
-  },
+    login: async (data) => {
+      set({ loading: true, error: null });
+      try {
+        const res = await authApi.login(data);
+        set({ user: res.user, loading: false });
+      } catch (err) {
+        const message = err instanceof ApiClientError ? err.message : 'Login failed.';
+        set({ error: message, loading: false });
+        throw err;
+      }
+    },
 
-  logout: async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      set({ user: null });
-    }
-  },
+    register: async (data) => {
+      set({ loading: true, error: null });
+      try {
+        await authApi.register(data);
+        set({ loading: false });
+      } catch (err) {
+        const message = err instanceof ApiClientError ? err.message : 'Registration failed.';
+        set({ error: message, loading: false });
+        throw err;
+      }
+    },
 
-  fetchMe: async () => {
-    try {
-      const res = await authApi.me();
-      set({ user: res.user, initialized: true });
-    } catch {
-      set({ user: null, initialized: true });
-    }
-  },
+    logout: async () => {
+      try {
+        await authApi.logout();
+      } finally {
+        set({ user: null });
+      }
+    },
 
-  clearError: () => set({ error: null }),
-}));
+    fetchMe: async () => {
+      try {
+        const res = await authApi.me();
+        set({ user: res.user, initialized: true });
+      } catch {
+        set({ user: null, initialized: true });
+      }
+    },
+
+    clearError: () => set({ error: null }),
+  };
+});

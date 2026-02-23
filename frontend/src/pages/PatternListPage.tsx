@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePatternStore } from '../stores/patternStore';
 import { useSessionStore } from '../stores/sessionStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 import { ConfirmModal } from '../components/ConfirmModal';
 import type { Pattern } from '../types';
 
@@ -19,7 +20,7 @@ function computeStitchCount(pattern: Pattern): number {
 
 export function PatternListPage() {
   const { patterns, loading, error, fetchPatterns, deletePattern, duplicatePattern, clearError } = usePatternStore();
-  const { startSession } = useSessionStore();
+  const { startSession, error: sessionError, clearError: clearSessionError } = useSessionStore();
   const navigate = useNavigate();
   const [deleteTarget, setDeleteTarget] = useState<Pattern | null>(null);
 
@@ -56,6 +57,12 @@ export function PatternListPage() {
     }
   };
 
+  const displayError = error || sessionError;
+  const dismissError = () => {
+    clearError();
+    clearSessionError();
+  };
+
   return (
     <section className="section">
       <div className="container">
@@ -70,14 +77,11 @@ export function PatternListPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="notification is-danger">
-            <button className="delete" onClick={clearError}></button>
-            {error}
-          </div>
-        )}
+        <ErrorNotification message={displayError} onDismiss={dismissError} />
 
-        {loading && patterns.length === 0 && <p>Loading patterns...</p>}
+        {loading && patterns.length === 0 && (
+          <div className="has-text-centered"><span className="loader"></span></div>
+        )}
 
         {!loading && patterns.length === 0 && (
           <div className="notification is-light">

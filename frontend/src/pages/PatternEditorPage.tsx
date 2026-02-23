@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatternStore } from '../stores/patternStore';
 import { useStitchStore } from '../stores/stitchStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 import { ConfirmModal } from '../components/ConfirmModal';
 import type { PatternCreateRequest } from '../api/patterns';
 
@@ -178,17 +179,20 @@ export function PatternEditorPage() {
     ));
   };
 
+  if (isEdit && !currentPattern && !error) {
+    return (
+      <section className="section">
+        <div className="container has-text-centered"><span className="loader"></span></div>
+      </section>
+    );
+  }
+
   return (
     <section className="section">
       <div className="container">
         <h1 className="title">{isEdit ? 'Edit Pattern' : 'New Pattern'}</h1>
 
-        {error && (
-          <div className="notification is-danger">
-            <button className="delete" onClick={clearError}></button>
-            {error}
-          </div>
-        )}
+        <ErrorNotification message={error} onDismiss={clearError} />
 
         {/* Pattern Metadata */}
         <div className="box">

@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import { useStitchStore } from '../stores/stitchStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 import { ConfirmModal } from '../components/ConfirmModal';
 import type { Stitch } from '../types';
 
@@ -16,7 +17,7 @@ function categoryTagClass(category: string): string {
   }
 }
 
-const CATEGORIES = ['', 'basic', 'increase', 'decrease', 'post', 'advanced', 'specialty', 'action', 'custom'];
+const CATEGORIES = ['basic', 'increase', 'decrease', 'post', 'advanced', 'specialty', 'action', 'custom'];
 
 export function StitchLibraryPage() {
   const { predefined, custom, loading, error, fetchStitches, createCustom, deleteCustom, clearError } = useStitchStore();
@@ -30,19 +31,28 @@ export function StitchLibraryPage() {
   const [newDesc, setNewDesc] = useState('');
   const [newCategory, setNewCategory] = useState('custom');
 
+  const doFetch = useCallback(
+    (cat?: string, q?: string) => {
+      fetchStitches({ category: cat || undefined, search: q || undefined });
+    },
+    [fetchStitches],
+  );
+
+  // Only fetch on mount and when category changes (not on every search keystroke).
   useEffect(() => {
-    fetchStitches({ category: category || undefined, search: search || undefined });
-  }, [fetchStitches, category, search]);
+    doFetch(category, search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- search is intentionally excluded; fetched on submit only
+  }, [doFetch, category]);
 
   const handleFilter = (e: FormEvent) => {
     e.preventDefault();
-    fetchStitches({ category: category || undefined, search: search || undefined });
+    doFetch(category, search);
   };
 
   const handleClearFilters = () => {
     setCategory('');
     setSearch('');
-    fetchStitches({});
+    doFetch('', '');
   };
 
   const handleCreate = async (e: FormEvent) => {
@@ -58,7 +68,7 @@ export function StitchLibraryPage() {
       setNewName('');
       setNewDesc('');
       setNewCategory('custom');
-      fetchStitches({ category: category || undefined, search: search || undefined });
+      doFetch(category, search);
     } catch {
       // Error in store
     }
@@ -69,7 +79,7 @@ export function StitchLibraryPage() {
     try {
       await deleteCustom(deleteTarget.id);
       setDeleteTarget(null);
-      fetchStitches({ category: category || undefined, search: search || undefined });
+      doFetch(category, search);
     } catch {
       // Error in store
     }
@@ -80,12 +90,7 @@ export function StitchLibraryPage() {
       <div className="container">
         <h1 className="title">Stitch Library</h1>
 
-        {error && (
-          <div className="notification is-danger">
-            <button className="delete" onClick={clearError}></button>
-            {error}
-          </div>
-        )}
+        <ErrorNotification message={error} onDismiss={clearError} />
 
         {/* Filter Box */}
         <div className="box mb-5">
@@ -95,7 +100,7 @@ export function StitchLibraryPage() {
                 <div className="select">
                   <select value={category} onChange={(e) => setCategory(e.target.value)}>
                     <option value="">All Categories</option>
-                    {CATEGORIES.filter(c => c).map((c) => (
+                    {CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                     ))}
                   </select>
@@ -124,7 +129,9 @@ export function StitchLibraryPage() {
           </form>
         </div>
 
-        {loading && <p>Loading stitches...</p>}
+        {loading && predefined.length === 0 && (
+          <div className="has-text-centered mb-4"><span className="loader"></span></div>
+        )}
 
         {/* Standard Stitches */}
         <h2 className="title is-4">Standard Stitches</h2>
@@ -147,7 +154,7 @@ export function StitchLibraryPage() {
                   <td>{stitch.description}</td>
                 </tr>
               ))}
-              {predefined.length === 0 && (
+              {!loading && predefined.length === 0 && (
                 <tr><td colSpan={4} className="has-text-centered has-text-grey">No stitches match your filters</td></tr>
               )}
             </tbody>

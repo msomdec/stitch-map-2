@@ -2,10 +2,11 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useSessionStore } from '../stores/sessionStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const { dashboard, dashboardLoading, error, fetchDashboard, loadMoreCompleted } = useSessionStore();
+  const { dashboard, dashboardLoading, error, clearError, fetchDashboard, loadMoreCompleted } = useSessionStore();
 
   useEffect(() => {
     fetchDashboard();
@@ -15,7 +16,7 @@ export function DashboardPage() {
     return (
       <section className="section">
         <div className="container has-text-centered">
-          <p>Loading dashboard...</p>
+          <span className="loader"></span>
         </div>
       </section>
     );
@@ -28,12 +29,7 @@ export function DashboardPage() {
       <div className="container">
         <h1 className="title">Welcome, {user?.displayName}</h1>
 
-        {error && (
-          <div className="notification is-danger">
-            <button className="delete" onClick={() => useSessionStore.getState().clearError()}></button>
-            {error}
-          </div>
-        )}
+        <ErrorNotification message={error} onDismiss={clearError} />
 
         {/* Active Sessions */}
         <h2 className="title is-4 mt-5">Active Sessions</h2>

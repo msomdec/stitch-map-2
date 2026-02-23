@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { usePatternStore } from '../stores/patternStore';
 import { useStitchStore } from '../stores/stitchStore';
 import { useSessionStore } from '../stores/sessionStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 import { imagesApi } from '../api/images';
 
 function categoryTagClass(category: string): string {
@@ -31,6 +32,7 @@ export function PatternViewPage() {
     fetchPattern,
     duplicatePattern,
     clearCurrent,
+    clearError,
   } = usePatternStore();
   const { allStitches, fetchAllStitches } = useStitchStore();
   const { startSession } = useSessionStore();
@@ -65,11 +67,11 @@ export function PatternViewPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !pattern) {
     return (
       <section className="section">
         <div className="container has-text-centered">
-          <p>Loading pattern...</p>
+          <span className="loader"></span>
         </div>
       </section>
     );
@@ -79,7 +81,7 @@ export function PatternViewPage() {
     return (
       <section className="section">
         <div className="container">
-          <div className="notification is-danger">{error || 'Pattern not found'}</div>
+          <ErrorNotification message={error ?? 'Pattern not found.'} onDismiss={clearError} />
           <Link to="/patterns">Back to Patterns</Link>
         </div>
       </section>

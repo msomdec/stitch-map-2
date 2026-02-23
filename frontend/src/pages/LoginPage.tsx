@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 
 export function LoginPage() {
   const { login, loading, error, clearError, user } = useAuthStore();
@@ -8,10 +9,9 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Redirect if already logged in
+  // Use <Navigate> instead of navigate() to avoid side effects during render.
   if (user) {
-    navigate('/', { replace: true });
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -31,12 +31,7 @@ export function LoginPage() {
           <div className="column is-5">
             <h1 className="title">Log In</h1>
 
-            {error && (
-              <div className="notification is-danger">
-                <button className="delete" onClick={clearError}></button>
-                {error}
-              </div>
-            )}
+            <ErrorNotification message={error} onDismiss={clearError} />
 
             <form onSubmit={handleSubmit}>
               <div className="field">

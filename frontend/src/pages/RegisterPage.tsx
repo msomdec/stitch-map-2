@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 
 export function RegisterPage() {
   const { register, loading, error, clearError, user } = useAuthStore();
@@ -11,8 +12,7 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   if (user) {
-    navigate('/', { replace: true });
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -32,12 +32,7 @@ export function RegisterPage() {
           <div className="column is-5">
             <h1 className="title">Register</h1>
 
-            {error && (
-              <div className="notification is-danger">
-                <button className="delete" onClick={clearError}></button>
-                {error}
-              </div>
-            )}
+            <ErrorNotification message={error} onDismiss={clearError} />
 
             <form onSubmit={handleSubmit}>
               <div className="field">

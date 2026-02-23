@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSessionStore } from '../stores/sessionStore';
+import { ErrorNotification } from '../components/ErrorNotification';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export function WorkSessionPage() {
@@ -34,16 +35,22 @@ export function WorkSessionPage() {
     if (actionInFlight.current) return;
     if (!sessionView || sessionView.session.status !== 'active') return;
     actionInFlight.current = true;
-    await nextStitch(sessionId);
-    actionInFlight.current = false;
+    try {
+      await nextStitch(sessionId);
+    } finally {
+      actionInFlight.current = false;
+    }
   }, [sessionView, sessionId, nextStitch]);
 
   const handlePrev = useCallback(async () => {
     if (actionInFlight.current) return;
     if (!sessionView || sessionView.session.status !== 'active') return;
     actionInFlight.current = true;
-    await prevStitch(sessionId);
-    actionInFlight.current = false;
+    try {
+      await prevStitch(sessionId);
+    } finally {
+      actionInFlight.current = false;
+    }
   }, [sessionView, sessionId, prevStitch]);
 
   const handlePauseResume = useCallback(async () => {
@@ -112,7 +119,7 @@ export function WorkSessionPage() {
     return (
       <section className="section">
         <div className="container has-text-centered">
-          <p>Loading session...</p>
+          <span className="loader"></span>
         </div>
       </section>
     );
@@ -122,7 +129,7 @@ export function WorkSessionPage() {
     return (
       <section className="section">
         <div className="container">
-          <div className="notification is-danger">{error || 'Session not found'}</div>
+          <ErrorNotification message={error ?? 'Session not found.'} />
           <Link to="/dashboard">Back to Dashboard</Link>
         </div>
       </section>
@@ -159,12 +166,7 @@ export function WorkSessionPage() {
       <div className="container">
         <div className="columns is-centered">
           <div className="column is-8">
-            {error && (
-              <div className="notification is-danger">
-                <button className="delete" onClick={clearError}></button>
-                {error}
-              </div>
-            )}
+            <ErrorNotification message={error} onDismiss={clearError} />
 
             {/* Paused banner */}
             {session.status === 'paused' && (

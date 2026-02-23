@@ -9,8 +9,24 @@ export class ApiClientError extends Error {
   }
 }
 
+// Callback invoked on 401 responses to clear stale auth state.
+// Set by the auth store on initialization.
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(callback: () => void) {
+  onUnauthorized = callback;
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    // Clear stale auth on 401, but not for auth endpoints themselves
+    // (login/register 401s are expected validation errors).
+    if (response.status === 401 && onUnauthorized) {
+      const isAuthEndpoint = response.url.includes('/auth/login') || response.url.includes('/auth/register');
+      if (!isAuthEndpoint) {
+        onUnauthorized();
+      }
+    }
     let message = response.statusText;
     try {
       const body = await response.json();
@@ -19,7 +35,6 @@ async function handleResponse<T>(response: Response): Promise<T> {
     throw new ApiClientError(response.status, message);
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
     return undefined as T;
   }
@@ -27,48 +42,55 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-export async function get<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-  });
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, { credentials: 'include', ...init });
+  } catch (err) {
+    // Let AbortController cancellations propagate as-is
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err;
+    }
+    // Network failure, DNS error, offline, etc.
+    throw new ApiClientError(0, 'Network error. Please check your connection and try again.');
+  }
   return handleResponse<T>(response);
 }
 
-export async function post<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+export async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(`${API_BASE}${path}`, { signal });
+}
+
+export async function post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(`${API_BASE}${path}`, {
     method: 'POST',
     headers: body ? { 'Content-Type': 'application/json' } : {},
-    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
-  return handleResponse<T>(response);
 }
 
-export async function put<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+export async function put<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(`${API_BASE}${path}`, {
     method: 'PUT',
     headers: body ? { 'Content-Type': 'application/json' } : {},
-    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
-  return handleResponse<T>(response);
 }
 
-export async function del<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+export async function del<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(`${API_BASE}${path}`, {
     method: 'DELETE',
-    credentials: 'include',
+    signal,
   });
-  return handleResponse<T>(response);
 }
 
 export async function uploadFile<T>(path: string, file: File, fieldName = 'image'): Promise<T> {
   const formData = new FormData();
   formData.append(fieldName, file);
-  const response = await fetch(`${API_BASE}${path}`, {
+  return request<T>(`${API_BASE}${path}`, {
     method: 'POST',
-    credentials: 'include',
     body: formData,
   });
-  return handleResponse<T>(response);
 }
