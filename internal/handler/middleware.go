@@ -22,12 +22,12 @@ func UserFromContext(ctx context.Context) *domain.User {
 
 // RequireAuth is middleware that protects routes requiring authentication.
 // It reads the auth_token cookie, validates the JWT, loads the user from DB,
-// and injects it into the request context. Returns 401 for unauthenticated requests.
+// and injects it into the request context. Returns a JSON 401 for unauthenticated requests.
 func RequireAuth(auth *service.AuthService, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, err := authenticateRequest(r, auth)
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "Not authenticated.")
 			return
 		}
 
@@ -51,7 +51,7 @@ func OptionalAuth(auth *service.AuthService, next http.Handler) http.Handler {
 }
 
 // RateLimit is middleware that enforces a per-IP rate limit using the provided TokenBucket.
-// Requests exceeding the limit receive a 429 Too Many Requests response.
+// Requests exceeding the limit receive a JSON 429 Too Many Requests response.
 func RateLimit(tb *service.TokenBucket, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -59,9 +59,27 @@ func RateLimit(tb *service.TokenBucket, next http.Handler) http.Handler {
 			ip = r.RemoteAddr
 		}
 		if !tb.Allow(ip) {
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			writeError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// CORS is middleware that sets CORS headers for development.
+// In production, the React app is served from the same origin so CORS is not needed.
+func CORS(allowedOrigin string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

@@ -9,8 +9,6 @@ import (
 
 	"github.com/msomdec/stitch-map-2/internal/domain"
 	"github.com/msomdec/stitch-map-2/internal/service"
-	"github.com/msomdec/stitch-map-2/internal/view"
-	"github.com/starfederation/datastar-go/datastar"
 )
 
 // ImageHandler handles image upload, retrieval, and deletion.
@@ -24,25 +22,25 @@ func NewImageHandler(images *service.ImageService, patterns *service.PatternServ
 	return &ImageHandler{images: images, patterns: patterns}
 }
 
-// HandleUpload processes a multipart image upload for a pattern part.
-// Called via JavaScript fetch, returns plain HTTP (not SSE).
-// POST /patterns/{id}/parts/{groupIndex}/images
+// HandleUpload processes a multipart image upload for a pattern group.
+// POST /api/patterns/{id}/groups/{groupIndex}/images
+// Response: {"image": {...}}
 func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "Unauthorized.")
 		return
 	}
 
 	patternID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid pattern ID.")
 		return
 	}
 
 	groupIndex, err := strconv.Atoi(r.PathValue("groupIndex"))
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid group index.")
 		return
 	}
 
@@ -50,19 +48,19 @@ func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	pattern, err := h.patterns.GetByID(r.Context(), patternID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			http.Error(w, "Not Found", http.StatusNotFound)
+			writeError(w, http.StatusNotFound, "Pattern not found.")
 			return
 		}
 		slog.Error("get pattern", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 		return
 	}
 	if pattern.UserID != user.ID {
-		http.Error(w, "Not Found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Pattern not found.")
 		return
 	}
 	if groupIndex < 0 || groupIndex >= len(pattern.InstructionGroups) {
-		http.Error(w, "Bad Request: invalid group index", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid group index.")
 		return
 	}
 
@@ -70,13 +68,13 @@ func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Parse multipart form (10MB limit).
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		http.Error(w, "File too large", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "File too large.")
 		return
 	}
 
 	file, header, err := r.FormFile("image")
 	if err != nil {
-		http.Error(w, "No image file provided", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "No image file provided.")
 		return
 	}
 	defer file.Close()
@@ -84,54 +82,52 @@ func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	data, err := io.ReadAll(file)
 	if err != nil {
 		slog.Error("read upload", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 		return
 	}
 
 	// Detect content type from file bytes (more reliable than multipart header).
 	contentType := http.DetectContentType(data)
 
-	_, err = h.images.Upload(r.Context(), user.ID, group.ID, header.Filename, contentType, data)
+	image, err := h.images.Upload(r.Context(), user.ID, group.ID, header.Filename, contentType, data)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		slog.Error("upload image", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"image": toPatternImageDTO(*image),
+	})
 }
 
 // HandleServe serves image bytes with correct Content-Type.
-// GET /images/{id}
+// GET /api/images/{id}
 func (h *ImageHandler) HandleServe(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "Unauthorized.")
 		return
 	}
 
 	imageID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid image ID.")
 		return
 	}
 
 	data, contentType, err := h.images.GetFile(r.Context(), user.ID, imageID)
 	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			http.Error(w, "Not Found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, domain.ErrUnauthorized) {
-			http.Error(w, "Not Found", http.StatusNotFound)
+		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUnauthorized) {
+			writeError(w, http.StatusNotFound, "Image not found.")
 			return
 		}
 		slog.Error("serve image", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 		return
 	}
 
@@ -141,52 +137,31 @@ func (h *ImageHandler) HandleServe(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// HandleDelete deletes an image and responds with SSE to update the UI.
-// POST /images/{id}/delete
+// HandleDelete deletes an image.
+// DELETE /api/images/{id}
+// Response: 204 No Content
 func (h *ImageHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeError(w, http.StatusUnauthorized, "Unauthorized.")
 		return
 	}
 
 	imageID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid image ID.")
 		return
 	}
 
-	// Read context params from query so we can re-render the image section.
-	patternID, _ := strconv.ParseInt(r.URL.Query().Get("patternID"), 10, 64)
-	groupIndex, _ := strconv.Atoi(r.URL.Query().Get("groupIndex"))
-	groupID, _ := strconv.ParseInt(r.URL.Query().Get("groupID"), 10, 64)
-
 	if err := h.images.Delete(r.Context(), user.ID, imageID); err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			http.Error(w, "Not Found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, domain.ErrUnauthorized) {
-			http.Error(w, "Not Found", http.StatusNotFound)
+		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUnauthorized) {
+			writeError(w, http.StatusNotFound, "Image not found.")
 			return
 		}
 		slog.Error("delete image", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 		return
 	}
 
-	// Re-render the image section via SSE.
-	images, err := h.images.ListByGroup(r.Context(), groupID)
-	if err != nil {
-		slog.Error("list images after delete", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	sse := datastar.NewSSE(w, r)
-	sse.PatchElementTempl(
-		view.ImageSection(patternID, groupIndex, groupID, images),
-		datastar.WithSelectorID("images-"+strconv.Itoa(groupIndex)),
-		datastar.WithModeInner(),
-	)
+	w.WriteHeader(http.StatusNoContent)
 }

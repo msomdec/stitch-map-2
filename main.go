@@ -17,10 +17,7 @@ import (
 
 func main() {
 	logOpts := &slog.HandlerOptions{Level: slog.LevelInfo}
-	logger := slog.New(slog.NewMultiHandler(
-		slog.NewTextHandler(os.Stdout, logOpts),
-		slog.NewJSONHandler(os.Stderr, logOpts),
-	))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, logOpts))
 	slog.SetDefault(logger)
 
 	port := envOrDefault("PORT", "8080")

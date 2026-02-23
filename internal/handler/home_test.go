@@ -8,7 +8,7 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/handler"
 )
 
-func TestHandleHome(t *testing.T) {
+func TestSPAFallback_NoStaticFiles(t *testing.T) {
 	auth, stitches, patterns, sessions, images := newTestServices(t)
 
 	mux := http.NewServeMux()
@@ -17,18 +17,19 @@ func TestHandleHome(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
+	// When no frontend/dist exists, non-API routes should return 404.
 	resp, err := http.Get(srv.URL + "/")
 	if err != nil {
 		t.Fatalf("GET /: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
 	}
 }
 
-func TestUnknownPathReturns404(t *testing.T) {
+func TestUnknownAPIPathReturns404(t *testing.T) {
 	auth, stitches, patterns, sessions, images := newTestServices(t)
 
 	mux := http.NewServeMux()
@@ -37,9 +38,9 @@ func TestUnknownPathReturns404(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/nonexistent")
+	resp, err := http.Get(srv.URL + "/api/nonexistent")
 	if err != nil {
-		t.Fatalf("GET /nonexistent: %v", err)
+		t.Fatalf("GET /api/nonexistent: %v", err)
 	}
 	defer resp.Body.Close()
 

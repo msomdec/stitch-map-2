@@ -2,9 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/msomdec/stitch-map-2/internal/service"
-	"github.com/msomdec/stitch-map-2/internal/view"
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
@@ -21,58 +23,79 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 
 	// Public routes.
 	mux.HandleFunc("GET /healthz", HandleHealthz)
-	mux.Handle("GET /{$}", OptionalAuth(auth, http.HandlerFunc(HandleHome)))
 
-	// Auth routes (unauthenticated, rate-limited).
-	mux.Handle("GET /login", RateLimit(authLimiter, http.HandlerFunc(authHandler.ShowLogin)))
-	mux.Handle("POST /login", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleLogin)))
-	mux.Handle("GET /register", RateLimit(authLimiter, http.HandlerFunc(authHandler.ShowRegister)))
-	mux.Handle("POST /register", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleRegister)))
-	mux.HandleFunc("POST /logout", authHandler.HandleLogout)
+	// Auth routes.
+	mux.Handle("GET /api/auth/me", OptionalAuth(auth, http.HandlerFunc(authHandler.HandleMe)))
+	mux.Handle("POST /api/auth/login", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleLogin)))
+	mux.Handle("POST /api/auth/register", RateLimit(authLimiter, http.HandlerFunc(authHandler.HandleRegister)))
+	mux.HandleFunc("POST /api/auth/logout", authHandler.HandleLogout)
 
-	// Protected routes.
-	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleDashboard)))
-	mux.Handle("GET /dashboard/completed", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleLoadMoreCompleted)))
+	// Dashboard routes (authenticated).
+	mux.Handle("GET /api/dashboard", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleDashboard)))
+	mux.Handle("GET /api/dashboard/completed", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleLoadMoreCompleted)))
 
 	// Stitch library routes (authenticated).
-	mux.Handle("GET /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))
-	mux.Handle("POST /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleCreateCustom)))
-	mux.Handle("POST /stitches/{id}/edit", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleUpdateCustom)))
-	mux.Handle("POST /stitches/{id}/delete", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleDeleteCustom)))
+	mux.Handle("GET /api/stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))
+	mux.Handle("GET /api/stitches/all", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleListAll)))
+	mux.Handle("POST /api/stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleCreateCustom)))
+	mux.Handle("PUT /api/stitches/{id}", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleUpdateCustom)))
+	mux.Handle("DELETE /api/stitches/{id}", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleDeleteCustom)))
 
 	// Pattern routes (authenticated).
-	mux.Handle("GET /patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleList)))
-	mux.Handle("GET /patterns/new", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleNew)))
-	mux.Handle("POST /patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleCreate)))
-	mux.Handle("GET /patterns/{id}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleView)))
-	mux.Handle("GET /patterns/{id}/edit", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleEdit)))
-	mux.Handle("POST /patterns/{id}/edit", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleUpdate)))
-	mux.Handle("POST /patterns/{id}/delete", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDelete)))
-	mux.Handle("POST /patterns/{id}/duplicate", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDuplicate)))
-
-	// Pattern editor SSE endpoints (dynamic add/remove parts and entries).
-	mux.Handle("POST /patterns/editor/add-part", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleAddPart)))
-	mux.Handle("POST /patterns/editor/remove-part/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemovePart)))
-	mux.Handle("POST /patterns/editor/add-entry/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleAddEntry)))
-	mux.Handle("POST /patterns/editor/remove-entry/{gi}/{ei}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemoveEntry)))
+	mux.Handle("GET /api/patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleList)))
+	mux.Handle("POST /api/patterns", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleCreate)))
+	mux.Handle("POST /api/patterns/preview", RequireAuth(auth, http.HandlerFunc(patternHandler.HandlePreview)))
+	mux.Handle("GET /api/patterns/{id}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleView)))
+	mux.Handle("PUT /api/patterns/{id}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleUpdate)))
+	mux.Handle("DELETE /api/patterns/{id}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDelete)))
+	mux.Handle("POST /api/patterns/{id}/duplicate", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleDuplicate)))
 
 	// Image routes (authenticated).
-	mux.Handle("POST /patterns/{id}/parts/{groupIndex}/images", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleUpload)))
-	mux.Handle("GET /images/{id}", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleServe)))
-	mux.Handle("POST /images/{id}/delete", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleDelete)))
+	mux.Handle("POST /api/patterns/{id}/groups/{groupIndex}/images", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleUpload)))
+	mux.Handle("GET /api/images/{id}", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleServe)))
+	mux.Handle("DELETE /api/images/{id}", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleDelete)))
 
 	// Work session routes (authenticated).
-	mux.Handle("POST /patterns/{id}/start-session", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleStart)))
-	mux.Handle("GET /sessions/{id}", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleView)))
-	mux.Handle("POST /sessions/{id}/next", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleForward)))
-	mux.Handle("POST /sessions/{id}/prev", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleBackward)))
-	mux.Handle("POST /sessions/{id}/pause", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandlePause)))
-	mux.Handle("POST /sessions/{id}/resume", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleResume)))
-	mux.Handle("POST /sessions/{id}/abandon", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleAbandon)))
+	mux.Handle("POST /api/patterns/{id}/sessions", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleStart)))
+	mux.Handle("GET /api/sessions/{id}", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleView)))
+	mux.Handle("POST /api/sessions/{id}/next", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleForward)))
+	mux.Handle("POST /api/sessions/{id}/prev", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleBackward)))
+	mux.Handle("POST /api/sessions/{id}/pause", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandlePause)))
+	mux.Handle("POST /api/sessions/{id}/resume", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleResume)))
+	mux.Handle("DELETE /api/sessions/{id}", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleAbandon)))
 
-	// Catch-all 404 handler.
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		view.ErrorPage(http.StatusNotFound, "Page Not Found", "The page you're looking for doesn't exist.").Render(r.Context(), w)
-	})
+	// SPA fallback: serve index.html for non-API routes.
+	mux.HandleFunc("/", HandleSPA)
+}
+
+// HandleSPA serves the React SPA. For requests to static files (JS, CSS, images),
+// it serves the file directly. For all other non-API routes, it serves index.html
+// so that React Router can handle client-side routing.
+func HandleSPA(w http.ResponseWriter, r *http.Request) {
+	// Determine the static files directory.
+	// In production, the React build output is in ./frontend/dist.
+	staticDir := filepath.Join("frontend", "dist")
+
+	// Check if the requested file exists on disk.
+	path := filepath.Join(staticDir, filepath.Clean(r.URL.Path))
+	info, err := os.Stat(path)
+	if err == nil && !info.IsDir() {
+		// Serve the static file directly.
+		http.ServeFile(w, r, path)
+		return
+	}
+
+	// For API routes that don't match, return 404 JSON.
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		writeError(w, http.StatusNotFound, "Not found.")
+		return
+	}
+
+	// For all other paths, serve index.html so React Router can handle routing.
+	indexPath := filepath.Join(staticDir, "index.html")
+	if _, err := os.Stat(indexPath); err != nil {
+		writeError(w, http.StatusNotFound, "Not found.")
+		return
+	}
+	http.ServeFile(w, r, indexPath)
 }

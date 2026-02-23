@@ -1,16 +1,5 @@
 package handler
 
-import (
-	"net/http"
-
-	"github.com/msomdec/stitch-map-2/internal/view"
-)
-
-// HandleHome renders the home page.
-func HandleHome(w http.ResponseWriter, r *http.Request) {
-	displayName := ""
-	if user := UserFromContext(r.Context()); user != nil {
-		displayName = user.DisplayName
-	}
-	view.HomePage(displayName).Render(r.Context(), w)
-}
+// Home page rendering has been removed.
+// The React SPA handles the home page via client-side routing.
+// See HandleSPA in routes.go for the SPA fallback handler.
