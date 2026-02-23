@@ -6,7 +6,7 @@ import "strconv"
 import "fmt"
 import "strings"
 
-templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch) {
+templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage) {
 	@Layout(pattern.Name, displayName) {
 		<div class="level">
 			<div class="level-left">
@@ -87,6 +87,9 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 				<p class="help has-text-grey">
 					{ service.RenderGroupText(&g, stitches) }
 				</p>
+				if len(groupImages[g.ID]) > 0 {
+					@ImageGallery(groupImages[g.ID])
+				}
 			</div>
 		}
 	}

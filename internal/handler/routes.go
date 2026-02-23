@@ -8,12 +8,13 @@ import (
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService) {
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService, images *service.ImageService) {
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
-	patternHandler := NewPatternHandler(patterns, stitches)
+	patternHandler := NewPatternHandler(patterns, stitches, images)
 	sessionHandler := NewWorkSessionHandler(sessions, patterns, stitches)
 	dashboardHandler := NewDashboardHandler(sessions)
+	imageHandler := NewImageHandler(images, patterns)
 
 	// Rate limiter for auth endpoints: 10 req/s capacity, refills at 1/s.
 	authLimiter := service.NewTokenBucket(1, 10)
@@ -53,6 +54,11 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /patterns/editor/remove-part/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemovePart)))
 	mux.Handle("POST /patterns/editor/add-entry/{gi}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleAddEntry)))
 	mux.Handle("POST /patterns/editor/remove-entry/{gi}/{ei}", RequireAuth(auth, http.HandlerFunc(patternHandler.HandleRemoveEntry)))
+
+	// Image routes (authenticated).
+	mux.Handle("POST /patterns/{id}/parts/{groupIndex}/images", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleUpload)))
+	mux.Handle("GET /images/{id}", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleServe)))
+	mux.Handle("POST /images/{id}/delete", RequireAuth(auth, http.HandlerFunc(imageHandler.HandleDelete)))
 
 	// Work session routes (authenticated).
 	mux.Handle("POST /patterns/{id}/start-session", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleStart)))

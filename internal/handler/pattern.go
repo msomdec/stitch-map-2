@@ -19,11 +19,12 @@ import (
 type PatternHandler struct {
 	patterns *service.PatternService
 	stitches *service.StitchService
+	images   *service.ImageService
 }
 
 // NewPatternHandler creates a new PatternHandler.
-func NewPatternHandler(patterns *service.PatternService, stitches *service.StitchService) *PatternHandler {
-	return &PatternHandler{patterns: patterns, stitches: stitches}
+func NewPatternHandler(patterns *service.PatternService, stitches *service.StitchService, images *service.ImageService) *PatternHandler {
+	return &PatternHandler{patterns: patterns, stitches: stitches, images: images}
 }
 
 // HandleList renders the pattern list page.
@@ -59,7 +60,7 @@ func (h *PatternHandler) HandleNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternEditorPage(user.DisplayName, nil, allStitches, "").Render(r.Context(), w)
+	view.PatternEditorPage(user.DisplayName, nil, allStitches, nil, "").Render(r.Context(), w)
 }
 
 // HandleCreate processes pattern creation from the form.
@@ -126,7 +127,14 @@ func (h *PatternHandler) HandleView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternViewPage(user.DisplayName, pattern, allStitches).Render(r.Context(), w)
+	groupImages, err := h.images.ListByPattern(r.Context(), pattern)
+	if err != nil {
+		slog.Error("list pattern images", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	view.PatternViewPage(user.DisplayName, pattern, allStitches, groupImages).Render(r.Context(), w)
 }
 
 // HandleEdit renders the pattern editor for an existing pattern.
@@ -166,7 +174,14 @@ func (h *PatternHandler) HandleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternEditorPage(user.DisplayName, pattern, allStitches, "").Render(r.Context(), w)
+	groupImages, err := h.images.ListByPattern(r.Context(), pattern)
+	if err != nil {
+		slog.Error("list pattern images", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	view.PatternEditorPage(user.DisplayName, pattern, allStitches, groupImages, "").Render(r.Context(), w)
 }
 
 // HandleUpdate processes pattern update from the form.
@@ -361,7 +376,7 @@ func (h *PatternHandler) HandleRemoveEntry(w http.ResponseWriter, r *http.Reques
 func (h *PatternHandler) renderEditorWithError(w http.ResponseWriter, r *http.Request, user *domain.User, pattern *domain.Pattern, errMsg string) {
 	allStitches, _ := h.stitches.ListAll(r.Context(), user.ID)
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	view.PatternEditorPage(user.DisplayName, pattern, allStitches, errMsg).Render(r.Context(), w)
+	view.PatternEditorPage(user.DisplayName, pattern, allStitches, nil, errMsg).Render(r.Context(), w)
 }
 
 // parsePatternForm reads pattern data from a form submission.

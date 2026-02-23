@@ -5,7 +5,7 @@ import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, errMsg string) {
+templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage, errMsg string) {
 	@Layout(editorTitle(pattern), displayName) {
 		if errMsg != "" {
 			<div class="notification is-danger">
@@ -115,10 +115,10 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				<div id="pattern-parts">
 					if pattern != nil && len(pattern.InstructionGroups) > 0 {
 						for gi, g := range pattern.InstructionGroups {
-							@groupFields(gi, g, stitches)
+							@groupFields(gi, g, stitches, pattern.ID, groupImages[g.ID])
 						}
 					} else {
-						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches)
+						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches, 0, nil)
 					}
 				</div>
 				<!-- Add Part Button -->
@@ -209,7 +209,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 	}
 }
 
-templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
+templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, patternID int64, images []domain.PatternImage) {
 	<div class="box is-relative" id={ "part-" + strconv.Itoa(gi) }>
 		<button
 			type="button"
@@ -278,12 +278,19 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
 		>
 			+ Add Stitch
 		</button>
+		if patternID > 0 && g.ID > 0 {
+			<hr/>
+			<h3 class="subtitle is-6">Images</h3>
+			<div id={ "images-" + strconv.Itoa(gi) }>
+				@ImageSection(patternID, gi, g.ID, images)
+			</div>
+		}
 	</div>
 }
 
 // GroupFieldsFragment is the exported version of groupFields for use by SSE handlers.
 templ GroupFieldsFragment(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
-	@groupFields(gi, g, stitches)
+	@groupFields(gi, g, stitches, 0, nil)
 }
 
 templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) {

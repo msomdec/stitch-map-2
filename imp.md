@@ -423,3 +423,173 @@ Remove the `deletePatternOnclick` templ `script` block entirely.
 **No changes to**: `domain/`, `service/`, `repository/`, `handler/`, migrations, or tests. All handlers already accept POST requests and respond with redirects — the Datastar `@post` calls will trigger the same server-side code paths.
 
 **Regression gate**: All existing tests pass. All pages render correctly. Pattern CRUD, work session navigation, stitch library management, delete confirmations, and keyboard shortcuts continue to function. No visual regressions — spacing should improve, not change semantics.
+
+---
+
+### IMP-10: Pattern Part Image Uploads
+
+**Problem**: Users have no way to attach reference images to pattern parts. Photos of completed sections, stitch close-ups, or diagram sketches are commonly needed while following a pattern. Currently, users must keep these in a separate app or browser tab.
+
+**Goal**: Allow users to upload and view images for each part (instruction group) of a pattern. Up to 5 images per part, max 10MB per file, JPEG and PNG only. All file storage and retrieval is behind a swappable interface so the initial SQLite BLOB implementation can later be replaced with filesystem, S3, or another backend.
+
+---
+
+#### Domain Layer
+
+**New file: `internal/domain/image.go`**
+
+Two new interfaces and one new entity:
+
+```go
+// PatternImage holds metadata about an image attached to an instruction group.
+type PatternImage struct {
+    ID                 int64
+    InstructionGroupID int64
+    Filename           string    // Original upload filename
+    ContentType        string    // "image/jpeg" or "image/png"
+    Size               int64     // File size in bytes
+    StorageKey         string    // Key used to retrieve bytes from FileStore
+    SortOrder          int       // Display order within the group
+    CreatedAt          time.Time
+}
+
+// PatternImageRepository handles image metadata persistence.
+type PatternImageRepository interface {
+    Create(ctx context.Context, image *PatternImage) error
+    GetByID(ctx context.Context, id int64) (*PatternImage, error)
+    ListByGroup(ctx context.Context, groupID int64) ([]PatternImage, error)
+    Delete(ctx context.Context, id int64) error
+    CountByGroup(ctx context.Context, groupID int64) (int, error)
+}
+
+// FileStore abstracts raw file byte storage.
+// The initial implementation stores BLOBs in SQLite; this interface
+// allows swapping to filesystem, S3, or another backend later.
+type FileStore interface {
+    Save(ctx context.Context, key string, data []byte) error
+    Get(ctx context.Context, key string) ([]byte, error)
+    Delete(ctx context.Context, key string) error
+}
+```
+
+The `PatternImageRepository` follows the existing repository pattern (metadata in the relational DB). The `FileStore` is a separate abstraction for raw bytes — the key design point that makes the storage backend independently swappable.
+
+---
+
+#### Database — Migration 006
+
+**New file: `internal/repository/sqlite/migrations/006_create_pattern_images.sql`**
+
+```sql
+-- 006_create_pattern_images.sql
+-- Image metadata and blob storage for pattern part images.
+
+CREATE TABLE IF NOT EXISTS pattern_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instruction_group_id INTEGER NOT NULL REFERENCES instruction_groups(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    storage_key TEXT NOT NULL,
+    sort_order INTEGER NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pattern_images_group ON pattern_images(instruction_group_id);
+
+CREATE TABLE IF NOT EXISTS file_blobs (
+    storage_key TEXT PRIMARY KEY,
+    data BLOB NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+The `file_blobs` table is owned by the SQLite `FileStore` implementation. A different backend (e.g., S3) would not use this table — it would store bytes externally and only implement the `FileStore` interface.
+
+`ON DELETE CASCADE` on `instruction_group_id` ensures that deleting a part (or its parent pattern) removes image metadata rows. The corresponding `FileStore` cleanup (deleting the actual bytes) must be handled by the service layer before or after the cascade, since the `FileStore` is a separate abstraction.
+
+---
+
+#### Repository Layer
+
+**New file: `internal/repository/sqlite/pattern_image.go`**
+
+Implements `domain.PatternImageRepository` — standard CRUD against the `pattern_images` table. Follows the same patterns as existing repository files (constructor injection of `*sql.DB`, context-aware queries).
+
+**New file: `internal/repository/sqlite/filestore.go`**
+
+Implements `domain.FileStore` using the `file_blobs` table:
+
+- `Save`: `INSERT INTO file_blobs (storage_key, data) VALUES (?, ?)`
+- `Get`: `SELECT data FROM file_blobs WHERE storage_key = ?`
+- `Delete`: `DELETE FROM file_blobs WHERE storage_key = ?`
+
+---
+
+#### Service Layer
+
+**New file: `internal/service/image.go`**
+
+`ImageService` orchestrates image uploads, retrieval, and deletion:
+
+- **Dependencies**: `domain.PatternImageRepository`, `domain.FileStore`, `domain.PatternRepository` (for ownership verification)
+- **`Upload(ctx, userID, groupID, filename, contentType string, data []byte) (*PatternImage, error)`**:
+  1. Verify the instruction group exists and belongs to a pattern owned by `userID`
+  2. Validate content type is `image/jpeg` or `image/png`
+  3. Validate file size ≤ 10MB (10 × 1024 × 1024 bytes)
+  4. Check `CountByGroup` < 5
+  5. Generate a storage key (e.g., `"pattern-images/{uuid}"` using `crypto/rand`)
+  6. Call `FileStore.Save` with the key and data
+  7. Create `PatternImage` metadata via `PatternImageRepository.Create`
+  8. Return the created image metadata
+- **`GetFile(ctx, userID, imageID) ([]byte, string, error)`** — returns bytes + content type after ownership check
+- **`Delete(ctx, userID, imageID) error`** — deletes from `FileStore` then `PatternImageRepository` after ownership check
+- **`ListByGroup(ctx, groupID) ([]PatternImage, error)`** — passthrough to repository
+
+---
+
+#### Handler Layer
+
+**New file: `internal/handler/image.go`**
+
+- **`POST /patterns/{id}/parts/{groupIndex}/images`** — accepts `multipart/form-data` with a file field named `image`. Parses with `r.ParseMultipartForm(10 << 20)` (10MB limit). Calls `ImageService.Upload`. Responds with SSE patch to update the image section of the part.
+- **`GET /images/{id}`** — serves image bytes with correct `Content-Type` header and `Cache-Control`. No SSE — this is a direct HTTP response for `<img src="...">` tags.
+- **`DELETE /images/{id}`** — calls `ImageService.Delete`. Responds with SSE patch to remove the image thumbnail from the UI.
+
+Register routes in `internal/handler/routes.go`.
+
+---
+
+#### View Layer
+
+**`internal/view/pattern_editor.templ`** — within each part box, below the stitch entries and part notes:
+
+- An "Images" subsection showing thumbnails of attached images (if any) in a flex row
+- Each thumbnail has a delete button (×)
+- An "Upload Image" button (visible only if < 5 images) that opens a file input
+- Display count indicator: "2 / 5 images"
+
+**`internal/view/pattern_view.templ`** — within each part section:
+
+- Display attached images as a thumbnail gallery (clickable to view full size in a Bulma modal)
+
+---
+
+#### Constraints
+
+| Constraint | Value |
+|---|---|
+| Max images per part | 5 |
+| Max file size | 10MB (10,485,760 bytes) |
+| Accepted content types | `image/jpeg`, `image/png` |
+
+---
+
+#### Affected files
+
+- **New**: `internal/domain/image.go`, `internal/repository/sqlite/pattern_image.go`, `internal/repository/sqlite/filestore.go`, `internal/service/image.go`, `internal/handler/image.go`, `internal/repository/sqlite/migrations/006_create_pattern_images.sql`
+- **Modified**: `internal/handler/routes.go` (register new routes), `internal/view/pattern_editor.templ` (image section in parts), `internal/view/pattern_view.templ` (image gallery in parts), `main.go` (wire new service and repositories)
+
+#### Regression gate
+
+All existing tests pass. New integration tests cover: upload image (success, wrong type → error, too large → error, 6th image → error), retrieve image, delete image, cascade delete when part/pattern is deleted. Pattern CRUD, work session, and stitch library flows unaffected.

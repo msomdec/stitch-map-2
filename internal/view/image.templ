@@ -1,0 +1,88 @@
+package view
+
+import "github.com/msomdec/stitch-map-2/internal/domain"
+import "strconv"
+import "fmt"
+
+// ImageSection renders the image management area within a pattern part (editor).
+templ ImageSection(patternID int64, groupIndex int, groupID int64, images []domain.PatternImage) {
+	<p class="help has-text-grey mb-2">
+		{ fmt.Sprintf("%d / 5 images", len(images)) }
+	</p>
+	if len(images) > 0 {
+		<div class="is-flex" style="gap: 0.5rem; flex-wrap: wrap;">
+			for _, img := range images {
+				<div class="is-relative" style="width: 80px; height: 80px;">
+					<img
+						src={ fmt.Sprintf("/images/%d", img.ID) }
+						alt={ img.Filename }
+						style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;"
+					/>
+					<button
+						type="button"
+						class="delete is-small"
+						style="position: absolute; top: 2px; right: 2px;"
+						data-on:click={ fmt.Sprintf("@post('/images/%d/delete?patternID=%d&groupIndex=%d&groupID=%d')", img.ID, patternID, groupIndex, groupID) }
+					></button>
+				</div>
+			}
+		</div>
+	}
+	if len(images) < 5 {
+		<button
+			type="button"
+			class="button is-small is-outlined mt-2"
+			onclick={ uploadImageOnclick(patternID, groupIndex) }
+		>
+			Upload Image
+		</button>
+	}
+	<div id={ "image-error-" + strconv.Itoa(groupIndex) }></div>
+}
+
+// ImageGallery renders a read-only image gallery within a pattern part (view page).
+templ ImageGallery(images []domain.PatternImage) {
+	<div class="is-flex mt-2" style="gap: 0.5rem; flex-wrap: wrap;">
+		for _, img := range images {
+			<a href={ templ.SafeURL(fmt.Sprintf("/images/%d", img.ID)) } target="_blank">
+				<img
+					src={ fmt.Sprintf("/images/%d", img.ID) }
+					alt={ img.Filename }
+					style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+				/>
+			</a>
+		}
+	</div>
+}
+
+// ImageUploadError renders an error message for a failed image upload.
+templ ImageUploadError(msg string) {
+	<p class="help is-danger">{ msg }</p>
+}
+
+script uploadImageOnclick(patternID int64, groupIndex int) {
+	var input = document.createElement('input');
+	input.type = 'file';
+	input.accept = 'image/jpeg,image/png';
+	input.onchange = async function() {
+		var file = input.files[0];
+		if (!file) return;
+		var form = new FormData();
+		form.append('image', file);
+		try {
+			var resp = await fetch('/patterns/' + patternID + '/parts/' + groupIndex + '/images', {
+				method: 'POST',
+				body: form
+			});
+			if (resp.ok) {
+				window.location.reload();
+			} else {
+				var text = await resp.text();
+				alert('Upload failed: ' + text);
+			}
+		} catch(e) {
+			alert('Upload failed: ' + e.message);
+		}
+	};
+	input.click();
+}

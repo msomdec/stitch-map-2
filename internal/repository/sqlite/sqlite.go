@@ -24,7 +24,9 @@ var (
 	_ domain.UserRepository        = (*userRepo)(nil)
 	_ domain.StitchRepository      = (*stitchRepo)(nil)
 	_ domain.PatternRepository     = (*patternRepo)(nil)
-	_ domain.WorkSessionRepository = (*workSessionRepo)(nil)
+	_ domain.WorkSessionRepository  = (*workSessionRepo)(nil)
+	_ domain.PatternImageRepository = (*patternImageRepo)(nil)
+	_ domain.FileStore              = (*fileStore)(nil)
 )
 
 // Users returns a domain.UserRepository backed by this database.
@@ -38,6 +40,12 @@ func (db *DB) Patterns() domain.PatternRepository { return &patternRepo{db: db.S
 
 // Sessions returns a domain.WorkSessionRepository backed by this database.
 func (db *DB) Sessions() domain.WorkSessionRepository { return &workSessionRepo{db: db.SqlDB} }
+
+// PatternImages returns a domain.PatternImageRepository backed by this database.
+func (db *DB) PatternImages() domain.PatternImageRepository { return &patternImageRepo{db: db.SqlDB} }
+
+// FileStore returns a domain.FileStore backed by SQLite BLOBs.
+func (db *DB) FileStore() domain.FileStore { return &fileStore{db: db.SqlDB} }
 
 // New opens a SQLite database at the given path and configures it for use.
 // It enables WAL mode and foreign keys.

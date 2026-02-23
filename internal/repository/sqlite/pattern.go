@@ -91,7 +91,19 @@ func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pa
 		}
 		patterns = append(patterns, p)
 	}
-	return patterns, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i := range patterns {
+		groups, err := r.loadGroups(ctx, patterns[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("load groups for pattern %d: %w", patterns[i].ID, err)
+		}
+		patterns[i].InstructionGroups = groups
+	}
+
+	return patterns, nil
 }
 
 func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error {
