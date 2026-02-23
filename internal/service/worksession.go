@@ -56,6 +56,16 @@ func (s *WorkSessionService) GetActiveByUser(ctx context.Context, userID int64) 
 	return s.sessions.GetActiveByUser(ctx, userID)
 }
 
+// GetCompletedByUser returns completed sessions for a user with pagination.
+func (s *WorkSessionService) GetCompletedByUser(ctx context.Context, userID int64, limit, offset int) ([]domain.WorkSession, error) {
+	return s.sessions.GetCompletedByUser(ctx, userID, limit, offset)
+}
+
+// CountCompletedByUser returns the total number of completed sessions for a user.
+func (s *WorkSessionService) CountCompletedByUser(ctx context.Context, userID int64) (int, error) {
+	return s.sessions.CountCompletedByUser(ctx, userID)
+}
+
 // Pause pauses an active session.
 func (s *WorkSessionService) Pause(ctx context.Context, session *domain.WorkSession) error {
 	if session.Status != domain.SessionStatusActive {

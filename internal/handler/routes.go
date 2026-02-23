@@ -13,7 +13,7 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches, images)
 	sessionHandler := NewWorkSessionHandler(sessions, patterns, stitches)
-	dashboardHandler := NewDashboardHandler(sessions)
+	dashboardHandler := NewDashboardHandler(sessions, patterns)
 	imageHandler := NewImageHandler(images, patterns)
 
 	// Rate limiter for auth endpoints: 10 req/s capacity, refills at 1/s.
@@ -32,6 +32,7 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 
 	// Protected routes.
 	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleDashboard)))
+	mux.Handle("GET /dashboard/completed", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleLoadMoreCompleted)))
 
 	// Stitch library routes (authenticated).
 	mux.Handle("GET /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))

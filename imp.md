@@ -593,3 +593,75 @@ Register routes in `internal/handler/routes.go`.
 #### Regression gate
 
 All existing tests pass. New integration tests cover: upload image (success, wrong type → error, too large → error, 6th image → error), retrieve image, delete image, cascade delete when part/pattern is deleted. Pattern CRUD, work session, and stitch library flows unaffected.
+
+---
+
+### IMP-11: Dashboard Overhaul
+
+**Problem**: The dashboard has several UX issues: completed sessions are never shown (users can't review past work), the Quick Links section duplicates navbar links, and the navbar order doesn't reflect usage priority (Dashboard should come first since it's the landing page for logged-in users).
+
+**Goal**: Make the dashboard the central hub by showing both active and completed sessions with pattern names, removing redundant Quick Links, and reordering the navbar to put Dashboard first.
+
+---
+
+#### 1. Navbar Reordering
+
+**File**: `internal/view/layout.templ`
+
+Reorder the three navbar items in `navbar-start` from **Patterns, Stitch Library, Dashboard** to **Dashboard, Patterns, Stitch Library**. Dashboard is the primary landing page for authenticated users and should be first.
+
+---
+
+#### 2. Remove Quick Links
+
+**File**: `internal/view/dashboard.templ`
+
+Remove the entire Quick Links column (the `<div class="column is-4">` containing "My Patterns", "New Pattern", and "Stitch Library" buttons). These links duplicate the navbar. Make the active sessions section full-width by removing the `columns` wrapper.
+
+---
+
+#### 3. Completed Sessions Section
+
+Add a "Completed Sessions" section below active sessions on the dashboard, with paginated loading.
+
+**Repository** (`internal/domain/session.go`, `internal/repository/sqlite/worksession.go`):
+- Add `GetCompletedByUser(ctx context.Context, userID int64, limit, offset int) ([]WorkSession, error)` to `WorkSessionRepository` interface
+- Add `CountCompletedByUser(ctx context.Context, userID int64) (int, error)` to `WorkSessionRepository` interface
+- SQLite implementation: `WHERE user_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT ? OFFSET ?`
+
+**Service** (`internal/service/worksession.go`):
+- Add passthrough methods `GetCompletedByUser` and `CountCompletedByUser`
+
+**Handler** (`internal/handler/dashboard.go`):
+- Add `*service.PatternService` dependency to `DashboardHandler`
+- `HandleDashboard`: fetch first 5 completed sessions + total count, build `map[int64]string` of pattern names for all sessions (active + completed)
+- Add `HandleLoadMoreCompleted` SSE endpoint: accepts `offset` query param, returns next batch of 5 completed sessions via Datastar SSE (append cards to list, replace load-more button)
+
+**View** (`internal/view/dashboard.templ`):
+- `DashboardPage` signature gains `completedSessions []domain.WorkSession`, `patternNames map[int64]string`, `totalCompleted int`
+- Active session cards show pattern name instead of "Pattern #ID"
+- New `completedSessionCard` component: shows pattern name, completion date, and a "View Pattern" link
+- "Load More" button (visible when `totalCompleted > displayed count`) triggers `@get('/dashboard/completed?offset=N')` to append more
+- `CompletedSessionsFragment` templ for the appended cards SSE response
+- `LoadMoreFragment` templ for the updated/removed load-more button SSE response
+
+**Routes** (`internal/handler/routes.go`):
+- Update `NewDashboardHandler` call to pass `PatternService`
+- Add `GET /dashboard/completed` for load-more SSE
+
+---
+
+#### 4. Session Cards — Show Pattern Name
+
+Both active and completed session cards display the pattern name instead of "Pattern #ID". The handler builds a `map[int64]string` of pattern ID to name by calling `PatternService.GetByID` for each unique pattern ID across all sessions. The `patternName` helper function falls back to "Pattern #ID" if the name is unavailable.
+
+---
+
+#### Affected files
+
+- **Modified**: `internal/domain/session.go`, `internal/repository/sqlite/worksession.go`, `internal/service/worksession.go`, `internal/handler/dashboard.go`, `internal/handler/routes.go`, `internal/view/dashboard.templ`, `internal/view/layout.templ`
+- **No new files**
+
+#### Regression gate
+
+All existing tests pass. `go vet` clean. `templ generate` with no diff. Manual verification: Dashboard shows active sessions with pattern names, completed sessions below with pagination, no Quick Links, navbar in correct order (Dashboard, Patterns, Stitch Library).

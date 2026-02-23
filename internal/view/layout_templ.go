@@ -47,7 +47,7 @@ func Layout(title string, displayName string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if displayName != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"navbar-start\" role=\"menubar\"><a class=\"navbar-item\" href=\"/patterns\" role=\"menuitem\">Patterns</a> <a class=\"navbar-item\" href=\"/stitches\" role=\"menuitem\">Stitch Library</a> <a class=\"navbar-item\" href=\"/dashboard\" role=\"menuitem\">Dashboard</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"navbar-start\" role=\"menubar\"><a class=\"navbar-item\" href=\"/dashboard\" role=\"menuitem\">Dashboard</a> <a class=\"navbar-item\" href=\"/patterns\" role=\"menuitem\">Patterns</a> <a class=\"navbar-item\" href=\"/stitches\" role=\"menuitem\">Stitch Library</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

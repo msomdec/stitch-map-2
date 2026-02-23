@@ -82,9 +82,9 @@ templ Layout(title string, displayName string) {
 				<div id="navbarMenu" class="navbar-menu" data-class:is-active="$navOpen">
 					if displayName != "" {
 						<div class="navbar-start" role="menubar">
+							<a class="navbar-item" href="/dashboard" role="menuitem">Dashboard</a>
 							<a class="navbar-item" href="/patterns" role="menuitem">Patterns</a>
 							<a class="navbar-item" href="/stitches" role="menuitem">Stitch Library</a>
-							<a class="navbar-item" href="/dashboard" role="menuitem">Dashboard</a>
 						</div>
 					}
 				</div>

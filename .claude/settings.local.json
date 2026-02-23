@@ -21,7 +21,9 @@
       "Bash(cd /c/projects/stitch-map-2 && rm internal/view/pattern_editor_templ.go && templ generate 2>&1)",
       "Bash(cd /c/projects/stitch-map-2 && rm internal/view/layout_templ.go && templ generate 2>&1)",
       "WebFetch(domain:bulma.io)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(cd C:/projects/stitch-map-2 && templ generate 2>&1)"
     ]
   }
 }

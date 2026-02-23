@@ -87,6 +87,45 @@ func (r *workSessionRepo) GetActiveByUser(ctx context.Context, userID int64) ([]
 	return sessions, rows.Err()
 }
 
+func (r *workSessionRepo) GetCompletedByUser(ctx context.Context, userID int64, limit, offset int) ([]domain.WorkSession, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, pattern_id, user_id, current_group_index, current_group_repeat,
+		 current_stitch_index, current_stitch_repeat, current_stitch_count,
+		 status, started_at, last_activity_at, completed_at
+		 FROM work_sessions
+		 WHERE user_id = ? AND status = 'completed'
+		 ORDER BY completed_at DESC
+		 LIMIT ? OFFSET ?`, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list completed sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []domain.WorkSession
+	for rows.Next() {
+		var s domain.WorkSession
+		if err := rows.Scan(&s.ID, &s.PatternID, &s.UserID,
+			&s.CurrentGroupIndex, &s.CurrentGroupRepeat,
+			&s.CurrentStitchIndex, &s.CurrentStitchRepeat, &s.CurrentStitchCount,
+			&s.Status, &s.StartedAt, &s.LastActivityAt, &s.CompletedAt); err != nil {
+			return nil, fmt.Errorf("scan completed session: %w", err)
+		}
+		sessions = append(sessions, s)
+	}
+	return sessions, rows.Err()
+}
+
+func (r *workSessionRepo) CountCompletedByUser(ctx context.Context, userID int64) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM work_sessions WHERE user_id = ? AND status = 'completed'`, userID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count completed sessions: %w", err)
+	}
+	return count, nil
+}
+
 func (r *workSessionRepo) Update(ctx context.Context, session *domain.WorkSession) error {
 	now := time.Now().UTC()
 	session.LastActivityAt = now

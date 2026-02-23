@@ -7,45 +7,50 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/domain"
 )
 
-templ DashboardPage(displayName string, activeSessions []domain.WorkSession) {
+templ DashboardPage(displayName string, activeSessions []domain.WorkSession, completedSessions []domain.WorkSession, patternNames map[int64]string, totalCompleted int) {
 	@Layout("Dashboard", displayName) {
 		<div class="content">
 			<h1 class="title">Dashboard</h1>
 			<p class="subtitle">Welcome back, { displayName }!</p>
 		</div>
-		<div class="columns">
-			<div class="column is-8">
-				<h2 class="title is-4">Active Sessions</h2>
-				if len(activeSessions) == 0 {
-					<div class="notification is-info is-light" role="status">
-						<p>No active sessions. <a href="/patterns">Browse your patterns</a> to start crocheting!</p>
-					</div>
-				} else {
-					<div class="columns is-multiline">
-						for _, s := range activeSessions {
-							<div class="column is-6">
-								@sessionCard(s)
-							</div>
-						}
+		<h2 class="title is-4">Active Sessions</h2>
+		if len(activeSessions) == 0 {
+			<div class="notification is-info is-light" role="status">
+				<p>No active sessions. <a href="/patterns">Browse your patterns</a> to start crocheting!</p>
+			</div>
+		} else {
+			<div class="columns is-multiline">
+				for _, s := range activeSessions {
+					<div class="column is-6">
+						@activeSessionCard(s, patternNames)
 					</div>
 				}
 			</div>
-			<div class="column is-4">
-				<h2 class="title is-4">Quick Links</h2>
-				<div>
-					<a class="button is-primary is-fullwidth is-medium mb-2" href="/patterns">My Patterns</a>
-					<a class="button is-link is-fullwidth is-medium mb-2" href="/patterns/new">New Pattern</a>
-					<a class="button is-info is-fullwidth is-medium mb-2" href="/stitches">Stitch Library</a>
-				</div>
+		}
+		<h2 class="title is-4 mt-5">Completed Sessions</h2>
+		if totalCompleted == 0 {
+			<div class="notification is-light" role="status">
+				<p>No completed sessions yet. Keep crocheting!</p>
 			</div>
-		</div>
+		} else {
+			<div id="completed-sessions-list" class="columns is-multiline">
+				for _, s := range completedSessions {
+					<div class="column is-6">
+						@completedSessionCard(s, patternNames)
+					</div>
+				}
+			</div>
+			if totalCompleted > len(completedSessions) {
+				@loadMoreButton(totalCompleted, len(completedSessions))
+			}
+		}
 	}
 }
 
-templ sessionCard(s domain.WorkSession) {
+templ activeSessionCard(s domain.WorkSession, patternNames map[int64]string) {
 	<div class="card">
 		<div class="card-content">
-			<p class="title is-6">Pattern #{ strconv.FormatInt(s.PatternID, 10) }</p>
+			<p class="title is-6">{ patternName(s.PatternID, patternNames) }</p>
 			<p class="subtitle is-7 has-text-grey">
 				{ sessionStatusLabel(s.Status) }
 				{ " · " }
@@ -54,11 +59,66 @@ templ sessionCard(s domain.WorkSession) {
 		</div>
 		<footer class="card-footer">
 			<a class="card-footer-item" href={ templ.SafeURL("/sessions/" + strconv.FormatInt(s.ID, 10)) }
-				aria-label={ "Resume session for pattern " + strconv.FormatInt(s.PatternID, 10) }>
+				aria-label={ "Resume session for " + patternName(s.PatternID, patternNames) }>
 				Resume
 			</a>
 		</footer>
 	</div>
+}
+
+templ completedSessionCard(s domain.WorkSession, patternNames map[int64]string) {
+	<div class="card">
+		<div class="card-content">
+			<p class="title is-6">{ patternName(s.PatternID, patternNames) }</p>
+			<p class="subtitle is-7 has-text-grey">
+				{ "Completed" }
+				if s.CompletedAt != nil {
+					{ " · " }
+					{ s.CompletedAt.Format("Jan 2, 2006") }
+				}
+			</p>
+		</div>
+		<footer class="card-footer">
+			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(s.PatternID, 10)) }
+				aria-label={ "View pattern " + patternName(s.PatternID, patternNames) }>
+				View Pattern
+			</a>
+		</footer>
+	</div>
+}
+
+templ CompletedSessionsFragment(completedSessions []domain.WorkSession, patternNames map[int64]string) {
+	for _, s := range completedSessions {
+		<div class="column is-6">
+			@completedSessionCard(s, patternNames)
+		</div>
+	}
+}
+
+templ LoadMoreFragment(totalCompleted int, nextOffset int) {
+	if totalCompleted > nextOffset {
+		@loadMoreButton(totalCompleted, nextOffset)
+	} else {
+		<div id="load-more-completed"></div>
+	}
+}
+
+templ loadMoreButton(totalCompleted int, nextOffset int) {
+	<div id="load-more-completed" class="has-text-centered mt-4">
+		<button
+			class="button is-light"
+			data-on-click={ fmt.Sprintf("@get('/dashboard/completed?offset=%d')", nextOffset) }
+		>
+			Load More ({ strconv.Itoa(totalCompleted - nextOffset) } remaining)
+		</button>
+	</div>
+}
+
+func patternName(patternID int64, names map[int64]string) string {
+	if name, ok := names[patternID]; ok && name != "" {
+		return name
+	}
+	return "Pattern #" + strconv.FormatInt(patternID, 10)
 }
 
 func sessionStatusLabel(status string) string {

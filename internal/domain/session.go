@@ -31,6 +31,8 @@ type WorkSessionRepository interface {
 	Create(ctx context.Context, session *WorkSession) error
 	GetByID(ctx context.Context, id int64) (*WorkSession, error)
 	GetActiveByUser(ctx context.Context, userID int64) ([]WorkSession, error)
+	GetCompletedByUser(ctx context.Context, userID int64, limit, offset int) ([]WorkSession, error)
+	CountCompletedByUser(ctx context.Context, userID int64) (int, error)
 	Update(ctx context.Context, session *WorkSession) error
 	Delete(ctx context.Context, id int64) error
 }
