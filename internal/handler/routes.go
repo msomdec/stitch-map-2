@@ -12,7 +12,7 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches, images)
-	sessionHandler := NewWorkSessionHandler(sessions, patterns)
+	sessionHandler := NewWorkSessionHandler(sessions, patterns, images)
 	dashboardHandler := NewDashboardHandler(sessions, patterns)
 	imageHandler := NewImageHandler(images, patterns)
 
@@ -32,7 +32,7 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 
 	// Protected routes.
 	mux.Handle("GET /dashboard", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleDashboard)))
-	mux.Handle("GET /dashboard/completed", RequireAuth(auth, http.HandlerFunc(dashboardHandler.HandleLoadMoreCompleted)))
+
 
 	// Stitch library routes (authenticated).
 	mux.Handle("GET /stitches", RequireAuth(auth, http.HandlerFunc(stitchHandler.HandleLibrary)))

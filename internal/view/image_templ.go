@@ -111,7 +111,7 @@ func ImageSection(patternID int64, groupIndex int, groupID int64, images []domai
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"button\" class=\"button is-small is-outlined mt-2\" onclick=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"button\" class=\"button is-small is-primary is-outlined mt-2\" onclick=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -270,8 +270,8 @@ func ImageUploadError(msg string) templ.Component {
 
 func uploadImageOnclick(patternID int64, groupIndex int) templ.ComponentScript {
 	return templ.ComponentScript{
-		Name: `__templ_uploadImageOnclick_6854`,
-		Function: `function __templ_uploadImageOnclick_6854(patternID, groupIndex){var input = document.createElement('input');
+		Name: `__templ_uploadImageOnclick_98ab`,
+		Function: `function __templ_uploadImageOnclick_98ab(patternID, groupIndex){var input = document.createElement('input');
 	input.type = 'file';
 	input.accept = 'image/jpeg,image/png';
 	input.onchange = async function() {
@@ -285,6 +285,7 @@ func uploadImageOnclick(patternID int64, groupIndex int) templ.ComponentScript {
 				body: form
 			});
 			if (resp.ok) {
+				window.__formSubmitting = true;
 				window.location.reload();
 			} else {
 				var text = await resp.text();
@@ -296,8 +297,8 @@ func uploadImageOnclick(patternID int64, groupIndex int) templ.ComponentScript {
 	};
 	input.click();
 }`,
-		Call:       templ.SafeScript(`__templ_uploadImageOnclick_6854`, patternID, groupIndex),
-		CallInline: templ.SafeScriptInline(`__templ_uploadImageOnclick_6854`, patternID, groupIndex),
+		Call:       templ.SafeScript(`__templ_uploadImageOnclick_98ab`, patternID, groupIndex),
+		CallInline: templ.SafeScriptInline(`__templ_uploadImageOnclick_98ab`, patternID, groupIndex),
 	}
 }
 

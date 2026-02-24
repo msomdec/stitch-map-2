@@ -17,11 +17,12 @@ import (
 type WorkSessionHandler struct {
 	sessions *service.WorkSessionService
 	patterns *service.PatternService
+	images   *service.ImageService
 }
 
 // NewWorkSessionHandler creates a new WorkSessionHandler.
-func NewWorkSessionHandler(sessions *service.WorkSessionService, patterns *service.PatternService) *WorkSessionHandler {
-	return &WorkSessionHandler{sessions: sessions, patterns: patterns}
+func NewWorkSessionHandler(sessions *service.WorkSessionService, patterns *service.PatternService, images *service.ImageService) *WorkSessionHandler {
+	return &WorkSessionHandler{sessions: sessions, patterns: patterns, images: images}
 }
 
 // HandleStart starts a new work session for a pattern.
@@ -95,7 +96,12 @@ func (h *WorkSessionHandler) HandleView(w http.ResponseWriter, r *http.Request) 
 
 	progress := service.ComputeProgress(session, pattern)
 
-	view.WorkSessionPage(user.DisplayName, session, pattern, progress).Render(r.Context(), w)
+	var images []domain.PatternImage
+	if progress.CurrentGroupID != 0 {
+		images, _ = h.images.ListByGroup(r.Context(), progress.CurrentGroupID)
+	}
+
+	view.WorkSessionPage(user.DisplayName, session, pattern, progress, images).Render(r.Context(), w)
 }
 
 // HandleForward advances the session by one stitch.
@@ -239,9 +245,15 @@ func (h *WorkSessionHandler) HandleAbandon(w http.ResponseWriter, r *http.Reques
 // patchTracker sends an SSE patch to update the tracker fragment.
 func (h *WorkSessionHandler) patchTracker(w http.ResponseWriter, r *http.Request, session *domain.WorkSession, pattern *domain.Pattern) {
 	progress := service.ComputeProgress(session, pattern)
+
+	var images []domain.PatternImage
+	if progress.CurrentGroupID != 0 {
+		images, _ = h.images.ListByGroup(r.Context(), progress.CurrentGroupID)
+	}
+
 	sse := datastar.NewSSE(w, r)
 	sse.PatchElementTempl(
-		view.WorkSessionTrackerFragment(session, pattern, progress),
+		view.WorkSessionTrackerFragment(session, pattern, progress, images),
 		datastar.WithSelectorID("tracker-content"),
 	)
 }

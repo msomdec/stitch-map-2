@@ -149,7 +149,14 @@ func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error
 		return domain.ErrNotFound
 	}
 
-	// Delete existing groups (cascades to stitch_entries) and pattern_stitches, then re-insert.
+	// Preserve images across group delete/re-insert.
+	// Load existing images keyed by their group's sort_order before deletion.
+	savedImages, err := loadImagesForPattern(ctx, tx, pattern.ID)
+	if err != nil {
+		return fmt.Errorf("preserve images: %w", err)
+	}
+
+	// Delete existing groups (cascades to stitch_entries and pattern_images) and pattern_stitches, then re-insert.
 	if _, err := tx.ExecContext(ctx, "DELETE FROM instruction_groups WHERE pattern_id = ?", pattern.ID); err != nil {
 		return fmt.Errorf("delete groups: %w", err)
 	}
@@ -164,6 +171,11 @@ func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error
 
 	if err := insertGroups(ctx, tx, pattern.ID, pattern.InstructionGroups, psMap); err != nil {
 		return err
+	}
+
+	// Re-insert preserved images with new group IDs (matched by sort_order).
+	if err := restoreImages(ctx, tx, pattern.InstructionGroups, savedImages); err != nil {
+		return fmt.Errorf("restore images: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -372,4 +384,79 @@ func (r *patternRepo) loadEntries(ctx context.Context, groupID int64) ([]domain.
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
+}
+
+// savedImage holds a pattern_images row along with the sort_order of the
+// instruction group it belonged to, so it can be reassociated after groups
+// are deleted and re-inserted.
+type savedImage struct {
+	GroupSortOrder     int
+	Filename           string
+	ContentType        string
+	Size               int64
+	StorageKey         string
+	SortOrder          int
+	CreatedAt          time.Time
+}
+
+// loadImagesForPattern loads all pattern_images for a pattern's groups,
+// keyed by the group's sort_order. This is called before the groups are
+// deleted so the images can be restored after re-insertion.
+func loadImagesForPattern(ctx context.Context, tx *sql.Tx, patternID int64) ([]savedImage, error) {
+	rows, err := tx.QueryContext(ctx,
+		`SELECT ig.sort_order, pi.filename, pi.content_type, pi.size, pi.storage_key, pi.sort_order, pi.created_at
+		 FROM pattern_images pi
+		 JOIN instruction_groups ig ON pi.instruction_group_id = ig.id
+		 WHERE ig.pattern_id = ?
+		 ORDER BY ig.sort_order, pi.sort_order`, patternID)
+	if err != nil {
+		return nil, fmt.Errorf("load images for pattern: %w", err)
+	}
+	defer rows.Close()
+
+	var images []savedImage
+	for rows.Next() {
+		var img savedImage
+		if err := rows.Scan(&img.GroupSortOrder, &img.Filename, &img.ContentType,
+			&img.Size, &img.StorageKey, &img.SortOrder, &img.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan saved image: %w", err)
+		}
+		images = append(images, img)
+	}
+	return images, rows.Err()
+}
+
+// restoreImages re-inserts preserved pattern_images rows using the new
+// instruction group IDs (matched by sort_order).
+func restoreImages(ctx context.Context, tx *sql.Tx, groups []domain.InstructionGroup, images []savedImage) error {
+	if len(images) == 0 {
+		return nil
+	}
+
+	// Build sort_order -> new group ID mapping.
+	groupBySort := make(map[int]int64, len(groups))
+	for i := range groups {
+		groupBySort[groups[i].SortOrder] = groups[i].ID
+	}
+
+	for _, img := range images {
+		newGroupID, ok := groupBySort[img.GroupSortOrder]
+		if !ok {
+			// The group was removed in this edit; the image's blob is orphaned.
+			// Clean it up.
+			tx.ExecContext(ctx, "DELETE FROM file_blobs WHERE storage_key = ?", img.StorageKey)
+			continue
+		}
+
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO pattern_images (instruction_group_id, filename, content_type, size, storage_key, sort_order, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			newGroupID, img.Filename, img.ContentType, img.Size, img.StorageKey, img.SortOrder, img.CreatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("restore image %q: %w", img.StorageKey, err)
+		}
+	}
+
+	return nil
 }

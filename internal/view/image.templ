@@ -31,7 +31,7 @@ templ ImageSection(patternID int64, groupIndex int, groupID int64, images []doma
 	if len(images) < 5 {
 		<button
 			type="button"
-			class="button is-small is-outlined mt-2"
+			class="button is-small is-primary is-outlined mt-2"
 			onclick={ uploadImageOnclick(patternID, groupIndex) }
 		>
 			Upload Image
@@ -75,6 +75,7 @@ script uploadImageOnclick(patternID int64, groupIndex int) {
 				body: form
 			});
 			if (resp.ok) {
+				window.__formSubmitting = true;
 				window.location.reload();
 			} else {
 				var text = await resp.text();

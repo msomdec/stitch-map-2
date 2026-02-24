@@ -6,17 +6,17 @@ import "github.com/starfederation/datastar-go/datastar"
 import "strconv"
 import "fmt"
 
-templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress) {
+templ WorkSessionPage(displayName string, session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress, images []domain.PatternImage) {
 	@Layout(pattern.Name+" - Tracker", displayName) {
 		<div class="columns">
 			<div class="column is-8 is-offset-2">
-				@WorkSessionTrackerFragment(session, pattern, progress)
+				@WorkSessionTrackerFragment(session, pattern, progress, images)
 			</div>
 		</div>
 	}
 }
 
-templ WorkSessionTrackerFragment(session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress) {
+templ WorkSessionTrackerFragment(session *domain.WorkSession, pattern *domain.Pattern, progress service.SessionProgress, images []domain.PatternImage) {
 	<div id="tracker-content"
 		if session.Status == domain.SessionStatusActive {
 			data-on:keydown__window={ sessionKeydownHandler(session.ID) }
@@ -88,6 +88,27 @@ templ WorkSessionTrackerFragment(session *domain.WorkSession, pattern *domain.Pa
 								</span>
 							}
 						}
+					</div>
+				</div>
+			}
+			<!-- Reference Images (collapsible) -->
+			if len(images) > 0 {
+				<div class="mb-4" data-signals="{ showImages: false }">
+					<button
+						type="button"
+						class="button is-small is-light"
+						data-on:click="$showImages = !$showImages"
+					>
+						<span>{ fmt.Sprintf("Images (%d)", len(images)) }</span>
+						<span class="icon is-small" data-show="!$showImages">
+							<i>&#9654;</i>
+						</span>
+						<span class="icon is-small" data-show="$showImages">
+							<i>&#9660;</i>
+						</span>
+					</button>
+					<div data-show="$showImages" class="mt-2">
+						@ImageGallery(images)
 					</div>
 				</div>
 			}

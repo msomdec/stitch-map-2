@@ -273,6 +273,7 @@ type SessionProgress struct {
 	CurrentName       string // Current stitch name
 	PrevAbbr          string // Previous stitch abbreviation (empty if at start)
 	NextAbbr          string // Next stitch abbreviation (empty if at end)
+	CurrentGroupID    int64  // Database ID of the current instruction group
 	Groups            []GroupProgress
 }
 
@@ -343,6 +344,7 @@ func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern) Sessi
 	// Current group info.
 	if session.CurrentGroupIndex < len(groups) {
 		group := &groups[session.CurrentGroupIndex]
+		progress.CurrentGroupID = group.ID
 		progress.GroupLabel = group.Label
 		if group.RepeatCount > 1 {
 			progress.GroupRepeatInfo = fmt.Sprintf("Repeat %d of %d", session.CurrentGroupRepeat+1, group.RepeatCount)
