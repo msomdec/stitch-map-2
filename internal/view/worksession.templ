@@ -91,27 +91,6 @@ templ WorkSessionTrackerFragment(session *domain.WorkSession, pattern *domain.Pa
 					</div>
 				</div>
 			}
-			<!-- Reference Images (collapsible) -->
-			if len(images) > 0 {
-				<div class="mb-4" data-signals="{ showImages: false }">
-					<button
-						type="button"
-						class="button is-small is-light"
-						data-on:click="$showImages = !$showImages"
-					>
-						<span>{ fmt.Sprintf("Images (%d)", len(images)) }</span>
-						<span class="icon is-small" data-show="!$showImages">
-							<i>&#9654;</i>
-						</span>
-						<span class="icon is-small" data-show="$showImages">
-							<i>&#9660;</i>
-						</span>
-					</button>
-					<div data-show="$showImages" class="mt-2">
-						@ImageGallery(images)
-					</div>
-				</div>
-			}
 			if session.Status == domain.SessionStatusPaused {
 				<div class="notification is-warning" role="status" aria-live="polite">
 					<strong>Session Paused</strong> — Resume to continue tracking.
@@ -189,6 +168,27 @@ templ WorkSessionTrackerFragment(session *domain.WorkSession, pattern *domain.Pa
 					{ fmt.Sprintf("%.0f%%", progress.Percentage) }
 				</progress>
 			</div>
+			<!-- Reference Images (collapsible) -->
+			if len(images) > 0 {
+				<div class="mb-4" data-signals="{ showImages: false }">
+					<button
+						type="button"
+						class="button is-small is-light"
+						data-on:click="$showImages = !$showImages"
+					>
+						<span>{ fmt.Sprintf("Images (%d)", len(images)) }</span>
+						<span class="icon is-small" data-show="!$showImages">
+							<i>&#9654;</i>
+						</span>
+						<span class="icon is-small" data-show="$showImages">
+							<i>&#9660;</i>
+						</span>
+					</button>
+					<div data-show="$showImages" class="mt-2">
+						@ImageGallery(images)
+					</div>
+				</div>
+			}
 			<!-- Navigation Buttons -->
 			if session.Status == domain.SessionStatusActive {
 				<div class="buttons is-centered" role="group" aria-label="Navigation controls">

@@ -40,18 +40,29 @@ templ ImageSection(patternID int64, groupIndex int, groupID int64, images []doma
 	<div id={ "image-error-" + strconv.Itoa(groupIndex) }></div>
 }
 
-// ImageGallery renders a read-only image gallery within a pattern part (view page).
+// ImageGallery renders a read-only image gallery with a lightbox modal.
 templ ImageGallery(images []domain.PatternImage) {
-	<div class="is-flex mt-2" style="gap: 0.5rem; flex-wrap: wrap;">
-		for _, img := range images {
-			<a href={ templ.SafeURL(fmt.Sprintf("/images/%d", img.ID)) } target="_blank">
+	<div data-signals="{ imageModalOpen: false, imageModalSrc: '', imageModalAlt: '' }">
+		<div class="is-flex mt-2" style="gap: 0.5rem; flex-wrap: wrap;">
+			for _, img := range images {
 				<img
 					src={ fmt.Sprintf("/images/%d", img.ID) }
 					alt={ img.Filename }
 					style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+					data-on:click={ fmt.Sprintf("$imageModalSrc = '/images/%d'; $imageModalAlt = '%s'; $imageModalOpen = true", img.ID, templ.EscapeString(img.Filename)) }
 				/>
-			</a>
-		}
+			}
+		</div>
+		<!-- Image Lightbox Modal -->
+		<div class="modal" data-class:is-active="$imageModalOpen">
+			<div class="modal-background" data-on:click="$imageModalOpen = false"></div>
+			<div class="modal-content" style="max-width: 90vw;">
+				<p class="image">
+					<img data-attr:src="$imageModalSrc" data-attr:alt="$imageModalAlt" style="max-height: 85vh; object-fit: contain; margin: 0 auto; display: block;"/>
+				</p>
+			</div>
+			<button class="modal-close is-large" aria-label="close" type="button" data-on:click="$imageModalOpen = false"></button>
+		</div>
 	</div>
 }
 
