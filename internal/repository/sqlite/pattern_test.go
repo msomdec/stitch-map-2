@@ -9,15 +9,6 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/repository/sqlite"
 )
 
-func seedTestStitch(t *testing.T, db *sqlite.DB) int64 {
-	t.Helper()
-	s := &domain.Stitch{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"}
-	if err := db.Stitches().Create(context.Background(), s); err != nil {
-		t.Fatalf("seed stitch: %v", err)
-	}
-	return s.ID
-}
-
 func seedTestUser(t *testing.T, db *sqlite.DB) int64 {
 	t.Helper()
 	u := &domain.User{Email: "pattern@example.com", DisplayName: "Patt", PasswordHash: "hash"}
@@ -27,7 +18,7 @@ func seedTestUser(t *testing.T, db *sqlite.DB) int64 {
 	return u.ID
 }
 
-func makeTestPattern(userID int64, stitchID int64) *domain.Pattern {
+func makeTestPattern(userID int64) *domain.Pattern {
 	return &domain.Pattern{
 		UserID:      userID,
 		Name:        "Test Pattern",
@@ -35,13 +26,16 @@ func makeTestPattern(userID int64, stitchID int64) *domain.Pattern {
 		PatternType: domain.PatternTypeRound,
 		HookSize:    "5.0mm",
 		YarnWeight:  "Worsted",
+		PatternStitches: []domain.PatternStitch{
+			{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				SortOrder:   0,
 				Label:       "Round 1",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: 0, Count: 6, RepeatCount: 1}, // index 0 -> "sc"
 				},
 			},
 		},
@@ -54,9 +48,8 @@ func TestPatternRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p := makeTestPattern(userID, stitchID)
+	p := makeTestPattern(userID)
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -79,6 +72,12 @@ func TestPatternRepository_Create(t *testing.T) {
 	if p.InstructionGroups[0].StitchEntries[0].ID == 0 {
 		t.Fatal("expected entry ID to be set")
 	}
+	if len(p.PatternStitches) != 1 {
+		t.Fatalf("expected 1 pattern stitch, got %d", len(p.PatternStitches))
+	}
+	if p.PatternStitches[0].ID == 0 {
+		t.Fatal("expected pattern stitch ID to be set")
+	}
 }
 
 func TestPatternRepository_GetByID(t *testing.T) {
@@ -87,9 +86,8 @@ func TestPatternRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p := makeTestPattern(userID, stitchID)
+	p := makeTestPattern(userID)
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -108,6 +106,12 @@ func TestPatternRepository_GetByID(t *testing.T) {
 	if found.HookSize != "5.0mm" {
 		t.Fatalf("expected hook size '5.0mm', got %q", found.HookSize)
 	}
+	if len(found.PatternStitches) != 1 {
+		t.Fatalf("expected 1 pattern stitch, got %d", len(found.PatternStitches))
+	}
+	if found.PatternStitches[0].Abbreviation != "sc" {
+		t.Fatalf("expected abbreviation 'sc', got %q", found.PatternStitches[0].Abbreviation)
+	}
 	if len(found.InstructionGroups) != 1 {
 		t.Fatalf("expected 1 group, got %d", len(found.InstructionGroups))
 	}
@@ -119,6 +123,11 @@ func TestPatternRepository_GetByID(t *testing.T) {
 	}
 	if found.InstructionGroups[0].StitchEntries[0].Count != 6 {
 		t.Fatalf("expected count 6, got %d", found.InstructionGroups[0].StitchEntries[0].Count)
+	}
+	// Entry should reference the pattern stitch.
+	if found.InstructionGroups[0].StitchEntries[0].PatternStitchID != found.PatternStitches[0].ID {
+		t.Fatalf("expected entry to reference pattern stitch ID %d, got %d",
+			found.PatternStitches[0].ID, found.InstructionGroups[0].StitchEntries[0].PatternStitchID)
 	}
 }
 
@@ -139,15 +148,14 @@ func TestPatternRepository_ListByUser(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p1 := makeTestPattern(userID, stitchID)
+	p1 := makeTestPattern(userID)
 	p1.Name = "Pattern 1"
 	if err := repo.Create(ctx, p1); err != nil {
 		t.Fatalf("Create p1: %v", err)
 	}
 
-	p2 := makeTestPattern(userID, stitchID)
+	p2 := makeTestPattern(userID)
 	p2.Name = "Pattern 2"
 	if err := repo.Create(ctx, p2); err != nil {
 		t.Fatalf("Create p2: %v", err)
@@ -184,9 +192,8 @@ func TestPatternRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p := makeTestPattern(userID, stitchID)
+	p := makeTestPattern(userID)
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -194,14 +201,17 @@ func TestPatternRepository_Update(t *testing.T) {
 	// Update metadata and groups.
 	p.Name = "Updated Pattern"
 	p.Description = "Updated description"
+	p.PatternStitches = []domain.PatternStitch{
+		{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"},
+	}
 	p.InstructionGroups = []domain.InstructionGroup{
 		{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 			StitchEntries: []domain.StitchEntry{
-				{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+				{SortOrder: 0, PatternStitchID: 0, Count: 6, RepeatCount: 1},
 			}},
 		{SortOrder: 1, Label: "Round 2", RepeatCount: 1,
 			StitchEntries: []domain.StitchEntry{
-				{SortOrder: 0, StitchID: stitchID, Count: 12, RepeatCount: 1},
+				{SortOrder: 0, PatternStitchID: 0, Count: 12, RepeatCount: 1},
 			}},
 	}
 
@@ -243,9 +253,8 @@ func TestPatternRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p := makeTestPattern(userID, stitchID)
+	p := makeTestPattern(userID)
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -277,9 +286,8 @@ func TestPatternRepository_Delete_Cascades(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	p := makeTestPattern(userID, stitchID)
+	p := makeTestPattern(userID)
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -294,6 +302,12 @@ func TestPatternRepository_Delete_Cascades(t *testing.T) {
 	if groupCount != 0 {
 		t.Fatalf("expected 0 groups after delete, got %d", groupCount)
 	}
+
+	var psCount int
+	db.SqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM pattern_stitches WHERE pattern_id = ?", p.ID).Scan(&psCount)
+	if psCount != 0 {
+		t.Fatalf("expected 0 pattern stitches after delete, got %d", psCount)
+	}
 }
 
 func TestPatternRepository_Duplicate(t *testing.T) {
@@ -302,9 +316,8 @@ func TestPatternRepository_Duplicate(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
-	original := makeTestPattern(userID, stitchID)
+	original := makeTestPattern(userID)
 	original.Name = "Original"
 	original.Difficulty = "Beginner"
 	if err := repo.Create(ctx, original); err != nil {
@@ -328,6 +341,13 @@ func TestPatternRepository_Duplicate(t *testing.T) {
 	if len(dup.InstructionGroups) != len(original.InstructionGroups) {
 		t.Fatalf("expected same number of groups")
 	}
+	if len(dup.PatternStitches) != len(original.PatternStitches) {
+		t.Fatalf("expected same number of pattern stitches")
+	}
+	// Pattern stitches should have different IDs.
+	if dup.PatternStitches[0].ID == original.PatternStitches[0].ID {
+		t.Fatal("duplicate pattern stitch should have different ID")
+	}
 
 	// Verify independence - deleting duplicate doesn't affect original.
 	if err := repo.Delete(ctx, dup.ID); err != nil {
@@ -345,32 +365,34 @@ func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedTestUser(t, db)
-	stitchID := seedTestStitch(t, db)
 
 	expectedCount := 12
 	p := &domain.Pattern{
 		UserID:      userID,
 		Name:        "Complex Pattern",
 		PatternType: domain.PatternTypeRound,
+		PatternStitches: []domain.PatternStitch{
+			{Abbreviation: "sc", Name: "Single Crochet", Category: "basic"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: 0, Count: 6, RepeatCount: 1},
 				},
 			},
 			{
 				SortOrder: 1, Label: "Round 2", RepeatCount: 1,
 				ExpectedCount: &expectedCount,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 2, RepeatCount: 6, IntoStitch: "into each st"},
+					{SortOrder: 0, PatternStitchID: 0, Count: 2, RepeatCount: 6, IntoStitch: "into each st"},
 				},
 			},
 			{
 				SortOrder: 2, Label: "Rounds 3-5", RepeatCount: 3,
 				Notes: "in each st around",
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 12, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: 0, Count: 12, RepeatCount: 1},
 				},
 			},
 		},

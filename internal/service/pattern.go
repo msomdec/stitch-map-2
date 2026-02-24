@@ -20,7 +20,11 @@ func NewPatternService(patterns domain.PatternRepository, stitches domain.Stitch
 
 // Create creates a new pattern with validation.
 func (s *PatternService) Create(ctx context.Context, pattern *domain.Pattern) error {
-	if err := s.validate(ctx, pattern); err != nil {
+	if err := s.validate(pattern); err != nil {
+		return err
+	}
+
+	if err := s.resolvePatternStitches(ctx, pattern); err != nil {
 		return err
 	}
 
@@ -49,8 +53,15 @@ func (s *PatternService) Update(ctx context.Context, userID int64, pattern *doma
 	if existing.UserID != userID {
 		return domain.ErrUnauthorized
 	}
+	if existing.Locked {
+		return domain.ErrPatternLocked
+	}
 
-	if err := s.validate(ctx, pattern); err != nil {
+	if err := s.validate(pattern); err != nil {
+		return err
+	}
+
+	if err := s.resolvePatternStitches(ctx, pattern); err != nil {
 		return err
 	}
 
@@ -68,6 +79,9 @@ func (s *PatternService) Delete(ctx context.Context, userID int64, id int64) err
 	}
 	if existing.UserID != userID {
 		return domain.ErrUnauthorized
+	}
+	if existing.Locked {
+		return domain.ErrPatternLocked
 	}
 
 	return s.patterns.Delete(ctx, id)
@@ -98,7 +112,53 @@ func GroupStitchCount(g *domain.InstructionGroup) int {
 	return count
 }
 
-func (s *PatternService) validate(ctx context.Context, pattern *domain.Pattern) error {
+// resolvePatternStitches collects unique library stitch IDs from entries,
+// fetches them, builds PatternStitch copies, and remaps entry references
+// from library stitch IDs to PatternStitch slice indices.
+func (s *PatternService) resolvePatternStitches(ctx context.Context, pattern *domain.Pattern) error {
+	// Collect unique library stitch IDs from all entries.
+	// At this point, entry.PatternStitchID temporarily holds library stitch IDs from the form.
+	seen := make(map[int64]int) // libraryStitchID -> index in PatternStitches
+	var patternStitches []domain.PatternStitch
+
+	for _, g := range pattern.InstructionGroups {
+		for _, e := range g.StitchEntries {
+			libID := e.PatternStitchID
+			if _, ok := seen[libID]; ok {
+				continue
+			}
+
+			stitch, err := s.stitches.GetByID(ctx, libID)
+			if err != nil {
+				return fmt.Errorf("%w: references invalid stitch ID %d", domain.ErrInvalidInput, libID)
+			}
+
+			idx := len(patternStitches)
+			seen[libID] = idx
+			patternStitches = append(patternStitches, domain.PatternStitch{
+				Abbreviation:    stitch.Abbreviation,
+				Name:            stitch.Name,
+				Description:     stitch.Description,
+				Category:        stitch.Category,
+				LibraryStitchID: &libID,
+			})
+		}
+	}
+
+	// Remap all entry.PatternStitchID from library stitch IDs to PatternStitch slice indices.
+	for i := range pattern.InstructionGroups {
+		for j := range pattern.InstructionGroups[i].StitchEntries {
+			e := &pattern.InstructionGroups[i].StitchEntries[j]
+			idx := seen[e.PatternStitchID]
+			e.PatternStitchID = int64(idx)
+		}
+	}
+
+	pattern.PatternStitches = patternStitches
+	return nil
+}
+
+func (s *PatternService) validate(pattern *domain.Pattern) error {
 	if pattern.Name == "" {
 		return fmt.Errorf("%w: pattern name is required", domain.ErrInvalidInput)
 	}
@@ -124,12 +184,8 @@ func (s *PatternService) validate(ctx context.Context, pattern *domain.Pattern) 
 			return fmt.Errorf("%w: group %d repeat count must be at least 1", domain.ErrInvalidInput, i+1)
 		}
 		for j, e := range g.StitchEntries {
-			if e.StitchID == 0 {
+			if e.PatternStitchID == 0 {
 				return fmt.Errorf("%w: group %d entry %d has no stitch", domain.ErrInvalidInput, i+1, j+1)
-			}
-			// Verify stitch exists.
-			if _, err := s.stitches.GetByID(ctx, e.StitchID); err != nil {
-				return fmt.Errorf("%w: group %d entry %d references invalid stitch ID %d", domain.ErrInvalidInput, i+1, j+1, e.StitchID)
 			}
 			if e.Count < 1 {
 				return fmt.Errorf("%w: group %d entry %d count must be at least 1", domain.ErrInvalidInput, i+1, j+1)

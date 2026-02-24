@@ -4,14 +4,20 @@ import "github.com/msomdec/stitch-map-2/internal/domain"
 import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
-import "strings"
 
-templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage) {
+templ PatternViewPage(displayName string, pattern *domain.Pattern, groupImages map[int64][]domain.PatternImage) {
 	@Layout(pattern.Name, displayName) {
 		<div class="level">
 			<div class="level-left">
 				<div>
-					<h1 class="title">{ pattern.Name }</h1>
+					<h1 class="title">
+						{ pattern.Name }
+						if pattern.Locked {
+							<span class="icon has-text-grey ml-2" title="Locked pattern">
+								<i class="fas fa-lock"></i>
+							</span>
+						}
+					</h1>
 					<p class="subtitle has-text-grey">
 						{ string(pattern.PatternType) }
 						if pattern.Difficulty != "" {
@@ -29,7 +35,9 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 			</div>
 			<div class="level-right">
 				<div class="buttons">
-					<a class="button is-primary" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/edit") }>Edit</a>
+					if !pattern.Locked {
+						<a class="button is-primary" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/edit") }>Edit</a>
+					}
 					<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/duplicate") } class="form-contents">
 						<button class="button is-info" type="submit">Duplicate</button>
 					</form>
@@ -46,7 +54,7 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 		<div class="box">
 			<h2 class="title is-5">Pattern Text</h2>
 			<div class="content">
-				<pre class="pattern-text">{ service.RenderPatternText(pattern, stitches) }</pre>
+				<pre class="pattern-text">{ service.RenderPatternText(pattern) }</pre>
 			</div>
 		</div>
 		<!-- Instruction Groups Detail -->
@@ -73,7 +81,7 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 					<div class="content">
 						for _, e := range g.StitchEntries {
 							<span class="tag is-medium mr-1 mb-1">
-								{ stitchAbbr(stitches, e.StitchID) }
+								{ patternStitchAbbr(pattern.PatternStitches, e.PatternStitchID) }
 								if e.Count > 1 {
 									{ " " + strconv.Itoa(e.Count) }
 								}
@@ -85,7 +93,7 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 					</div>
 				}
 				<p class="help has-text-grey">
-					{ service.RenderGroupText(&g, stitches) }
+					{ service.RenderGroupText(&g, pattern.PatternStitches) }
 				</p>
 				if len(groupImages[g.ID]) > 0 {
 					@ImageGallery(groupImages[g.ID])
@@ -95,20 +103,11 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, stitches []do
 	}
 }
 
-func stitchAbbr(stitches []domain.Stitch, id int64) string {
+func patternStitchAbbr(stitches []domain.PatternStitch, id int64) string {
 	for _, s := range stitches {
 		if s.ID == id {
 			return s.Abbreviation
 		}
 	}
 	return "?"
-}
-
-// patternTextLines splits rendered text into lines for template iteration.
-func patternTextLines(pattern *domain.Pattern, stitches []domain.Stitch) []string {
-	text := service.RenderPatternText(pattern, stitches)
-	if text == "" {
-		return nil
-	}
-	return strings.Split(text, "\n")
 }

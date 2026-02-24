@@ -287,9 +287,9 @@ type GroupProgress struct {
 }
 
 // ComputeProgress calculates the current progress through a pattern.
-func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern, stitches []domain.Stitch) SessionProgress {
-	lookup := buildStitchLookup(stitches)
-	nameLookup := buildStitchNameLookup(stitches)
+func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern) SessionProgress {
+	lookup := buildPatternStitchLookup(pattern.PatternStitches)
+	nameLookup := buildPatternStitchNameLookup(pattern.PatternStitches)
 	total := StitchCount(pattern)
 
 	completed := 0
@@ -351,8 +351,8 @@ func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern, stitc
 		// Current stitch info.
 		if session.CurrentStitchIndex < len(group.StitchEntries) {
 			entry := &group.StitchEntries[session.CurrentStitchIndex]
-			progress.CurrentAbbr = lookup[entry.StitchID]
-			progress.CurrentName = nameLookup[entry.StitchID]
+			progress.CurrentAbbr = lookup[entry.PatternStitchID]
+			progress.CurrentName = nameLookup[entry.PatternStitchID]
 		}
 
 		// Previous stitch info.
@@ -404,7 +404,7 @@ func ComputeProgress(session *domain.WorkSession, pattern *domain.Pattern, stitc
 	return progress
 }
 
-func buildStitchNameLookup(stitches []domain.Stitch) map[int64]string {
+func buildPatternStitchNameLookup(stitches []domain.PatternStitch) map[int64]string {
 	lookup := make(map[int64]string, len(stitches))
 	for _, s := range stitches {
 		lookup[s.ID] = s.Name
@@ -418,13 +418,13 @@ func getPrevStitchAbbr(session *domain.WorkSession, pattern *domain.Pattern, loo
 	// If we can retreat within the same entry, it's the same stitch.
 	if session.CurrentStitchCount > 0 || session.CurrentStitchRepeat > 0 {
 		entry := &pattern.InstructionGroups[session.CurrentGroupIndex].StitchEntries[session.CurrentStitchIndex]
-		return lookup[entry.StitchID]
+		return lookup[entry.PatternStitchID]
 	}
 
 	// Check previous entry in the same group repeat.
 	if session.CurrentStitchIndex > 0 {
 		entry := &pattern.InstructionGroups[session.CurrentGroupIndex].StitchEntries[session.CurrentStitchIndex-1]
-		return lookup[entry.StitchID]
+		return lookup[entry.PatternStitchID]
 	}
 
 	// Check last entry of the previous group repeat.
@@ -432,7 +432,7 @@ func getPrevStitchAbbr(session *domain.WorkSession, pattern *domain.Pattern, loo
 		group := &pattern.InstructionGroups[session.CurrentGroupIndex]
 		if len(group.StitchEntries) > 0 {
 			entry := &group.StitchEntries[len(group.StitchEntries)-1]
-			return lookup[entry.StitchID]
+			return lookup[entry.PatternStitchID]
 		}
 	}
 
@@ -441,7 +441,7 @@ func getPrevStitchAbbr(session *domain.WorkSession, pattern *domain.Pattern, loo
 		group := &pattern.InstructionGroups[gi]
 		if len(group.StitchEntries) > 0 {
 			entry := &group.StitchEntries[len(group.StitchEntries)-1]
-			return lookup[entry.StitchID]
+			return lookup[entry.PatternStitchID]
 		}
 	}
 
@@ -466,29 +466,29 @@ func getNextStitchAbbr(session *domain.WorkSession, pattern *domain.Pattern, loo
 
 	// Check if there are more stitches in the current count.
 	if session.CurrentStitchCount+1 < entry.Count {
-		return lookup[entry.StitchID]
+		return lookup[entry.PatternStitchID]
 	}
 
 	// Check if there are more repeats of the current entry.
 	if session.CurrentStitchRepeat+1 < entry.RepeatCount {
-		return lookup[entry.StitchID]
+		return lookup[entry.PatternStitchID]
 	}
 
 	// Check next entry in the group.
 	if ei+1 < len(group.StitchEntries) {
-		return lookup[group.StitchEntries[ei+1].StitchID]
+		return lookup[group.StitchEntries[ei+1].PatternStitchID]
 	}
 
 	// Check next group repeat.
 	if session.CurrentGroupRepeat+1 < group.RepeatCount && len(group.StitchEntries) > 0 {
-		return lookup[group.StitchEntries[0].StitchID]
+		return lookup[group.StitchEntries[0].PatternStitchID]
 	}
 
 	// Check next group.
 	for ngi := gi + 1; ngi < len(pattern.InstructionGroups); ngi++ {
 		nextGroup := &pattern.InstructionGroups[ngi]
 		if len(nextGroup.StitchEntries) > 0 {
-			return lookup[nextGroup.StitchEntries[0].StitchID]
+			return lookup[nextGroup.StitchEntries[0].PatternStitchID]
 		}
 	}
 

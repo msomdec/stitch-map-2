@@ -21,9 +21,21 @@ type Pattern struct {
 	HookSize          string
 	YarnWeight        string
 	Difficulty        string
+	Locked            bool
+	PatternStitches   []PatternStitch
 	InstructionGroups []InstructionGroup
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+type PatternStitch struct {
+	ID              int64
+	PatternID       int64
+	Abbreviation    string
+	Name            string
+	Description     string
+	Category        string
+	LibraryStitchID *int64
 }
 
 type InstructionGroup struct {
@@ -41,7 +53,7 @@ type StitchEntry struct {
 	ID                 int64
 	InstructionGroupID int64
 	SortOrder          int
-	StitchID           int64
+	PatternStitchID    int64
 	Count              int
 	IntoStitch         string
 	RepeatCount        int

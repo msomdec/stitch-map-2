@@ -8,14 +8,13 @@ import (
 )
 
 // RenderPatternText renders a pattern as formatted text using standard
-// crochet notation. It resolves stitch IDs to abbreviations using the
-// provided stitch list.
-func RenderPatternText(pattern *domain.Pattern, stitches []domain.Stitch) string {
+// crochet notation. It uses the pattern's own PatternStitches for abbreviation lookup.
+func RenderPatternText(pattern *domain.Pattern) string {
 	if pattern == nil || len(pattern.InstructionGroups) == 0 {
 		return ""
 	}
 
-	lookup := buildStitchLookup(stitches)
+	lookup := buildPatternStitchLookup(pattern.PatternStitches)
 	var lines []string
 
 	for _, g := range pattern.InstructionGroups {
@@ -29,15 +28,15 @@ func RenderPatternText(pattern *domain.Pattern, stitches []domain.Stitch) string
 }
 
 // RenderGroupText renders a single instruction group as text.
-func RenderGroupText(g *domain.InstructionGroup, stitches []domain.Stitch) string {
+func RenderGroupText(g *domain.InstructionGroup, patternStitches []domain.PatternStitch) string {
 	if g == nil {
 		return ""
 	}
-	lookup := buildStitchLookup(stitches)
+	lookup := buildPatternStitchLookup(patternStitches)
 	return renderGroup(g, lookup)
 }
 
-func buildStitchLookup(stitches []domain.Stitch) map[int64]string {
+func buildPatternStitchLookup(stitches []domain.PatternStitch) map[int64]string {
 	lookup := make(map[int64]string, len(stitches))
 	for _, s := range stitches {
 		lookup[s.ID] = s.Abbreviation
@@ -65,8 +64,6 @@ func renderGroup(g *domain.InstructionGroup, lookup map[int64]string) string {
 }
 
 func renderEntries(entries []domain.StitchEntry, lookup map[int64]string) string {
-	// Check if all entries together form a repeated sequence.
-	// Use *..., repeat from * notation for entries with RepeatCount > 1.
 	var parts []string
 
 	for _, e := range entries {
@@ -81,21 +78,19 @@ func renderEntries(entries []domain.StitchEntry, lookup map[int64]string) string
 }
 
 func renderEntry(e *domain.StitchEntry, lookup map[int64]string) string {
-	abbr := lookup[e.StitchID]
+	abbr := lookup[e.PatternStitchID]
 	if abbr == "" {
 		abbr = "?"
 	}
 
 	var sb strings.Builder
 
-	// For count > 1, prefix with the count.
 	if e.Count > 1 {
 		fmt.Fprintf(&sb, "%d %s", e.Count, abbr)
 	} else {
 		sb.WriteString(abbr)
 	}
 
-	// Append "into" instruction.
 	if e.IntoStitch != "" {
 		fmt.Fprintf(&sb, " %s", e.IntoStitch)
 	}

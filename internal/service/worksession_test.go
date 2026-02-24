@@ -10,12 +10,15 @@ import (
 // e.g., "Round 1: 6 sc"
 func simplePattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 1, Abbreviation: "sc", Name: "Single Crochet"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Round 1",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 1, Count: 6, RepeatCount: 1},
+					{PatternStitchID: 1, Count: 6, RepeatCount: 1},
 				},
 			},
 		},
@@ -26,13 +29,17 @@ func simplePattern() *domain.Pattern {
 // "Round 1: MR, 6 sc" (MR count=1, sc count=6)
 func multiEntryPattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 1, Abbreviation: "sc", Name: "Single Crochet"},
+			{ID: 4, Abbreviation: "MR", Name: "Magic Ring"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Round 1",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 4, Count: 1, RepeatCount: 1}, // MR
-					{StitchID: 1, Count: 6, RepeatCount: 1}, // 6 sc
+					{PatternStitchID: 4, Count: 1, RepeatCount: 1}, // MR
+					{PatternStitchID: 1, Count: 6, RepeatCount: 1}, // 6 sc
 				},
 			},
 		},
@@ -43,12 +50,15 @@ func multiEntryPattern() *domain.Pattern {
 // "Round 2: *inc, repeat from * 6 times"
 func repeatEntryPattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 5, Abbreviation: "inc", Name: "Increase"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Round 2",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 5, Count: 1, RepeatCount: 6}, // inc ×6
+					{PatternStitchID: 5, Count: 1, RepeatCount: 6}, // inc ×6
 				},
 			},
 		},
@@ -56,15 +66,18 @@ func repeatEntryPattern() *domain.Pattern {
 }
 
 // groupRepeatPattern creates a pattern with group repeats.
-// "Rounds 3-5 (×3): 12 sc"
+// "Rounds 3-5 (×3): 2 sc"
 func groupRepeatPattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 1, Abbreviation: "sc", Name: "Single Crochet"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Rounds 3-5",
 				RepeatCount: 3,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
+					{PatternStitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
 				},
 			},
 		},
@@ -74,19 +87,23 @@ func groupRepeatPattern() *domain.Pattern {
 // multiGroupPattern creates a pattern with multiple groups.
 func multiGroupPattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 1, Abbreviation: "sc", Name: "Single Crochet"},
+			{ID: 5, Abbreviation: "inc", Name: "Increase"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Round 1",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 1, Count: 3, RepeatCount: 1}, // 3 sc
+					{PatternStitchID: 1, Count: 3, RepeatCount: 1}, // 3 sc
 				},
 			},
 			{
 				Label:       "Round 2",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 5, Count: 1, RepeatCount: 3}, // inc ×3
+					{PatternStitchID: 5, Count: 1, RepeatCount: 3}, // inc ×3
 				},
 			},
 		},
@@ -100,27 +117,32 @@ func multiGroupPattern() *domain.Pattern {
 // Total: 9 stitches
 func complexPattern() *domain.Pattern {
 	return &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 1, Abbreviation: "sc", Name: "Single Crochet"},
+			{ID: 4, Abbreviation: "MR", Name: "Magic Ring"},
+			{ID: 5, Abbreviation: "inc", Name: "Increase"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Round 1",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 4, Count: 1, RepeatCount: 1}, // MR
-					{StitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
+					{PatternStitchID: 4, Count: 1, RepeatCount: 1}, // MR
+					{PatternStitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
 				},
 			},
 			{
 				Label:       "Round 2",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 5, Count: 1, RepeatCount: 2}, // inc ×2
+					{PatternStitchID: 5, Count: 1, RepeatCount: 2}, // inc ×2
 				},
 			},
 			{
 				Label:       "Round 3",
 				RepeatCount: 2,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
+					{PatternStitchID: 1, Count: 2, RepeatCount: 1}, // 2 sc
 				},
 			},
 		},
@@ -482,9 +504,8 @@ func TestNavigateForwardAndBackward_FullRoundTrip(t *testing.T) {
 func TestComputeProgress_AtStart(t *testing.T) {
 	pattern := simplePattern()
 	session := newSession()
-	stitches := testStitches()
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if progress.CompletedStitches != 0 {
 		t.Fatalf("expected 0 completed, got %d", progress.CompletedStitches)
@@ -500,14 +521,13 @@ func TestComputeProgress_AtStart(t *testing.T) {
 func TestComputeProgress_Midway(t *testing.T) {
 	pattern := simplePattern() // 6 sc
 	session := newSession()
-	stitches := testStitches()
 
 	// Advance 3 stitches.
 	NavigateForward(session, pattern)
 	NavigateForward(session, pattern)
 	NavigateForward(session, pattern)
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if progress.CompletedStitches != 3 {
 		t.Fatalf("expected 3 completed, got %d", progress.CompletedStitches)
@@ -520,9 +540,8 @@ func TestComputeProgress_Midway(t *testing.T) {
 func TestComputeProgress_GroupLabel(t *testing.T) {
 	pattern := groupRepeatPattern() // "Rounds 3-5" ×3
 	session := newSession()
-	stitches := testStitches()
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if progress.GroupLabel != "Rounds 3-5" {
 		t.Fatalf("expected group label 'Rounds 3-5', got %q", progress.GroupLabel)
@@ -544,12 +563,15 @@ func TestNavigateForward_EmptyPattern(t *testing.T) {
 
 func TestNavigateForward_SingleStitch(t *testing.T) {
 	pattern := &domain.Pattern{
+		PatternStitches: []domain.PatternStitch{
+			{ID: 4, Abbreviation: "MR", Name: "Magic Ring"},
+		},
 		InstructionGroups: []domain.InstructionGroup{
 			{
 				Label:       "Start",
 				RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{StitchID: 4, Count: 1, RepeatCount: 1}, // MR
+					{PatternStitchID: 4, Count: 1, RepeatCount: 1}, // MR
 				},
 			},
 		},
@@ -565,9 +587,8 @@ func TestNavigateForward_SingleStitch(t *testing.T) {
 func TestComputeProgress_GroupsStatus_AtStart(t *testing.T) {
 	pattern := complexPattern() // 3 groups
 	session := newSession()
-	stitches := testStitches()
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if len(progress.Groups) != 3 {
 		t.Fatalf("expected 3 groups, got %d", len(progress.Groups))
@@ -589,14 +610,13 @@ func TestComputeProgress_GroupsStatus_AtStart(t *testing.T) {
 func TestComputeProgress_GroupsStatus_MiddleGroup(t *testing.T) {
 	pattern := complexPattern() // Round 1: MR + 2sc (3), Round 2: inc×2 (2), Round 3 ×2: 2sc (4)
 	session := newSession()
-	stitches := testStitches()
 
 	// Advance through all of group 0 (3 stitches) into group 1.
 	for range 3 {
 		NavigateForward(session, pattern)
 	}
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if progress.Groups[0].Status != "completed" {
 		t.Fatalf("expected group 0 status 'completed', got %q", progress.Groups[0].Status)
@@ -615,14 +635,13 @@ func TestComputeProgress_GroupsStatus_MiddleGroup(t *testing.T) {
 func TestComputeProgress_GroupsCompletedInGroup(t *testing.T) {
 	pattern := simplePattern() // 6 sc in one group
 	session := newSession()
-	stitches := testStitches()
 
 	// Advance 4 of 6 stitches.
 	for range 4 {
 		NavigateForward(session, pattern)
 	}
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if len(progress.Groups) != 1 {
 		t.Fatalf("expected 1 group, got %d", len(progress.Groups))
@@ -642,13 +661,12 @@ func TestComputeProgress_GroupsCompletedInGroup(t *testing.T) {
 func TestComputeProgress_GroupsWithRepeats(t *testing.T) {
 	pattern := groupRepeatPattern() // "Rounds 3-5" ×3, 2 sc per repeat
 	session := newSession()
-	stitches := testStitches()
 
 	// Advance through first repeat (2 stitches) into second repeat.
 	NavigateForward(session, pattern)
 	NavigateForward(session, pattern)
 
-	progress := ComputeProgress(session, pattern, stitches)
+	progress := ComputeProgress(session, pattern)
 
 	if len(progress.Groups) != 1 {
 		t.Fatalf("expected 1 group, got %d", len(progress.Groups))

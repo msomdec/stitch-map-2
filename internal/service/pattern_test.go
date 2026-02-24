@@ -52,7 +52,7 @@ func TestPatternService_Create_Success(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -62,6 +62,18 @@ func TestPatternService_Create_Success(t *testing.T) {
 	}
 	if p.ID == 0 {
 		t.Fatal("expected pattern ID to be set")
+	}
+
+	// Verify pattern stitches were created.
+	got, err := db.Patterns().GetByID(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if len(got.PatternStitches) != 1 {
+		t.Fatalf("expected 1 pattern stitch, got %d", len(got.PatternStitches))
+	}
+	if got.PatternStitches[0].Abbreviation != "sc" {
+		t.Fatalf("expected abbreviation 'sc', got %q", got.PatternStitches[0].Abbreviation)
 	}
 }
 
@@ -79,7 +91,7 @@ func TestPatternService_Create_EmptyName(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -104,7 +116,7 @@ func TestPatternService_Create_InvalidType(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -147,7 +159,7 @@ func TestPatternService_Create_InvalidStitchID(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: 99999, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: 99999, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -173,7 +185,7 @@ func TestPatternService_Update_OwnershipCheck(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -204,7 +216,7 @@ func TestPatternService_Delete_OwnershipCheck(t *testing.T) {
 		InstructionGroups: []domain.InstructionGroup{
 			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
 				StitchEntries: []domain.StitchEntry{
-					{SortOrder: 0, StitchID: stitchID, Count: 6, RepeatCount: 1},
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
 				}},
 		},
 	}
@@ -215,6 +227,118 @@ func TestPatternService_Delete_OwnershipCheck(t *testing.T) {
 	err := svc.Delete(ctx, u2, p.ID)
 	if !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatalf("expected ErrUnauthorized, got %v", err)
+	}
+}
+
+func TestPatternService_Update_Locked(t *testing.T) {
+	svc, _, db := newTestPatternService(t)
+	ctx := context.Background()
+
+	userID := seedUserForTest(t, db, "locked-update@example.com")
+	stitchID := seedStitchForTest(t, db)
+
+	p := &domain.Pattern{
+		UserID:      userID,
+		Name:        "Lockable Pattern",
+		PatternType: domain.PatternTypeRound,
+		InstructionGroups: []domain.InstructionGroup{
+			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
+				StitchEntries: []domain.StitchEntry{
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
+				}},
+		},
+	}
+	if err := svc.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Lock the pattern directly in the DB.
+	_, err := db.SqlDB.ExecContext(ctx, "UPDATE patterns SET locked = TRUE WHERE id = ?", p.ID)
+	if err != nil {
+		t.Fatalf("lock pattern: %v", err)
+	}
+
+	// Try to update the locked pattern.
+	p.Name = "Updated Name"
+	err = svc.Update(ctx, userID, p)
+	if !errors.Is(err, domain.ErrPatternLocked) {
+		t.Fatalf("expected ErrPatternLocked, got %v", err)
+	}
+}
+
+func TestPatternService_Delete_Locked(t *testing.T) {
+	svc, _, db := newTestPatternService(t)
+	ctx := context.Background()
+
+	userID := seedUserForTest(t, db, "locked-delete@example.com")
+	stitchID := seedStitchForTest(t, db)
+
+	p := &domain.Pattern{
+		UserID:      userID,
+		Name:        "Lockable Pattern",
+		PatternType: domain.PatternTypeRound,
+		InstructionGroups: []domain.InstructionGroup{
+			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
+				StitchEntries: []domain.StitchEntry{
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
+				}},
+		},
+	}
+	if err := svc.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Lock the pattern directly in the DB.
+	_, err := db.SqlDB.ExecContext(ctx, "UPDATE patterns SET locked = TRUE WHERE id = ?", p.ID)
+	if err != nil {
+		t.Fatalf("lock pattern: %v", err)
+	}
+
+	// Try to delete the locked pattern.
+	err = svc.Delete(ctx, userID, p.ID)
+	if !errors.Is(err, domain.ErrPatternLocked) {
+		t.Fatalf("expected ErrPatternLocked, got %v", err)
+	}
+}
+
+func TestPatternService_Duplicate_LockedAllowed(t *testing.T) {
+	svc, _, db := newTestPatternService(t)
+	ctx := context.Background()
+
+	userID := seedUserForTest(t, db, "locked-dup@example.com")
+	stitchID := seedStitchForTest(t, db)
+
+	p := &domain.Pattern{
+		UserID:      userID,
+		Name:        "Lockable Pattern",
+		PatternType: domain.PatternTypeRound,
+		InstructionGroups: []domain.InstructionGroup{
+			{SortOrder: 0, Label: "Round 1", RepeatCount: 1,
+				StitchEntries: []domain.StitchEntry{
+					{SortOrder: 0, PatternStitchID: stitchID, Count: 6, RepeatCount: 1},
+				}},
+		},
+	}
+	if err := svc.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Lock the pattern directly in the DB.
+	_, err := db.SqlDB.ExecContext(ctx, "UPDATE patterns SET locked = TRUE WHERE id = ?", p.ID)
+	if err != nil {
+		t.Fatalf("lock pattern: %v", err)
+	}
+
+	// Duplicate should succeed even when locked.
+	dup, err := svc.Duplicate(ctx, userID, p.ID)
+	if err != nil {
+		t.Fatalf("Duplicate: %v", err)
+	}
+	if dup.Locked {
+		t.Fatal("expected duplicate to be unlocked")
+	}
+	if len(dup.PatternStitches) != 1 {
+		t.Fatalf("expected 1 pattern stitch in duplicate, got %d", len(dup.PatternStitches))
 	}
 }
 

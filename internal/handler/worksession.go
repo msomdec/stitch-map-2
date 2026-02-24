@@ -17,12 +17,11 @@ import (
 type WorkSessionHandler struct {
 	sessions *service.WorkSessionService
 	patterns *service.PatternService
-	stitches *service.StitchService
 }
 
 // NewWorkSessionHandler creates a new WorkSessionHandler.
-func NewWorkSessionHandler(sessions *service.WorkSessionService, patterns *service.PatternService, stitches *service.StitchService) *WorkSessionHandler {
-	return &WorkSessionHandler{sessions: sessions, patterns: patterns, stitches: stitches}
+func NewWorkSessionHandler(sessions *service.WorkSessionService, patterns *service.PatternService) *WorkSessionHandler {
+	return &WorkSessionHandler{sessions: sessions, patterns: patterns}
 }
 
 // HandleStart starts a new work session for a pattern.
@@ -94,14 +93,7 @@ func (h *WorkSessionHandler) HandleView(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	allStitches, err := h.stitches.ListAll(r.Context(), user.ID)
-	if err != nil {
-		slog.Error("list stitches for session", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	progress := service.ComputeProgress(session, pattern, allStitches)
+	progress := service.ComputeProgress(session, pattern)
 
 	view.WorkSessionPage(user.DisplayName, session, pattern, progress).Render(r.Context(), w)
 }
@@ -132,7 +124,7 @@ func (h *WorkSessionHandler) HandleForward(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.patchTracker(w, r, session, pattern, user.ID)
+	h.patchTracker(w, r, session, pattern)
 }
 
 // HandleBackward retreats the session by one stitch.
@@ -161,7 +153,7 @@ func (h *WorkSessionHandler) HandleBackward(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.patchTracker(w, r, session, pattern, user.ID)
+	h.patchTracker(w, r, session, pattern)
 }
 
 // HandlePause pauses an active session.
@@ -184,7 +176,7 @@ func (h *WorkSessionHandler) HandlePause(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.patchTracker(w, r, session, pattern, user.ID)
+	h.patchTracker(w, r, session, pattern)
 }
 
 // HandleResume resumes a paused session.
@@ -207,7 +199,7 @@ func (h *WorkSessionHandler) HandleResume(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.patchTracker(w, r, session, pattern, user.ID)
+	h.patchTracker(w, r, session, pattern)
 }
 
 // HandleAbandon deletes a work session.
@@ -245,14 +237,8 @@ func (h *WorkSessionHandler) HandleAbandon(w http.ResponseWriter, r *http.Reques
 }
 
 // patchTracker sends an SSE patch to update the tracker fragment.
-func (h *WorkSessionHandler) patchTracker(w http.ResponseWriter, r *http.Request, session *domain.WorkSession, pattern *domain.Pattern, userID int64) {
-	allStitches, err := h.stitches.ListAll(r.Context(), userID)
-	if err != nil {
-		slog.Error("list stitches for tracker patch", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	progress := service.ComputeProgress(session, pattern, allStitches)
+func (h *WorkSessionHandler) patchTracker(w http.ResponseWriter, r *http.Request, session *domain.WorkSession, pattern *domain.Pattern) {
+	progress := service.ComputeProgress(session, pattern)
 	sse := datastar.NewSSE(w, r)
 	sse.PatchElementTempl(
 		view.WorkSessionTrackerFragment(session, pattern, progress),

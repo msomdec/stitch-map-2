@@ -13,7 +13,7 @@ import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage, errMsg string) templ.Component {
+func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage, psToLibrary map[int64]int64, errMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -232,13 +232,13 @@ func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []d
 			}
 			if pattern != nil && len(pattern.InstructionGroups) > 0 {
 				for gi, g := range pattern.InstructionGroups {
-					templ_7745c5c3_Err = groupFields(gi, g, stitches, pattern.ID, groupImages[g.ID]).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = groupFields(gi, g, stitches, pattern.ID, groupImages[g.ID], psToLibrary).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches, 0, nil).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches, 0, nil, nil).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -253,9 +253,9 @@ func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []d
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(service.RenderPatternText(pattern, stitches))
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(service.RenderPatternText(pattern))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 189, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 189, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -298,7 +298,7 @@ func PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []d
 	})
 }
 
-func groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, patternID int64, images []domain.PatternImage) templ.Component {
+func groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, patternID int64, images []domain.PatternImage, psToLibrary map[int64]int64) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -446,13 +446,13 @@ func groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, pa
 		}
 		if len(g.StitchEntries) > 0 {
 			for ei, e := range g.StitchEntries {
-				templ_7745c5c3_Err = entryFields(gi, ei, e, stitches).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = entryFields(gi, ei, e, stitches, psToLibrary).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		} else {
-			templ_7745c5c3_Err = entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches, nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -531,7 +531,7 @@ func GroupFieldsFragment(gi int, g domain.InstructionGroup, stitches []domain.St
 			templ_7745c5c3_Var25 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = groupFields(gi, g, stitches, 0, nil).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = groupFields(gi, g, stitches, 0, nil, nil).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -539,7 +539,7 @@ func GroupFieldsFragment(gi int, g domain.InstructionGroup, stitches []domain.St
 	})
 }
 
-func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) templ.Component {
+func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch, psToLibrary map[int64]int64) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -608,7 +608,7 @@ func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if s.ID == e.StitchID {
+			if isStitchSelected(s.ID, e.PatternStitchID, psToLibrary) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -621,7 +621,7 @@ func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch)
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(s.Abbreviation)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 306, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 306, Col: 96}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
@@ -634,7 +634,7 @@ func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch)
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(s.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 306, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/pattern_editor.templ`, Line: 306, Col: 109}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -723,7 +723,7 @@ func entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch)
 }
 
 // EntryFieldsFragment is the exported version of entryFields for use by SSE handlers.
-func EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) templ.Component {
+func EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch, psToLibrary map[int64]int64) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -744,12 +744,30 @@ func EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain
 			templ_7745c5c3_Var37 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = entryFields(gi, ei, e, stitches).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = entryFields(gi, ei, e, stitches, psToLibrary).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+// isStitchSelected determines if a library stitch should be pre-selected for an entry.
+// When psToLibrary is provided (editing existing pattern), it maps PatternStitchID -> LibraryStitchID.
+// When psToLibrary is nil (new entries or form resubmission), PatternStitchID holds the library stitch ID directly.
+func isStitchSelected(libraryStitchID int64, entryPatternStitchID int64, psToLibrary map[int64]int64) bool {
+	if entryPatternStitchID == 0 {
+		return false
+	}
+	if psToLibrary != nil {
+		libID, ok := psToLibrary[entryPatternStitchID]
+		if !ok {
+			return false
+		}
+		return libID == libraryStitchID
+	}
+	// No psToLibrary: PatternStitchID is already a library stitch ID (form submission or new pattern).
+	return entryPatternStitchID == libraryStitchID
 }
 
 func editorTitle(pattern *domain.Pattern) string {

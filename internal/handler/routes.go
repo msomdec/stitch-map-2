@@ -12,7 +12,7 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches, images)
-	sessionHandler := NewWorkSessionHandler(sessions, patterns, stitches)
+	sessionHandler := NewWorkSessionHandler(sessions, patterns)
 	dashboardHandler := NewDashboardHandler(sessions, patterns)
 	imageHandler := NewImageHandler(images, patterns)
 

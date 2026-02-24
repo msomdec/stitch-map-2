@@ -60,7 +60,7 @@ func (h *PatternHandler) HandleNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternEditorPage(user.DisplayName, nil, allStitches, nil, "").Render(r.Context(), w)
+	view.PatternEditorPage(user.DisplayName, nil, allStitches, nil, nil, "").Render(r.Context(), w)
 }
 
 // HandleCreate processes pattern creation from the form.
@@ -120,13 +120,6 @@ func (h *PatternHandler) HandleView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allStitches, err := h.stitches.ListAll(r.Context(), user.ID)
-	if err != nil {
-		slog.Error("list stitches", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
 	groupImages, err := h.images.ListByPattern(r.Context(), pattern)
 	if err != nil {
 		slog.Error("list pattern images", "error", err)
@@ -134,7 +127,7 @@ func (h *PatternHandler) HandleView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternViewPage(user.DisplayName, pattern, allStitches, groupImages).Render(r.Context(), w)
+	view.PatternViewPage(user.DisplayName, pattern, groupImages).Render(r.Context(), w)
 }
 
 // HandleEdit renders the pattern editor for an existing pattern.
@@ -167,12 +160,21 @@ func (h *PatternHandler) HandleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Locked patterns cannot be edited — redirect to view page.
+	if pattern.Locked {
+		http.Redirect(w, r, "/patterns/"+strconv.FormatInt(pattern.ID, 10), http.StatusSeeOther)
+		return
+	}
+
 	allStitches, err := h.stitches.ListAll(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("list stitches", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	// Build mapping from PatternStitchID -> LibraryStitchID for pre-selection in the editor.
+	psToLibrary := buildPSToLibraryMap(pattern.PatternStitches)
 
 	groupImages, err := h.images.ListByPattern(r.Context(), pattern)
 	if err != nil {
@@ -181,7 +183,7 @@ func (h *PatternHandler) HandleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternEditorPage(user.DisplayName, pattern, allStitches, groupImages, "").Render(r.Context(), w)
+	view.PatternEditorPage(user.DisplayName, pattern, allStitches, groupImages, psToLibrary, "").Render(r.Context(), w)
 }
 
 // HandleUpdate processes pattern update from the form.
@@ -214,6 +216,10 @@ func (h *PatternHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
 		}
+		if errors.Is(err, domain.ErrPatternLocked) {
+			http.Error(w, "Pattern is locked and cannot be edited", http.StatusForbidden)
+			return
+		}
 		slog.Error("update pattern", "error", err)
 		h.renderEditorWithError(w, r, user, pattern, "An unexpected error occurred.")
 		return
@@ -239,6 +245,10 @@ func (h *PatternHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	if err := h.patterns.Delete(r.Context(), user.ID, id); err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) || errors.Is(err, domain.ErrNotFound) {
 			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrPatternLocked) {
+			http.Error(w, "Pattern is locked and cannot be deleted", http.StatusForbidden)
 			return
 		}
 		slog.Error("delete pattern", "error", err)
@@ -354,7 +364,7 @@ func (h *PatternHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request) 
 	sse := datastar.NewSSE(w, r)
 	e := domain.StitchEntry{Count: 1, RepeatCount: 1}
 	sse.PatchElementTempl(
-		view.EntryFieldsFragment(giInt, ei, e, allStitches),
+		view.EntryFieldsFragment(giInt, ei, e, allStitches, nil),
 		datastar.WithSelectorID("entries-"+gi),
 		datastar.WithModeAppend(),
 	)
@@ -376,7 +386,19 @@ func (h *PatternHandler) HandleRemoveEntry(w http.ResponseWriter, r *http.Reques
 func (h *PatternHandler) renderEditorWithError(w http.ResponseWriter, r *http.Request, user *domain.User, pattern *domain.Pattern, errMsg string) {
 	allStitches, _ := h.stitches.ListAll(r.Context(), user.ID)
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	view.PatternEditorPage(user.DisplayName, pattern, allStitches, nil, errMsg).Render(r.Context(), w)
+	// For re-rendered forms, entries already have library stitch IDs, so no psToLibrary needed.
+	view.PatternEditorPage(user.DisplayName, pattern, allStitches, nil, nil, errMsg).Render(r.Context(), w)
+}
+
+// buildPSToLibraryMap builds a mapping from PatternStitchID to LibraryStitchID.
+func buildPSToLibraryMap(patternStitches []domain.PatternStitch) map[int64]int64 {
+	m := make(map[int64]int64, len(patternStitches))
+	for _, ps := range patternStitches {
+		if ps.LibraryStitchID != nil {
+			m[ps.ID] = *ps.LibraryStitchID
+		}
+	}
+	return m
 }
 
 // parsePatternForm reads pattern data from a form submission.
@@ -441,10 +463,10 @@ func parsePatternForm(r *http.Request, userID int64) (*domain.Pattern, error) {
 			}
 
 			entry := domain.StitchEntry{
-				SortOrder:   entrySortOrder,
-				StitchID:    stitchID,
-				Count:       intFormValue(r, "entry_count_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
-				RepeatCount: intFormValue(r, "entry_repeat_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
+				SortOrder:       entrySortOrder,
+				PatternStitchID: stitchID, // Temporarily holds library stitch ID; resolved by service
+				Count:           intFormValue(r, "entry_count_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
+				RepeatCount:     intFormValue(r, "entry_repeat_"+strconv.Itoa(gi)+"_"+strconv.Itoa(ei), 1),
 			}
 
 			group.StitchEntries = append(group.StitchEntries, entry)

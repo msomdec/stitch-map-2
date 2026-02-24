@@ -5,7 +5,7 @@ import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage, errMsg string) {
+templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []domain.Stitch, groupImages map[int64][]domain.PatternImage, psToLibrary map[int64]int64, errMsg string) {
 	@Layout(editorTitle(pattern), displayName) {
 		if errMsg != "" {
 			<div class="notification is-danger">
@@ -115,10 +115,10 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				<div id="pattern-parts">
 					if pattern != nil && len(pattern.InstructionGroups) > 0 {
 						for gi, g := range pattern.InstructionGroups {
-							@groupFields(gi, g, stitches, pattern.ID, groupImages[g.ID])
+							@groupFields(gi, g, stitches, pattern.ID, groupImages[g.ID], psToLibrary)
 						}
 					} else {
-						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches, 0, nil)
+						@groupFields(0, domain.InstructionGroup{Label: "Round 1", RepeatCount: 1}, stitches, 0, nil, nil)
 					}
 				</div>
 				<!-- Add Part Button -->
@@ -186,7 +186,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 				<div class="box">
 					<h2 class="title is-5">Pattern Preview</h2>
 					if pattern != nil && len(pattern.InstructionGroups) > 0 {
-						<pre class="pattern-text">{ service.RenderPatternText(pattern, stitches) }</pre>
+						<pre class="pattern-text">{ service.RenderPatternText(pattern) }</pre>
 						<p class="help has-text-grey mt-2">
 							{ strconv.Itoa(service.StitchCount(pattern)) + " stitches total" }
 						</p>
@@ -209,7 +209,7 @@ templ PatternEditorPage(displayName string, pattern *domain.Pattern, stitches []
 	}
 }
 
-templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, patternID int64, images []domain.PatternImage) {
+templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, patternID int64, images []domain.PatternImage, psToLibrary map[int64]int64) {
 	<div class="box is-relative" id={ "part-" + strconv.Itoa(gi) }>
 		<button
 			type="button"
@@ -265,10 +265,10 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, p
 		<div id={ "entries-" + strconv.Itoa(gi) }>
 			if len(g.StitchEntries) > 0 {
 				for ei, e := range g.StitchEntries {
-					@entryFields(gi, ei, e, stitches)
+					@entryFields(gi, ei, e, stitches, psToLibrary)
 				}
 			} else {
-				@entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches)
+				@entryFields(gi, 0, domain.StitchEntry{Count: 1, RepeatCount: 1}, stitches, nil)
 			}
 		</div>
 		<button
@@ -290,10 +290,10 @@ templ groupFields(gi int, g domain.InstructionGroup, stitches []domain.Stitch, p
 
 // GroupFieldsFragment is the exported version of groupFields for use by SSE handlers.
 templ GroupFieldsFragment(gi int, g domain.InstructionGroup, stitches []domain.Stitch) {
-	@groupFields(gi, g, stitches, 0, nil)
+	@groupFields(gi, g, stitches, 0, nil, nil)
 }
 
-templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) {
+templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch, psToLibrary map[int64]int64) {
 	<div class="columns is-vcentered mb-0" id={ "entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei) }>
 		<div class="column is-5">
 			<div class="field">
@@ -303,7 +303,7 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 							<option value="">Select stitch</option>
 							for _, s := range stitches {
 								<option value={ strconv.FormatInt(s.ID, 10) }
-									if s.ID == e.StitchID { selected }>{ s.Abbreviation } - { s.Name }</option>
+									if isStitchSelected(s.ID, e.PatternStitchID, psToLibrary) { selected }>{ s.Abbreviation } - { s.Name }</option>
 							}
 						</select>
 					</div>
@@ -340,8 +340,26 @@ templ entryFields(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch
 }
 
 // EntryFieldsFragment is the exported version of entryFields for use by SSE handlers.
-templ EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch) {
-	@entryFields(gi, ei, e, stitches)
+templ EntryFieldsFragment(gi int, ei int, e domain.StitchEntry, stitches []domain.Stitch, psToLibrary map[int64]int64) {
+	@entryFields(gi, ei, e, stitches, psToLibrary)
+}
+
+// isStitchSelected determines if a library stitch should be pre-selected for an entry.
+// When psToLibrary is provided (editing existing pattern), it maps PatternStitchID -> LibraryStitchID.
+// When psToLibrary is nil (new entries or form resubmission), PatternStitchID holds the library stitch ID directly.
+func isStitchSelected(libraryStitchID int64, entryPatternStitchID int64, psToLibrary map[int64]int64) bool {
+	if entryPatternStitchID == 0 {
+		return false
+	}
+	if psToLibrary != nil {
+		libID, ok := psToLibrary[entryPatternStitchID]
+		if !ok {
+			return false
+		}
+		return libID == libraryStitchID
+	}
+	// No psToLibrary: PatternStitchID is already a library stitch ID (form submission or new pattern).
+	return entryPatternStitchID == libraryStitchID
 }
 
 func editorTitle(pattern *domain.Pattern) string {

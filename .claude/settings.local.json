@@ -23,7 +23,11 @@
       "WebFetch(domain:bulma.io)",
       "Bash(grep:*)",
       "Bash(head:*)",
-      "Bash(cd C:/projects/stitch-map-2 && templ generate 2>&1)"
+      "Bash(cd C:/projects/stitch-map-2 && templ generate 2>&1)",
+      "Bash(templ generate:*)",
+      "Bash(GOTOOLCHAIN=auto go build:*)",
+      "Bash(GOTOOLCHAIN=auto go test:*)",
+      "Bash(GOTOOLCHAIN=auto go vet:*)"
     ]
   }
 }

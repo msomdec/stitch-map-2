@@ -34,7 +34,14 @@ templ PatternListPage(displayName string, patterns []domain.Pattern) {
 templ patternCard(p domain.Pattern) {
 	<div class="card" aria-label={ "Pattern: " + p.Name }>
 		<div class="card-content">
-			<p class="title is-5">{ p.Name }</p>
+			<p class="title is-5">
+				{ p.Name }
+				if p.Locked {
+					<span class="icon has-text-grey ml-1" title="Locked">
+						<i class="fas fa-lock"></i>
+					</span>
+				}
+			</p>
 			<p class="subtitle is-6 has-text-grey">
 				{ string(p.PatternType) }
 				if p.HookSize != "" {
@@ -55,8 +62,10 @@ templ patternCard(p domain.Pattern) {
 		<footer class="card-footer">
 			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10)) }
 				aria-label={ "View pattern " + p.Name }>View</a>
-			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/edit") }
-				aria-label={ "Edit pattern " + p.Name }>Edit</a>
+			if !p.Locked {
+				<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/edit") }
+					aria-label={ "Edit pattern " + p.Name }>Edit</a>
+			}
 			<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/start-session") }
 				class="form-contents">
 				<button class="card-footer-item has-text-primary card-footer-button" type="submit"
@@ -68,9 +77,11 @@ templ patternCard(p domain.Pattern) {
 				<button class="card-footer-item card-footer-button" type="submit"
 					aria-label={ "Duplicate pattern " + p.Name }>Duplicate</button>
 			</form>
-			<button class="card-footer-item has-text-danger card-footer-button" type="button"
-				aria-label={ "Delete pattern " + p.Name }
-				data-on:click={ fmt.Sprintf("$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"%s\"? This cannot be undone.'; $confirmUrl='/patterns/%d/delete'; $confirmOpen=true", p.Name, p.ID) }>Delete</button>
+			if !p.Locked {
+				<button class="card-footer-item has-text-danger card-footer-button" type="button"
+					aria-label={ "Delete pattern " + p.Name }
+					data-on:click={ fmt.Sprintf("$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"%s\"? This cannot be undone.'; $confirmUrl='/patterns/%d/delete'; $confirmOpen=true", p.Name, p.ID) }>Delete</button>
+			}
 		</footer>
 	</div>
 }
