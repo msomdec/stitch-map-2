@@ -4,664 +4,499 @@ These are post-v1 improvements to be implemented incrementally. Each item should
 
 ---
 
-### IMP-4: Custom CSS Design System (Replace Bulma) (Idea — Not Scheduled)
+### IMP-12: Pattern Sharing (Snapshot-Based, Authenticated)
 
-> **Status: NOT READY TO IMPLEMENT** — Design direction must be fully defined before any work begins. Do not implement any part of this improvement until the design specification below is complete and the placeholder notes have been replaced with concrete decisions.
+**Problem**: Users have no way to share patterns with others. Sharing patterns is a core use case for crochet communities — designers want to distribute patterns, and crocheters want to share finds with friends. The sharing mechanism must produce an independent snapshot for the recipient — if the original is later modified or deleted, the recipient's copy is unaffected.
 
-**Problem**: Bulma provides a generic utility-class look that does not reflect the desired visual identity of StitchMap. The goal is a custom CSS design system with a bright, sleek, and modern aesthetic.
+**Goal**: Allow a pattern owner to share any pattern via two modes, both requiring the viewer to be authenticated:
 
-**Design Direction** *(to be defined)*:
+1. **Global link** — A shareable URL that any authenticated user can open. Good for posting in communities or sharing broadly.
+2. **Email-bound link** — A unique share link tied to a specific user's email address. Only the authenticated user whose email matches can view the pattern. Good for sharing privately with a specific person.
 
-The following questions must be answered and this section updated before implementation begins:
+When a recipient opens a share link, they see a preview of the shared pattern and can **save it to their library**. Saving duplicates the entire pattern (including all instruction groups, stitch entries, pattern stitches, and images) as a snapshot into the recipient's collection. The snapshot is fully independent — edits or deletion of the original have no effect on saved copies. Saved copies are marked with their origin (who shared it) and appear in a dedicated "Shared with Me" section on the pattern list page.
 
-- **Color palette**: What are the primary, secondary, accent, background, surface, and text colors? (Target: bright, not dark-mode-first)
-- **Typography**: What font(s) should be used? Google Fonts, system stack, or self-hosted? What is the type scale?
-- **Component inventory**: Which Bulma components are actively used in the app and must have custom equivalents? (navbar, buttons, cards, form fields, notifications, progress bars, modals, tags, etc.)
-- **Layout system**: CSS Grid, Flexbox, or a custom column system? What are the breakpoints?
-- **Spacing & sizing scale**: What is the base unit (e.g., 4px or 8px grid)?
-- **Border radius & elevation**: Rounded corners? Box shadows or flat design?
-- **Interactive states**: How do buttons, inputs, and links behave on hover, focus, and active?
-- **Delivery method**: Single `static/style.css` file served from the Go app? Or still CDN-loaded?
-
-**Implementation notes** *(to be filled in once design is settled)*:
-
-- Bulma is currently loaded via CDN in `view/layout.templ`. Removing it is a single-line change, but every template that relies on Bulma class names will need to be updated.
-- Custom CSS should be served as a static file from the Go app (already has a `static/` directory) rather than from a CDN, so the design is fully self-contained.
-- No CSS preprocessors or build tools — plain CSS only, consistent with the project's no-build-step philosophy.
-- All Bulma helper classes used across `.templ` files must be catalogued before removal to ensure nothing is missed.
+The owner can revoke any share link at any time. Revoking a link prevents future saves but does NOT affect copies already saved by recipients.
 
 ---
 
-### IMP-5: Integration Test Layer — SSE Body & HTML Structure Assertions (Idea — Not Scheduled)
+#### Existing Foundation
 
-**Problem**: The existing `net/http/httptest` integration tests verify HTTP status codes and redirect targets but do not inspect SSE response payloads or the HTML structure of rendered fragments. This means Datastar wiring bugs (wrong target element ID, missing field in a re-rendered form, incorrect SSE event type) go undetected until manual testing.
+The codebase already has several pieces that support sharing:
 
-**Approach**: Add `github.com/PuerkitoBio/goquery` as a test-only dependency. `goquery` is a pure-Go HTML parser with a jQuery-style selector API, widely used in the Go ecosystem. It adds no runtime overhead and requires no build tooling.
+1. **`Pattern.Locked` field** (`internal/domain/pattern.go:24`) — A boolean on the `Pattern` struct. Currently used to prevent editing/deleting a pattern. This was added in migration 007. Locked patterns redirect from the edit page to the view page (`internal/handler/pattern.go:164`). The pattern list UI shows a lock icon for locked patterns.
 
-**What to assert with this layer**:
-- SSE response bodies contain the expected `data-swap-target` / element ID being patched.
-- Re-rendered form fragments contain the correct pre-populated field values after a validation error.
-- Required field indicators are present in rendered form HTML.
-- Session cards on the dashboard contain the pattern name, status badge, and position summary.
-- Settings page sections render the current user's display name and email pre-populated.
+2. **Self-contained `PatternStitch` model** (migration 007, `internal/domain/pattern.go:31-39`) — Patterns already snapshot their stitches into `pattern_stitches` rows, decoupled from the global stitch library. This means a shared pattern displays correctly even if the original owner's custom stitches are later modified or deleted. This is exactly the data model needed for sharing.
 
-**Scope**: Test helpers only — no new test binaries or separate test packages. Extend the existing `newTestServices` pattern with a `parseSSE(body string) *goquery.Document` helper that extracts the HTML payload from an SSE event and returns a queryable document.
+3. **`Duplicate` repository method** (`internal/repository/sqlite/pattern.go:205-229`) — Creates a full copy of a pattern (including all PatternStitches, InstructionGroups, and StitchEntries) for a different user. Currently the copy is always unlocked. This is the core mechanism for snapshotting a shared pattern — it needs to be extended to set `Locked = true`, set the `shared_from_user_id`/`shared_from_name` origin metadata, and copy images when duplicating from a share.
 
-**What this layer does NOT cover**: browser-executed JavaScript, keyboard/touch event handlers, `beforeunload` lifecycle events, or visual layout. Those are tracked separately in IMP-6.
+4. **Read-only pattern view** (`internal/handler/pattern.go:93-131`, `internal/view/pattern_view.templ`) — The `HandleView` handler and `PatternViewPage` templ already render a full read-only view of a pattern with all groups, stitch entries, pattern text preview, and images. Currently gated on `pattern.UserID == user.ID`, but the rendering logic itself is ownership-agnostic.
 
-**Dependency addition**: `github.com/PuerkitoBio/goquery` — add to `go.mod` as a direct dependency (it is used in `_test.go` files, but Go does not distinguish test-only module dependencies).
+5. **Image serving** (`internal/handler/image.go`, `GET /images/{id}`) — Images are served by ID. Currently requires authentication and the actual serving logic doesn't depend on ownership (ownership is checked separately). Since all share routes now require auth, the existing authenticated image route works for shared patterns without modification.
 
---- 
-
-### IMP-6: User Settings Page
-
-**Goal**: Authenticated users can update their account details from a dedicated settings page, accessed via the user dropdown in the top-right navbar.
-
-**Entry point**: Add a "Settings" item to the authenticated user dropdown menu in `view/layout.templ`, linking to `GET /settings`.
-
-**Editable fields** (all current user-level data points that can meaningfully be changed):
-
-1. **Display Name** — straightforward update; re-issue JWT on save so the new display name is reflected in the token claims immediately.
-2. **Email Address** — must check uniqueness against existing users before saving; re-issue JWT on success since email is embedded in token claims. Treat a changed email as a sensitive operation: require the user to confirm their current password before the change is applied.
-3. **Password** — require the user to enter their current password for verification, then enter and confirm a new password. Bcrypt the new password at the configured cost before storing.
-
-**Read-only info to display** (not editable, but useful context):
-- Account created date (`CreatedAt`)
-
-**Page structure** (`view/settings.templ`):
-- Three separate form sections (or Bulma `box` panels), each with its own save button and independent SSE submission:
-  - "Display Name" section
-  - "Email Address" section (with current-password confirmation field)
-  - "Change Password" section (current password + new password + confirm new password)
-- Each section shows its own inline success/error feedback via Datastar SSE without affecting the other sections.
-- Forms retain entered values on error.
-- Required fields marked.
-
-**Service layer** (`service/auth.go`):
-- `UpdateDisplayName(ctx, userID, newDisplayName) (*User, string, error)` — updates display name, returns updated user and a fresh JWT.
-- `UpdateEmail(ctx, userID, currentPassword, newEmail) (*User, string, error)` — verifies current password, checks email uniqueness, updates email, returns updated user and a fresh JWT.
-- `UpdatePassword(ctx, userID, currentPassword, newPassword, confirmPassword) error` — verifies current password, validates new password match and strength, bcrypts and stores.
-
-**Handler** (`handler/settings.go`):
-- `GET /settings` — renders the settings page pre-populated with current user data.
-- `POST /settings/display-name` — updates display name, re-sets `auth_token` cookie with new JWT.
-- `POST /settings/email` — updates email, re-sets `auth_token` cookie with new JWT.
-- `POST /settings/password` — updates password, no JWT change needed (password is not in token claims).
-
-**Regression gate**: All existing tests pass. New integration test covers: update display name → verify JWT updated; update email (wrong password → error, duplicate email → error, success → JWT updated); update password (wrong current → error, mismatch confirm → error, success).
+6. **Pattern list page** (`internal/view/pattern_list.templ`) — Currently renders a single flat grid under "My Patterns". Has no concept of sections or grouping. This needs to be split into two sections.
 
 ---
 
-### IMP-7: Pattern Editor — Page Overhaul
+#### What's Missing
 
-**Problem**: The pattern editor page has accumulated UX clutter — redundant fields, confusing labels, an always-visible preview that wastes horizontal space, and no safeguards against accidental data loss. This improvement overhauls the editor into a cleaner, full-width layout with better terminology and user protection.
+##### 1. Share Domain Model & Storage
 
-**Changes**:
-
-#### Pattern Metadata Section
-
-1. **Add a "Difficulty" dropdown** (optional). Values: `Beginner`, `Intermediate`, `Advanced`, `Expert`. Stored as a new `difficulty` column (`TEXT NOT NULL DEFAULT ''`) on the `patterns` table (new migration). The domain `Pattern` struct gains a `Difficulty string` field.
-2. **Remove the Notes field.** The Description textarea already covers this logical space. Drop `notes` from the editor form. The `notes` column remains in the database (no destructive migration) but the editor no longer reads or writes it for new/edited patterns.
-
-#### Instruction Groups → "Pattern Overview"
-
-3. **Rename the "Instruction Groups" heading** to **"Pattern Overview"**.
-4. **Rename "Group Label"** to **"Part Name"** — the input placeholder should update accordingly (e.g., "e.g., Brim, Body, Round 1").
-5. **Rename "Repeat" on the group (part) level** to **"Quantity"**. The stitch entry "Repeat" column keeps its current name — only the group-level field changes.
-6. **Remove "Expected Count"** from group fields entirely (both the input and the derived-count helper text). The derived count calculation (`derivedExpectedCount`) can remain in code for potential future use but should not appear in the UI.
-
-#### Stitch Entries
-
-7. **Remove the "Into Stitch" column.** Drop the input and the column header from the entry row. The `into_stitch` column remains in the database but the editor no longer reads or writes it.
-8. **Remove the "Notes" column from stitch entries entirely.** Unlike other removals, this is a full removal — drop the `notes` column from the `stitch_entries` table via migration (`ALTER TABLE stitch_entries DROP COLUMN notes`; SQLite 3.35.0+ supports this). Remove the field from the `StitchEntry` domain struct and all repository code. Stitch-level notes added no value — per-entry context belongs at the part level instead.
-9. **Add a "Notes" field to each part (instruction group).** This is a new optional textarea within each part section, allowing users to attach free-form notes to a part (e.g., "work in BLO for this section", "join with sl st at end"). Stored as a new `notes` column (`TEXT NOT NULL DEFAULT ''`) on the `instruction_groups` table (included in the same migration as the stitch entry notes removal). The domain `InstructionGroup` struct gains a `Notes string` field.
-10. **Stitch entry columns after cleanup**: Stitch (dropdown, required), Count (number, required), Repeat (number, required). This simplifies the entry row to three columns.
-
-#### Numeric Inputs
-
-11. **Hide native browser spinner arrows** on all `<input type="number">` fields in the editor. Add CSS: `input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }` and `input[type=number] { -moz-appearance: textfield; }`. This can go in a `<style>` block in the layout or in a static CSS file.
-
-#### Dynamic Add/Remove
-
-12. **Users must be able to add and remove stitch entries within each part.** Each part section should have an "Add Stitch" button that appends a new empty entry row. Each entry row should have a remove/delete button (e.g., an `×` icon) to remove that entry — unless it is the only entry in the part (minimum 1 entry per part).
-13. **Users must be able to add and remove parts.** An "Add Part" button below the last part section appends a new empty part. Each part should have a remove/delete button — unless it is the only part (minimum 1 part per pattern). Adding and removing parts and entries is done via Datastar SSE (server round-trip to re-render the relevant DOM fragment), consistent with the existing interaction pattern.
-
-#### Preview → Modal
-
-14. **Remove the always-visible preview panel** from the right column. The editor form should take the full page width (remove the `columns` wrapper that creates the 8/4 split).
-15. **Add a "Preview" button** next to the "Save Pattern" button in the submit bar. Clicking it opens a Bulma modal containing the rendered pattern text preview and stitch count — the same content currently in the sidebar, but presented on-demand.
-16. The preview modal should have a close button and be dismissible via Esc or clicking the background overlay.
-
-#### Unsaved Changes Protection
-
-17. **Confirmation prompt on Save**: Before the form submits, show a confirmation dialog ("Save changes to this pattern?") to prevent accidental overwrites. This can be a simple `data-on-click` that triggers a Bulma modal with Confirm/Cancel buttons, where Confirm performs the actual form submission.
-18. **Confirmation prompt on Cancel**: The "Cancel" link should prompt ("Discard unsaved changes?") before navigating away. If confirmed, navigate to `/patterns`.
-19. **Confirmation prompt on navigation away**: If the user clicks a navbar link or any other link while on the editor page, prompt before leaving. Use a `beforeunload` event listener (added via Datastar or a small inline script) to catch browser-level navigation. For in-app Datastar-driven navigation, intercept with a confirmation modal.
-
-**Affected files**:
-- `internal/view/pattern_editor.templ` — primary UI changes
-- `internal/handler/pattern.go` — form parsing updates (remove into_stitch writes, add difficulty, add part notes, handle add/remove part/entry SSE endpoints)
-- `internal/domain/pattern.go` — add `Difficulty` field to `Pattern` struct; add `Notes` field to `InstructionGroup` struct; remove `Notes` field from `StitchEntry` struct
-- `internal/repository/sqlite/pattern.go` — update INSERT/UPDATE/SELECT to include `difficulty`, `instruction_groups.notes`; remove `stitch_entries.notes` from queries
-- `internal/repository/sqlite/migrations/` — new migration: add `difficulty` column to `patterns`, add `notes` column to `instruction_groups`, drop `notes` column from `stitch_entries`
-- `internal/service/pattern.go` — update validation if needed
-- `internal/view/layout.templ` or `static/style.css` — CSS for hiding number spinners
-
-**Regression gate**: All existing tests pass. Pattern create/edit/duplicate flows continue to work. Existing patterns with `into_stitch` data are not corrupted (column remains in DB, just not surfaced in the editor). The `stitch_entries.notes` column is dropped — any existing data there is lost (acceptable since this field was rarely used and part-level notes replace it).
-
----
-
-### IMP-8: UI Consistency — Spacing, Button Grouping & Datastar Adoption
-
-**Problem**: The UI has accumulated inconsistent button spacing, inline `style` attributes that duplicate Bulma utilities, forms with `style="display:inline"` that break flex/button-group spacing, and vanilla JavaScript for interactions that Datastar handles more cleanly. This improvement standardises spacing across all pages using Bulma's built-in layout components and migrates remaining vanilla JS interaction patterns to Datastar where it simplifies the code or improves maintainability.
-
-**Scope**: This is a purely front-end change — no database migrations, no domain/service changes, no new HTTP endpoints. All changes are in `.templ` files and the layout `<style>` block.
-
----
-
-#### Part A: Spacing & Button Grouping
-
-These changes replace ad-hoc inline styles with idiomatic Bulma layout patterns. The guiding rules:
-
-- **Buttons side-by-side**: wrap in `<div class="buttons">`. Bulma handles the gap automatically.
-- **Form submit/cancel actions**: use `<div class="field is-grouped">` with `<div class="control">` wrappers.
-- **Left/right distribution** (title + action buttons): use `<div class="level">` with `level-left` / `level-right`.
-- **Vertical spacing between sections**: use Bulma spacing helpers (`mb-4`, `mt-5`, etc.) instead of inline `style="gap: …"` or `style="margin-top: …"`.
-- **Never use `style="display:inline"`** on `<form>` elements — it collapses flex spacing. Instead, either (a) remove the form wrapper entirely and use a Datastar `data-on:click="@post(…)"` on the button directly (preferred, see Part B), or (b) leave the form unstyled and let it participate normally in flex layout.
-
-##### A1. Dashboard — Quick Links buttons (`dashboard.templ`)
-
-**Before**: `<div class="buttons are-medium" style="flex-direction: column; align-items: flex-start;">`
-
-**After**: Replace with a simple vertical stack using individual `mb-2` spacing on `is-fullwidth` buttons (no `buttons` wrapper needed, since these are stacked, not side-by-side):
-
-```html
-<div>
-    <a class="button is-primary is-fullwidth is-medium mb-2" href="/patterns">My Patterns</a>
-    <a class="button is-link is-fullwidth is-medium mb-2" href="/patterns/new">New Pattern</a>
-    <a class="button is-info is-fullwidth is-medium" href="/stitches">Stitch Library</a>
-</div>
-```
-
-##### A2. Pattern View — Action buttons (`pattern_view.templ`)
-
-**Before**: `<form style="display:inline;">` inside `.buttons` — the inline form breaks Bulma's flexbox gap.
-
-**After**: Remove the form wrapper for the Duplicate button; use a Datastar `data-on:click="@post(…)"` directly on the button (see B3). If keeping forms, remove `style="display:inline;"` and let the form participate in flex layout normally.
-
-##### A3. Work Session — Control buttons (`worksession.templ`, lines 31–49)
-
-**Before**: Multiple `<form style="display:inline;">` elements inside a `.buttons` container.
-
-**After**: Remove form wrappers; use Datastar `data-on:click="@post(…)"` on the buttons directly (see B2). This eliminates the inline-form spacing issue entirely.
-
-##### A4. Work Session — Navigation buttons (`worksession.templ`, lines 154–165)
-
-**Before**: `<div class="is-flex is-justify-content-center" style="gap: 1rem;">` with `<form style="display:inline;">` wrappers.
-
-**After**: Use a `<div class="buttons is-centered">` container. Remove form wrappers; use Datastar `data-on:click="@post(…)"` on the buttons directly (see B2). Bulma's `.buttons` provides consistent gap without inline styles.
-
-##### A5. Work Session — Parts overview strip (`worksession.templ`, line 54)
-
-**Before**: `<div class="tags are-medium" style="flex-wrap: wrap; gap: 0.25rem;">`
-
-**After**: Bulma's `.tags` already wraps and provides spacing. Remove the inline `style` entirely — the default `.tags` behaviour is correct.
-
-##### A6. Work Session — Current stitch display (`worksession.templ`, line 94)
-
-**Before**: `style="gap: 2rem;"` and `style="min-width: 80px;"` on child divs.
-
-**After**: Add a small CSS utility class in the layout `<style>` block (e.g., `.stitch-display-row { gap: 2rem; }` and `.stitch-context { min-width: 80px; }`). Reference these classes instead of inline styles. This keeps presentation in CSS rather than scattered across templates.
-
-##### A7. Work Session — Current stitch highlight border (`worksession.templ`, line 65)
-
-**Before**: `style="border: 2px solid hsl(171, 100%, 41%); font-weight: bold;"`
-
-**After**: Define a `.tag-current` CSS class in the layout `<style>` block and reference it. Bulma doesn't have a built-in modifier for this, so a tiny custom class is appropriate.
-
-##### A8. Stitch Library — "Add" button column (`stitch_library.templ`, lines 132–139)
-
-**Before**: The "Add" button sits in a `column is-1` with an `&nbsp;` label to align it with sibling form fields. The narrow column makes the button cramped, especially on mobile.
-
-**After**: Move the submit button out of the `columns` row entirely and place it below the form inputs in a `<div class="field">` wrapper. This avoids the cramped single-column alignment issue and gives the button room to breathe.
-
-##### A9. Stitch Library — Delete button form (`stitch_library.templ`, line 165)
-
-**Before**: `<form style="display:inline;">` in a table cell.
-
-**After**: Remove the form wrapper; use Datastar `data-on:click` to handle the delete flow (see B4).
-
-##### A10. Pattern List — Card footer forms (`pattern_list.templ`, lines 60–79)
-
-**Before**: `<form style="display:contents;">` wrappers with buttons styled via `style="border:none;background:none;cursor:pointer;"`.
-
-**After**: Keep the card-footer structure (it works well for card actions), but replace the inline `style` attributes with a small CSS class (`.card-footer-button`) defined in the layout `<style>` block:
-
-```css
-.card-footer-button {
-    border: none;
-    background: none;
-    cursor: pointer;
-}
-```
-
-##### A11. Pattern Editor — Part box remove button (`pattern_editor.templ`, lines 213–222)
-
-**Before**: Remove button positioned with `style="position: absolute; top: 0.75rem; right: 0.75rem;"`.
-
-**After**: Define a `.box-close-btn` CSS class in the layout `<style>` block for this positioning pattern. This keeps the template markup clean and ensures consistent positioning if the same pattern is used elsewhere.
-
-##### A12. Pattern View — Pattern text preview (`pattern_view.templ`, line 49)
-
-**Before**: `style="white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; font-family: monospace;"`
-
-**After**: Define a `.pattern-text` CSS class in the layout `<style>` block (the class is already referenced but has no definition — only inline styles). Similarly update the same inline style in `pattern_editor.templ` line 189.
-
-```css
-.pattern-text {
-    white-space: pre-wrap;
-    background: #f5f5f5;
-    padding: 1rem;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.85rem;
-}
-```
-
----
-
-#### Part B: Datastar Adoption
-
-These changes convert vanilla JavaScript interactions to Datastar declarative patterns. The goal is not to eliminate all JS, but to use Datastar where it results in less code, better consistency with the existing SSE-driven architecture, and fewer `<script>` blocks scattered across templates.
-
-**Guiding rule**: If a button's only job is to POST to an endpoint and the response is a page redirect or SSE patch, use `data-on:click="@post('/…')"` instead of wrapping it in a `<form>`. If a button toggles UI state (modal visibility, navbar menu), use Datastar signals instead of inline `onclick` with `classList.toggle`.
-
-##### B1. Navbar burger toggle (`layout.templ`, lines 37–48)
-
-**Before**: Inline `onclick` that toggles `is-active` on the navbar menu via `document.getElementById` and updates `aria-expanded`.
-
-**After**: Use a Datastar signal for menu state:
-
-```html
-<div data-signals="{navOpen: false}">
-    <a role="button" class="navbar-burger"
-       data-class-is-active="$navOpen"
-       aria-expanded="false"
-       data-attr-aria-expanded="$navOpen"
-       data-on:click="$navOpen = !$navOpen">
-        …
-    </a>
-</div>
-```
-
-And on the `#navbarMenu` div: `data-class-is-active="$navOpen"`.
-
-##### B2. Work Session — Pause/Resume/Abandon/Navigation buttons (`worksession.templ`)
-
-**Before**: Each button is wrapped in a `<form method="POST" style="display:inline;">` with `type="submit"`.
-
-**After**: Remove form wrappers. Use `data-on:click="@post('/sessions/{id}/pause')"` (and similarly for resume, abandon, prev, next) directly on the button elements. For abandon, the confirmation modal is still shown first (see B5).
-
-This eliminates:
-- All `style="display:inline;"` on forms
-- The need for form IDs (`prev-form`, `next-form`, `abandon-form`)
-- The vanilla JS keyboard handler that submits forms by ID (replaced in B6)
-
-##### B3. Pattern View — Duplicate button (`pattern_view.templ`, line 33)
-
-**Before**: `<form method="POST" style="display:inline;"><button type="submit">Duplicate</button></form>`
-
-**After**: `<button class="button is-info" data-on:click="@post('/patterns/{id}/duplicate')">Duplicate</button>`
-
-##### B4. Stitch Library — Delete custom stitch (`stitch_library.templ`, lines 165–170)
-
-**Before**: `<form style="display:inline;">` with a `<button type="button" onclick={deleteStitchOnclick(…)}>` that calls `showConfirmModal` → `form.submit()`.
-
-**After**: Remove the form wrapper. Use a Datastar-driven confirmation flow (see B5) that posts directly via `@post('/stitches/{id}/delete')`.
-
-##### B5. Confirmation modal — Datastar signal-driven (`layout.templ`, lines 86–119)
-
-**Before**: The shared confirm modal uses three global JS functions (`showConfirmModal`, `executeConfirmAction`, `closeConfirmModal`) and a global `__confirmCallback` variable. Callers invoke it with inline `onclick` handlers and pass a callback that typically calls `form.submit()`.
-
-**After**: Convert to a Datastar signal-driven modal. Define signals on the `<body>` or a wrapper element:
-
-```html
-<div data-signals="{confirmOpen: false, confirmTitle: '', confirmMsg: '', confirmUrl: ''}">
-```
-
-The modal uses `data-class-is-active="$confirmOpen"`. The "Confirm" button uses `data-on:click="@post($confirmUrl); $confirmOpen = false"`. Callers open the modal by setting the signals:
-
-```html
-data-on:click="$confirmTitle = 'Delete Pattern'; $confirmMsg = 'Delete this pattern?'; $confirmUrl = '/patterns/5/delete'; $confirmOpen = true"
-```
-
-This eliminates:
-- The global `__confirmCallback` variable
-- The three global JS functions
-- All `<script>` blocks for `deletePatternOnclick`, `deleteStitchOnclick`, and the work session abandon handler
-- Form wrappers that existed solely to be `.submit()`ed from the callback
-
-**Note**: The pattern editor's `removePartOnclick` and `removeEntryOnclick` perform client-side DOM removal (not a server POST), so they do **not** fit this pattern. Keep those as-is — they are legitimate client-side operations that remove DOM nodes from the form before submission.
-
-##### B6. Work Session — Keyboard navigation (`worksession.templ`, lines 170–205)
-
-**Before**: A `<script>` block with `document.addEventListener('keydown', …)` that submits forms by ID, and a touch/swipe handler.
-
-**After**: Use Datastar's `data-on:keydown.window` on the stitch display container:
-
-```html
-<div id="stitch-display"
-     data-on:keydown.window="
-         if (evt.target.tagName === 'INPUT' || evt.target.tagName === 'TEXTAREA') return;
-         if (evt.key === ' ' || evt.key === 'ArrowRight') { evt.preventDefault(); @post('/sessions/{id}/next'); }
-         else if (evt.key === 'Backspace' || evt.key === 'ArrowLeft') { evt.preventDefault(); @post('/sessions/{id}/prev'); }
-         else if (evt.key === 'p' || evt.key === 'P') { @post('/sessions/{id}/pause'); }
-         else if (evt.key === 'Escape') { $confirmTitle='Abandon Session'; $confirmMsg='Abandon this session? Your progress will be lost.'; $confirmUrl='/sessions/{id}/abandon'; $confirmOpen=true; }
-     ">
-```
-
-The touch/swipe handler can remain as a small `<script>` block — Datastar doesn't have a built-in swipe gesture directive, so vanilla JS is appropriate here. However, instead of calling `form.submit()`, the swipe handler should use `fetch('/sessions/{id}/next', {method:'POST'}).then(() => window.location.reload())` or simply navigate via `window.location.href`. Alternatively, the swipe handler can click the Datastar-enabled button to trigger the `@post`.
-
-##### B7. Pattern Editor — Modal triggers (`pattern_editor.templ`, lines 138, 141, 144)
-
-**Before**: `onclick="document.getElementById('save-modal').classList.add('is-active')"` and similar for preview and cancel modals.
-
-**After**: Use Datastar signals:
-
-```html
-<div data-signals="{showSave: false, showPreview: false, showCancel: false}">
-```
-
-Each button: `data-on:click="$showSave = true"` (etc.)
-Each modal: `data-class-is-active="$showSave"` on the `.modal` div.
-Each close button/background: `data-on:click="$showSave = false"`.
-
-This eliminates all `onclick` handlers in the modal section and makes modal state inspectable via Datastar devtools.
-
-##### B8. Pattern List — Delete pattern confirmation (`pattern_list.templ`, lines 73–79, 91–95)
-
-**Before**: `<form style="display:contents;">` with `onclick={deletePatternOnclick(…)}` that calls `showConfirmModal` → `form.submit()`.
-
-**After**: Remove the form wrapper. Use the Datastar signal-driven confirm modal from B5:
-
-```html
-<button class="card-footer-item has-text-danger card-footer-button" type="button"
-    data-on:click="$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"{name}\"? This cannot be undone.'; $confirmUrl='/patterns/{id}/delete'; $confirmOpen=true">
-    Delete
-</button>
-```
-
-Remove the `deletePatternOnclick` templ `script` block entirely.
-
-##### B9. Pattern List — Start Session & Duplicate forms (`pattern_list.templ`, lines 60–72)
-
-**Before**: `<form method="POST" style="display:contents;">` wrappers for Start and Duplicate actions in card footers.
-
-**After**: Remove form wrappers. Use `data-on:click="@post('/patterns/{id}/start-session')"` and `data-on:click="@post('/patterns/{id}/duplicate')"` on the button elements directly.
-
----
-
-#### What NOT to change
-
-- **Auth forms** (login/register) — these are traditional full-page form submissions that redirect on success. Datastar SSE would add complexity for no UX benefit here; the forms work correctly as-is.
-- **Stitch Library search/filter form** — this is a `GET` form that filters results. It works well as a standard form submission with page reload. No benefit to Datastar here.
-- **Pattern Editor save form** — the main form submission (`pattern-form`) uses traditional POST. The `beforeunload` protection and the save confirmation modal interact with this form. Converting to Datastar SSE would require rethinking the entire form submission flow, which is out of scope.
-- **Pattern Editor `removePartOnclick` / `removeEntryOnclick`** — these perform client-side DOM removal, not server round-trips. They are appropriate as JS and would not benefit from Datastar `@post`.
-
----
-
-#### Affected files
-
-- `internal/view/layout.templ` — navbar burger (B1), confirm modal rewrite (B5), new CSS utility classes (A6, A7, A10, A11, A12), remove global JS functions
-- `internal/view/dashboard.templ` — Quick Links button stack (A1)
-- `internal/view/pattern_list.templ` — card footer forms → Datastar (A10, B8, B9), remove `deletePatternOnclick` script
-- `internal/view/pattern_view.templ` — duplicate form → Datastar (A2, B3), pattern-text inline style → CSS class (A12)
-- `internal/view/pattern_editor.templ` — modal triggers → Datastar signals (B7), pattern-text inline style → CSS class (A12)
-- `internal/view/stitch_library.templ` — Add button repositioning (A8), delete form → Datastar (A9, B4), remove `deleteStitchOnclick` script
-- `internal/view/worksession.templ` — all spacing fixes (A3–A7), button forms → Datastar (B2), keyboard navigation → Datastar (B6)
-
-**No changes to**: `domain/`, `service/`, `repository/`, `handler/`, migrations, or tests. All handlers already accept POST requests and respond with redirects — the Datastar `@post` calls will trigger the same server-side code paths.
-
-**Regression gate**: All existing tests pass. All pages render correctly. Pattern CRUD, work session navigation, stitch library management, delete confirmations, and keyboard shortcuts continue to function. No visual regressions — spacing should improve, not change semantics.
-
----
-
-### IMP-10: Pattern Part Image Uploads
-
-**Problem**: Users have no way to attach reference images to pattern parts. Photos of completed sections, stitch close-ups, or diagram sketches are commonly needed while following a pattern. Currently, users must keep these in a separate app or browser tab.
-
-**Goal**: Allow users to upload and view images for each part (instruction group) of a pattern. Up to 5 images per part, max 10MB per file, JPEG and PNG only. All file storage and retrieval is behind a swappable interface so the initial SQLite BLOB implementation can later be replaced with filesystem, S3, or another backend.
-
----
-
-#### Domain Layer
-
-**New file: `internal/domain/image.go`**
-
-Two new interfaces and one new entity:
+**New `PatternShare` entity** (`internal/domain/share.go`):
 
 ```go
-// PatternImage holds metadata about an image attached to an instruction group.
-type PatternImage struct {
-    ID                 int64
-    InstructionGroupID int64
-    Filename           string    // Original upload filename
-    ContentType        string    // "image/jpeg" or "image/png"
-    Size               int64     // File size in bytes
-    StorageKey         string    // Key used to retrieve bytes from FileStore
-    SortOrder          int       // Display order within the group
-    CreatedAt          time.Time
-}
+type ShareType string
 
-// PatternImageRepository handles image metadata persistence.
-type PatternImageRepository interface {
-    Create(ctx context.Context, image *PatternImage) error
-    GetByID(ctx context.Context, id int64) (*PatternImage, error)
-    ListByGroup(ctx context.Context, groupID int64) ([]PatternImage, error)
-    Delete(ctx context.Context, id int64) error
-    CountByGroup(ctx context.Context, groupID int64) (int, error)
-}
+const (
+    ShareTypeGlobal ShareType = "global" // Any authenticated user with the link
+    ShareTypeEmail  ShareType = "email"  // Only the user matching the bound email
+)
 
-// FileStore abstracts raw file byte storage.
-// The initial implementation stores BLOBs in SQLite; this interface
-// allows swapping to filesystem, S3, or another backend later.
-type FileStore interface {
-    Save(ctx context.Context, key string, data []byte) error
-    Get(ctx context.Context, key string) ([]byte, error)
-    Delete(ctx context.Context, key string) error
+type PatternShare struct {
+    ID             int64
+    PatternID      int64
+    Token          string    // Unique unguessable token (64 hex chars)
+    ShareType      ShareType // "global" or "email"
+    RecipientEmail string    // Non-empty only when ShareType == "email"
+    CreatedAt      time.Time
 }
 ```
 
-The `PatternImageRepository` follows the existing repository pattern (metadata in the relational DB). The `FileStore` is a separate abstraction for raw bytes — the key design point that makes the storage backend independently swappable.
+A pattern can have **multiple shares** simultaneously — e.g., one global link and several email-bound links for different recipients. Each share has its own token and can be independently revoked.
 
----
+**New `PatternShareRepository` interface** (`internal/domain/share.go`):
 
-#### Database — Migration 006
+```go
+type PatternShareRepository interface {
+    Create(ctx context.Context, share *PatternShare) error
+    GetByToken(ctx context.Context, token string) (*PatternShare, error)
+    ListByPattern(ctx context.Context, patternID int64) ([]PatternShare, error)
+    Delete(ctx context.Context, id int64) error
+    DeleteAllByPattern(ctx context.Context, patternID int64) error
+    HasSharesByPatternIDs(ctx context.Context, patternIDs []int64) (map[int64]bool, error)
+}
+```
 
-**New file: `internal/repository/sqlite/migrations/006_create_pattern_images.sql`**
+The `HasSharesByPatternIDs` method supports the share indicator on the pattern list — given a list of pattern IDs, returns a map of which ones have at least one active share. This avoids N+1 queries when rendering the pattern list.
+
+**Origin tracking on `Pattern`** (`internal/domain/pattern.go`):
+
+```go
+type Pattern struct {
+    // ... existing fields ...
+    SharedFromUserID *int64  // Non-nil = this pattern was saved from a share; points to the original sharer's user ID
+    SharedFromName   string  // Denormalized display name of the sharer at time of save (so it survives account deletion)
+}
+```
+
+`SharedFromUserID` distinguishes user-authored patterns (`nil`) from patterns received via sharing (non-nil). `SharedFromName` is denormalized so the "Shared by Alice" label works even if Alice's account is later deleted or her display name changes. Both fields are set during the duplicate-from-share operation and are immutable after creation.
+
+**New migration** (`internal/repository/sqlite/migrations/008_pattern_sharing.sql`):
 
 ```sql
--- 006_create_pattern_images.sql
--- Image metadata and blob storage for pattern part images.
-
-CREATE TABLE IF NOT EXISTS pattern_images (
+-- Share links table
+CREATE TABLE IF NOT EXISTS pattern_shares (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    instruction_group_id INTEGER NOT NULL REFERENCES instruction_groups(id) ON DELETE CASCADE,
-    filename TEXT NOT NULL,
-    content_type TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    storage_key TEXT NOT NULL,
-    sort_order INTEGER NOT NULL,
+    pattern_id INTEGER NOT NULL REFERENCES patterns(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    share_type TEXT NOT NULL DEFAULT 'global',
+    recipient_email TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_pattern_images_group ON pattern_images(instruction_group_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_shares_token ON pattern_shares(token);
+CREATE INDEX IF NOT EXISTS idx_pattern_shares_pattern ON pattern_shares(pattern_id);
+CREATE INDEX IF NOT EXISTS idx_pattern_shares_email ON pattern_shares(recipient_email) WHERE recipient_email != '';
 
-CREATE TABLE IF NOT EXISTS file_blobs (
-    storage_key TEXT PRIMARY KEY,
-    data BLOB NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+-- Origin tracking on patterns (for "Shared with Me" section)
+ALTER TABLE patterns ADD COLUMN shared_from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE patterns ADD COLUMN shared_from_name TEXT NOT NULL DEFAULT '';
 ```
 
-The `file_blobs` table is owned by the SQLite `FileStore` implementation. A different backend (e.g., S3) would not use this table — it would store bytes externally and only implement the `FileStore` interface.
+`ON DELETE SET NULL` for `shared_from_user_id` means if the sharer deletes their account, the recipient's copy retains `shared_from_name` for display but the FK becomes NULL. `ON DELETE CASCADE` on `pattern_shares` means deleting a pattern removes all its share links.
 
-`ON DELETE CASCADE` on `instruction_group_id` ensures that deleting a part (or its parent pattern) removes image metadata rows. The corresponding `FileStore` cleanup (deleting the actual bytes) must be handled by the service layer before or after the cascade, since the `FileStore` is a separate abstraction.
+**Repository implementation** (`internal/repository/sqlite/share.go`):
+
+Implements `PatternShareRepository` with standard CRUD. `GetByToken` is the hot path for viewing shared patterns. `ListByPattern` supports the management UI. `Delete` revokes a single share. `DeleteAllByPattern` revokes all shares for a pattern at once. `HasSharesByPatternIDs` runs a single query with `IN (...)` clause + `GROUP BY` to return the set of pattern IDs that have shares.
+
+**Pattern repository changes** (`internal/repository/sqlite/pattern.go`):
+
+- Add `shared_from_user_id` and `shared_from_name` to all `SELECT`, `INSERT`, and `UPDATE` queries.
+- Extend `Duplicate` to accept an optional `SharedFrom` parameter (user ID + display name) that gets set on the copy. When duplicating from a share, these are populated. When duplicating your own pattern (existing feature), they remain nil/empty.
+- Add `ListSharedWithUser(ctx context.Context, userID int64) ([]Pattern, error)` — returns all patterns where `user_id = ? AND shared_from_user_id IS NOT NULL`, sorted by `created_at DESC`. This powers the "Shared with Me" section.
+- Update `ListByUser` to only return user-authored patterns: `user_id = ? AND shared_from_user_id IS NULL`. This keeps the "My Patterns" section clean.
+
+**Domain interface update** (`internal/domain/pattern.go`):
+
+```go
+type PatternRepository interface {
+    // ... existing methods ...
+    ListSharedWithUser(ctx context.Context, userID int64) ([]Pattern, error)
+    GetByShareToken(ctx context.Context, token string) (*Pattern, error)
+}
+```
+
+##### 2. Share Service Methods
+
+**New `ShareService`** (`internal/service/share.go`):
+
+```go
+type ShareService struct {
+    shares   domain.PatternShareRepository
+    patterns domain.PatternRepository
+    users    domain.UserRepository
+}
+```
+
+Methods:
+
+- `CreateGlobalShare(ctx context.Context, userID, patternID int64) (*domain.PatternShare, error)` — Verifies ownership (`pattern.SharedFromUserID` must be nil — cannot reshare a received pattern). If a global share already exists for this pattern, returns it (idempotent). Otherwise generates a token, creates the share, returns it.
+- `CreateEmailShare(ctx context.Context, userID, patternID int64, recipientEmail string) (*domain.PatternShare, error)` — Verifies ownership. Validates the email is non-empty and well-formed. Rejects if `recipientEmail` matches the owner's own email. If an email share already exists for this pattern+email pair, returns it (idempotent). Otherwise generates a token, creates the share, returns it. Does NOT require the recipient to already have an account — the share is bound to the email, so it works once they register.
+- `RevokeShare(ctx context.Context, userID, shareID int64) error` — Loads the share, verifies the pattern is owned by the user, deletes the share. Does NOT affect copies already saved by recipients.
+- `RevokeAllShares(ctx context.Context, userID, patternID int64) error` — Verifies ownership, deletes all shares for the pattern.
+- `GetPatternByShareToken(ctx context.Context, viewerUserID int64, token string) (*domain.Pattern, error)` — Looks up the share by token. If `ShareType == "global"`, returns the pattern. If `ShareType == "email"`, loads the viewer user by ID and checks that their email matches `RecipientEmail` — returns `ErrUnauthorized` if it doesn't match. Returns the full pattern with groups and entries.
+- `SaveSharedPattern(ctx context.Context, viewerUserID int64, token string) (*domain.Pattern, error)` — The core "accept share" operation. Verifies access (same logic as `GetPatternByShareToken`). Loads the original pattern owner to get their display name. Calls `Duplicate` with `SharedFrom{UserID, Name}` set. Returns the new pattern. If the viewer has already saved this pattern (checked via a query for existing patterns with matching `shared_from_user_id` + source pattern metadata), returns an error to prevent duplicate saves.
+- `ListSharesForPattern(ctx context.Context, userID, patternID int64) ([]domain.PatternShare, error)` — Verifies ownership, returns all active shares for the pattern.
+- `HasSharesByPatternIDs(ctx context.Context, patternIDs []int64) (map[int64]bool, error)` — Passthrough to repository. Used by the pattern list handler to determine which patterns to show the share indicator on.
+
+Token generation (same helper, reused):
+
+```go
+func generateShareToken() (string, error) {
+    b := make([]byte, 32)
+    if _, err := rand.Read(b); err != nil {
+        return "", fmt.Errorf("generate share token: %w", err)
+    }
+    return hex.EncodeToString(b), nil
+}
+```
+
+##### 3. Share Routes & Handler
+
+**All share routes require authentication.** There are no public/unauthenticated share routes.
+
+**Handler** (`internal/handler/share.go`):
+
+- `GET /s/{token}` — **Authenticated**. Calls `GetPatternByShareToken(viewerUserID, token)`. On success, renders the shared pattern preview page. On `ErrNotFound` → 404. On `ErrUnauthorized` (email mismatch) → 403 with "This pattern was shared with a different account" message. If the viewer is the pattern owner, redirects to the normal pattern view page (owners don't need the share preview).
+- `POST /s/{token}/save` — **Authenticated**. Calls `SaveSharedPattern(viewerUserID, token)`. On success, redirects to the pattern list with a flash message ("Pattern saved to your library!"). On duplicate save attempt, shows a flash message ("You've already saved this pattern.") and redirects.
+
+**Owner management endpoints** (on the pattern resource):
+
+- `POST /patterns/{id}/share` — Creates a global share. Redirects back to pattern view.
+- `POST /patterns/{id}/share/email` — Creates an email-bound share. Reads `recipientEmail` from form body. Redirects back to pattern view.
+- `POST /patterns/{id}/share/{shareID}/revoke` — Revokes a single share. Redirects back to pattern view.
+- `POST /patterns/{id}/share/revoke-all` — Revokes all shares. Redirects back to pattern view.
+
+**Route registration** (`internal/handler/routes.go`):
+
+```go
+// Shared pattern viewing and saving (authenticated).
+mux.Handle("GET /s/{token}", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleViewShared)))
+mux.Handle("POST /s/{token}/save", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleSaveShared)))
+
+// Share management (owner, authenticated).
+mux.Handle("POST /patterns/{id}/share", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateGlobalShare)))
+mux.Handle("POST /patterns/{id}/share/email", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateEmailShare)))
+mux.Handle("POST /patterns/{id}/share/{shareID}/revoke", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeShare)))
+mux.Handle("POST /patterns/{id}/share/revoke-all", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeAllShares)))
+```
+
+##### 4. Pattern List Page — Two Sections
+
+**Handler changes** (`internal/handler/pattern.go` — `HandleList`):
+
+The existing `HandleList` handler currently calls `ListByUser` and renders a single list. It now needs to:
+
+1. Call `ListByUser(userID)` — returns only user-authored patterns (`shared_from_user_id IS NULL`).
+2. Call `ListSharedWithUser(userID)` — returns only patterns received via sharing (`shared_from_user_id IS NOT NULL`).
+3. Call `HasSharesByPatternIDs(patternIDs)` with the IDs from step 1 — returns a `map[int64]bool` indicating which user-authored patterns have active share links.
+4. Pass all three datasets to the templ.
+
+**Template changes** (`internal/view/pattern_list.templ`):
+
+The page renders two distinct sections:
+
+**Section 1: "My Patterns"** — User-authored patterns (same cards as today). Each card additionally shows a **share indicator** (e.g., a small link/share icon next to the lock icon) if `sharedPatternIDs[pattern.ID]` is true. The indicator is purely informational — clicking it doesn't navigate anywhere; the share management UI lives on the pattern view page. Clicking the card goes to the normal pattern view/edit.
+
+**Section 2: "Shared with Me"** — Patterns received via sharing. Each card shows:
+- Pattern name
+- "Shared by {SharedFromName}" subtitle
+- Pattern metadata (type, hook size, yarn weight) — same as "My Patterns" cards
+- Footer actions: **View** and **Start** only. No Edit, no Delete, no Duplicate. These are permanently read-only snapshots — the recipient can view the pattern and work through it via a work session, but cannot modify, copy, or remove it.
+
+Received patterns are **permanently locked and read-only**. The `Locked` flag is set to `true` on save and the UI never offers an unlock option for received patterns. The handlers and service layer enforce this: edit, delete, duplicate, and unlock requests for a received pattern (`SharedFromUserID != nil`) are rejected.
+
+**Empty states**: If one section is empty, show a contextual empty state message:
+- "My Patterns" empty: "You haven't created any patterns yet. Click 'New Pattern' to get started!"
+- "Shared with Me" empty: (don't show the section at all — no need to call attention to it)
+
+##### 5. Share Management UI (Owner)
+
+**Pattern View page** (`internal/view/pattern_view.templ`):
+
+Add a "Sharing" section below the action buttons (only shown for user-authored patterns, i.e., `pattern.SharedFromUserID == nil`):
+
+- **"Share via Link" button** — POSTs to `/patterns/{id}/share` to generate a global link. If one already exists, shows the existing URL.
+- **"Share with User" form** — An email input field + submit button that POSTs to `/patterns/{id}/share/email`. Creates an email-bound share link.
+- **Active shares list** — Shows all active shares for the pattern:
+  - Global shares: show the share URL, a "Copy Link" button, and a "Revoke" button.
+  - Email shares: show the recipient email, the share URL, a "Copy Link" button, and a "Revoke" button.
+- **"Revoke All" button** — Visible when there are multiple active shares. POSTs to `/patterns/{id}/share/revoke-all`.
+
+For **received patterns** (where `pattern.SharedFromUserID != nil`), the view page shows a "Shared by {SharedFromName}" notice instead of the sharing section. The view page hides all mutation actions: no Edit, Delete, Duplicate, Unlock, or Share buttons. The only actions available are View (already on this page) and Start (to begin a work session). This enforces that received patterns are permanently read-only snapshots.
+
+##### 6. Shared Pattern Preview Page (Share Link Landing)
+
+**New templ** (`internal/view/shared_pattern.templ`):
+
+This is the page shown when a user opens `/s/{token}` — it's a **preview** before saving. It has different chrome from the owner view:
+
+- No edit/delete/duplicate buttons
+- Shows the pattern owner's display name (e.g., "Shared by Alice")
+- Prominent **"Save to My Library"** button that POSTs to `/s/{token}/save`
+- Full pattern content: metadata, pattern text preview, instruction groups with stitch entries, images
+- Standard authenticated navbar (Dashboard, Patterns, Stitch Library) since the viewer is always logged in
+- If the viewer has already saved this pattern, the "Save" button is replaced with a "Already in Your Library" indicator (with a link to their copy)
+
+This requires the handler to load the pattern owner's display name:
+
+```go
+owner, err := h.users.GetByID(ctx, pattern.UserID)
+```
+
+The view signature:
+
+```go
+templ SharedPatternPreviewPage(displayName string, pattern *domain.Pattern, ownerName string, groupImages map[int64][]domain.PatternImage, alreadySaved bool, savedPatternID int64)
+```
+
+##### 7. Image Access for Shared Patterns
+
+Since all share routes require authentication, and the existing `GET /images/{id}` route already requires authentication, **no changes are needed** for image serving. The image ownership check in the existing handler needs to be relaxed to allow viewing images that belong to any pattern the user has access to (owns or is previewing via share token). Alternatively, since image IDs are opaque integers behind auth, the ownership check can simply be removed — the auth gate is sufficient.
+
+When a pattern is duplicated via sharing, images should also be duplicated (the `Duplicate` method should copy image records and files so the snapshot is fully self-contained). This ensures images survive if the original pattern is deleted.
+
+##### 8. Authorization & Business Rules
+
+- Only the **pattern owner** (user-authored patterns) can create/revoke share links.
+- **Received patterns are immutable**: Patterns received via sharing (`SharedFromUserID != nil`) are permanently locked and read-only. They cannot be edited, unlocked, deleted, duplicated, or reshared. The service layer rejects all mutation operations on received patterns. The only permitted actions are viewing and starting a work session.
+- All share viewing requires authentication — unauthenticated users hitting `/s/{token}` are redirected to the login page (standard `RequireAuth` behavior).
+- Share tokens are 64 hex chars (256 bits of entropy) — unguessable.
+- Email-bound shares enforce that the authenticated viewer's email matches the `RecipientEmail`. This prevents link forwarding — if Alice shares with bob@example.com, only the account registered with bob@example.com can view it.
+- **Revoking** a share immediately prevents future previews and saves but does NOT affect copies already saved by recipients (those are independent snapshots owned by the recipient).
+- Saved copies are **permanently locked** — the `Locked` flag is set to `true` and cannot be changed.
+- Saved copies do NOT inherit share links — they start with zero shares.
+- A shared pattern with active work sessions remains shareable — sessions belong to the owner, not the viewer. Recipients can also start their own work sessions on received patterns.
+- Deleting a pattern cascades to delete all its share links (via `ON DELETE CASCADE`). Existing saved copies in other users' libraries are unaffected (they are separate rows with their own `user_id`).
+- **Duplicate save prevention**: A user cannot save the same shared pattern twice. The service checks for existing patterns with matching origin before duplicating. (Checked by querying for a pattern with the same `shared_from_user_id` and source pattern metadata, or by recording the source pattern ID in the share metadata.)
 
 ---
 
-#### Repository Layer
+#### Design Rationale: Snapshot Duplication vs. Version-on-Save
 
-**New file: `internal/repository/sqlite/pattern_image.go`**
+An alternative approach was evaluated: instead of duplicating on share-save, every pattern edit would create a new version (copy-on-write), and share links would point to specific versions. All recipients of the same share would reference the same version row. This was **rejected** for the following reasons:
 
-Implements `domain.PatternImageRepository` — standard CRUD against the `pattern_images` table. Follows the same patterns as existing repository files (constructor injection of `*sql.DB`, context-aware queries).
+1. **Net storage increase** — Version-on-save trades O(N) copies for N recipients (small — most patterns shared with 1–5 people) for O(V) full copies for V saves (large — patterns are typically saved 20–50+ times during active editing). Most patterns are never shared, yet all would pay the versioning cost on every save.
 
-**New file: `internal/repository/sqlite/filestore.go`**
+2. **Disproportionate complexity** — The pattern data graph spans 4–6 tables (patterns, pattern_stitches, instruction_groups, stitch_entries, pattern_images, file_blobs). Versioning requires either a parallel `pattern_versions` table set or version-aware FKs throughout — a foundational refactor touching every existing query, not an additive change.
 
-Implements `domain.FileStore` using the `file_blobs` table:
+3. **Conflation of concerns** — Versioning (undo/history for the author) and sharing (read-only access for others) solve different problems with different triggers. Coupling them means shipping sharing requires also shipping versioning. IMP-17 already plans versioning as a standalone feature with a simpler approach (JSON snapshots).
 
-- `Save`: `INSERT INTO file_blobs (storage_key, data) VALUES (?, ?)`
-- `Get`: `SELECT data FROM file_blobs WHERE storage_key = ?`
-- `Delete`: `DELETE FROM file_blobs WHERE storage_key = ?`
+4. **Snapshot duplication is already built** — The `Duplicate` repository method already creates a full deep copy. Extending it with origin metadata and image copying is a small, well-scoped change.
 
----
+5. **Read-only immutability makes duplication ideal** — Since received patterns are permanently read-only (no editing, no unlocking, no duplicating), there is no scenario where a recipient needs to track updates from the original. A snapshot is exactly the right semantics.
 
-#### Service Layer
-
-**New file: `internal/service/image.go`**
-
-`ImageService` orchestrates image uploads, retrieval, and deletion:
-
-- **Dependencies**: `domain.PatternImageRepository`, `domain.FileStore`, `domain.PatternRepository` (for ownership verification)
-- **`Upload(ctx, userID, groupID, filename, contentType string, data []byte) (*PatternImage, error)`**:
-  1. Verify the instruction group exists and belongs to a pattern owned by `userID`
-  2. Validate content type is `image/jpeg` or `image/png`
-  3. Validate file size ≤ 10MB (10 × 1024 × 1024 bytes)
-  4. Check `CountByGroup` < 5
-  5. Generate a storage key (e.g., `"pattern-images/{uuid}"` using `crypto/rand`)
-  6. Call `FileStore.Save` with the key and data
-  7. Create `PatternImage` metadata via `PatternImageRepository.Create`
-  8. Return the created image metadata
-- **`GetFile(ctx, userID, imageID) ([]byte, string, error)`** — returns bytes + content type after ownership check
-- **`Delete(ctx, userID, imageID) error`** — deletes from `FileStore` then `PatternImageRepository` after ownership check
-- **`ListByGroup(ctx, groupID) ([]PatternImage, error)`** — passthrough to repository
-
----
-
-#### Handler Layer
-
-**New file: `internal/handler/image.go`**
-
-- **`POST /patterns/{id}/parts/{groupIndex}/images`** — accepts `multipart/form-data` with a file field named `image`. Parses with `r.ParseMultipartForm(10 << 20)` (10MB limit). Calls `ImageService.Upload`. Responds with SSE patch to update the image section of the part.
-- **`GET /images/{id}`** — serves image bytes with correct `Content-Type` header and `Cache-Control`. No SSE — this is a direct HTTP response for `<img src="...">` tags.
-- **`DELETE /images/{id}`** — calls `ImageService.Delete`. Responds with SSE patch to remove the image thumbnail from the UI.
-
-Register routes in `internal/handler/routes.go`.
-
----
-
-#### View Layer
-
-**`internal/view/pattern_editor.templ`** — within each part box, below the stitch entries and part notes:
-
-- An "Images" subsection showing thumbnails of attached images (if any) in a flex row
-- Each thumbnail has a delete button (×)
-- An "Upload Image" button (visible only if < 5 images) that opens a file input
-- Display count indicator: "2 / 5 images"
-
-**`internal/view/pattern_view.templ`** — within each part section:
-
-- Display attached images as a thumbnail gallery (clickable to view full size in a Bulma modal)
-
----
-
-#### Constraints
-
-| Constraint | Value |
-|---|---|
-| Max images per part | 5 |
-| Max file size | 10MB (10,485,760 bytes) |
-| Accepted content types | `image/jpeg`, `image/png` |
+Soft-delete (author hides a pattern while recipients keep access) is already solved by duplication — recipients have independent rows, so the author can hard-delete freely. If "archive without delete" is desired for the author's own UX, a simple `archived_at` column achieves this without versioning.
 
 ---
 
 #### Affected files
 
-- **New**: `internal/domain/image.go`, `internal/repository/sqlite/pattern_image.go`, `internal/repository/sqlite/filestore.go`, `internal/service/image.go`, `internal/handler/image.go`, `internal/repository/sqlite/migrations/006_create_pattern_images.sql`
-- **Modified**: `internal/handler/routes.go` (register new routes), `internal/view/pattern_editor.templ` (image section in parts), `internal/view/pattern_view.templ` (image gallery in parts), `main.go` (wire new service and repositories)
+- **New**: `internal/domain/share.go` (`PatternShare` entity, `ShareType` constants, `PatternShareRepository` interface), `internal/repository/sqlite/share.go` (repository implementation), `internal/repository/sqlite/migrations/008_pattern_sharing.sql`, `internal/service/share.go`, `internal/handler/share.go`, `internal/view/shared_pattern.templ`
+- **Modified**: `internal/domain/pattern.go` (add `SharedFromUserID`, `SharedFromName` fields to `Pattern`; add `ListSharedWithUser`, `GetByShareToken` to `PatternRepository`), `internal/repository/sqlite/pattern.go` (add new columns to queries, implement new methods, extend `Duplicate` to set origin metadata and copy images), `internal/service/pattern.go` (no-reshare guard), `internal/handler/pattern.go` (`HandleList` fetches both sections + share indicators), `internal/handler/routes.go` (register share routes), `internal/view/pattern_view.templ` (share management UI for owners, "Shared by" notice for received patterns), `internal/view/pattern_list.templ` (two sections, share indicator icons), `main.go` (wire share service and handler)
 
 #### Regression gate
 
-All existing tests pass. New integration tests cover: upload image (success, wrong type → error, too large → error, 6th image → error), retrieve image, delete image, cascade delete when part/pattern is deleted. Pattern CRUD, work session, and stitch library flows unaffected.
+All existing tests pass. New tests cover: create global share (success, non-owner → error, idempotent, reshare-received-pattern → error), create email share (success, non-owner → error, idempotent, invalid email → error, self-share → error), view shared pattern preview (valid token, invalid token → 404, revoked token → 404, owner-views-own → redirect), view email-bound share (matching email → success, non-matching email → 403), save shared pattern (creates permanently locked duplicate with origin metadata, images copied, flash message), duplicate save prevention (second save → error), received pattern immutability (edit → error, delete → error, duplicate → error, unlock → error, create share → error), pattern list two sections (user-authored in "My Patterns", received in "Shared with Me", share indicators on authored patterns with active shares), work session on received pattern (allowed — read-only does not prevent tracking progress), revoke single share, revoke all shares, cascade delete on pattern delete (copies unaffected). Pattern CRUD, work sessions, and stitch library unaffected.
 
 ---
 
-### IMP-11: Dashboard Overhaul
+### IMP-13: Existing Feature Improvements
 
-**Problem**: The dashboard has several UX issues: completed sessions are never shown (users can't review past work), the Quick Links section duplicates navbar links, and the navbar order doesn't reflect usage priority (Dashboard should come first since it's the landing page for logged-in users).
-
-**Goal**: Make the dashboard the central hub by showing both active and completed sessions with pattern names, removing redundant Quick Links, and reordering the navbar to put Dashboard first.
+These are smaller improvements to existing features identified during a codebase review. Each can be implemented independently.
 
 ---
 
-#### 1. Navbar Reordering
+#### 13a. Duplicate Pattern — Ownership Check
 
-**File**: `internal/view/layout.templ`
+**File**: `internal/service/pattern.go:91-93`, `internal/handler/pattern.go:263-288`
 
-Reorder the three navbar items in `navbar-start` from **Patterns, Stitch Library, Dashboard** to **Dashboard, Patterns, Stitch Library**. Dashboard is the primary landing page for authenticated users and should be first.
+**Problem**: The `Duplicate` method has no ownership check — any authenticated user who knows a pattern ID could duplicate it. While pattern IDs are auto-increment and not easily guessable, this is an authorization gap. Currently the `HandleDuplicate` handler doesn't verify `pattern.UserID == user.ID` before calling `Duplicate`.
 
----
+**Fix**: Add an ownership check in `PatternService.Duplicate`:
 
-#### 2. Remove Quick Links
+```go
+func (s *PatternService) Duplicate(ctx context.Context, userID int64, id int64, newUserID int64) (*Pattern, error) {
+    existing, err := s.patterns.GetByID(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+    if existing.UserID != userID {
+        return nil, domain.ErrUnauthorized
+    }
+    return s.patterns.Duplicate(ctx, id, newUserID)
+}
+```
 
-**File**: `internal/view/dashboard.templ`
-
-Remove the entire Quick Links column (the `<div class="column is-4">` containing "My Patterns", "New Pattern", and "Stitch Library" buttons). These links duplicate the navbar. Make the active sessions section full-width by removing the `columns` wrapper.
-
----
-
-#### 3. Completed Sessions Section
-
-Add a "Completed Sessions" section below active sessions on the dashboard, with paginated loading.
-
-**Repository** (`internal/domain/session.go`, `internal/repository/sqlite/worksession.go`):
-- Add `GetCompletedByUser(ctx context.Context, userID int64, limit, offset int) ([]WorkSession, error)` to `WorkSessionRepository` interface
-- Add `CountCompletedByUser(ctx context.Context, userID int64) (int, error)` to `WorkSessionRepository` interface
-- SQLite implementation: `WHERE user_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT ? OFFSET ?`
-
-**Service** (`internal/service/worksession.go`):
-- Add passthrough methods `GetCompletedByUser` and `CountCompletedByUser`
-
-**Handler** (`internal/handler/dashboard.go`):
-- Add `*service.PatternService` dependency to `DashboardHandler`
-- `HandleDashboard`: fetch first 5 completed sessions + total count, build `map[int64]string` of pattern names for all sessions (active + completed)
-- Add `HandleLoadMoreCompleted` SSE endpoint: accepts `offset` query param, returns next batch of 5 completed sessions via Datastar SSE (append cards to list, replace load-more button)
-
-**View** (`internal/view/dashboard.templ`):
-- `DashboardPage` signature gains `completedSessions []domain.WorkSession`, `patternNames map[int64]string`, `totalCompleted int`
-- Active session cards show pattern name instead of "Pattern #ID"
-- New `completedSessionCard` component: shows pattern name, completion date, and a "View Pattern" link
-- "Load More" button (visible when `totalCompleted > displayed count`) triggers `@get('/dashboard/completed?offset=N')` to append more
-- `CompletedSessionsFragment` templ for the appended cards SSE response
-- `LoadMoreFragment` templ for the updated/removed load-more button SSE response
-
-**Routes** (`internal/handler/routes.go`):
-- Update `NewDashboardHandler` call to pass `PatternService`
-- Add `GET /dashboard/completed` for load-more SSE
+**Note**: IMP-12 (sharing) introduces `SaveSharedPattern` in the share service, which calls `Duplicate` with origin metadata (`SharedFromUserID`, `SharedFromName`). This bypasses the ownership check since the share token serves as authorization. The existing `DuplicatePattern` method here (owner-only) remains unchanged.
 
 ---
 
-#### 4. Session Cards — Show Pattern Name
+#### 13b. Auth Cookie — Missing `Secure` Flag
 
-Both active and completed session cards display the pattern name instead of "Pattern #ID". The handler builds a `map[int64]string` of pattern ID to name by calling `PatternService.GetByID` for each unique pattern ID across all sessions. The `patternName` helper function falls back to "Pattern #ID" if the name is unavailable.
+**File**: `internal/handler/auth.go:90-97`
+
+**Problem**: The `auth_token` cookie is set with `HttpOnly` and `SameSite=Lax` but is missing the `Secure` flag. In production HTTPS environments, this means the cookie could be transmitted over plain HTTP connections, exposing the JWT token.
+
+**Fix**: Add `Secure: true` to the cookie in both `HandleLogin` and `HandleLogout`. To maintain local development usability, make the secure flag configurable via an environment variable (e.g., `COOKIE_SECURE=true` defaulting to `false` for development):
+
+```go
+http.SetCookie(w, &http.Cookie{
+    Name:     "auth_token",
+    Value:    token,
+    Path:     "/",
+    HttpOnly: true,
+    Secure:   cfg.CookieSecure,
+    SameSite: http.SameSiteLaxMode,
+    MaxAge:   86400,
+})
+```
 
 ---
 
-#### Affected files
+#### 13c. Image Service — Ownership Verification Relies on Pattern Load
 
-- **Modified**: `internal/domain/session.go`, `internal/repository/sqlite/worksession.go`, `internal/service/worksession.go`, `internal/handler/dashboard.go`, `internal/handler/routes.go`, `internal/view/dashboard.templ`, `internal/view/layout.templ`
-- **No new files**
+**File**: `internal/service/image.go`
 
-#### Regression gate
+**Problem**: Image upload ownership is verified by loading the pattern, but `GetFile` and `Delete` also need ownership checks. Verify that the current implementation checks that the image's instruction group belongs to a pattern owned by the requesting user. If it doesn't, add the check.
 
-All existing tests pass. `go vet` clean. `templ generate` with no diff. Manual verification: Dashboard shows active sessions with pattern names, completed sessions below with pagination, no Quick Links, navbar in correct order (Dashboard, Patterns, Stitch Library).
+---
+
+#### 13d. Dashboard — N+1 Query for Pattern Names
+
+**File**: `internal/handler/dashboard.go:44-58`
+
+**Problem**: `buildPatternNames` calls `PatternService.GetByID` once per unique pattern ID. With many sessions this becomes N+1 queries. While acceptable for small datasets, this could be optimized.
+
+**Fix**: Add a `GetNamesByIDs(ctx, ids []int64) (map[int64]string, error)` method to the pattern repository that fetches names in a single query using `WHERE id IN (...)`.
+
+---
+
+#### 13e. ListByUser — Eager Loading Performance
+
+**File**: `internal/repository/sqlite/pattern.go:87-124`
+
+**Problem**: `ListByUser` loads full pattern data (including all groups, entries, and pattern stitches) for every pattern. The list page only needs metadata, group count, and stitch count. For users with many complex patterns, this could be slow.
+
+**Fix**: Add a `ListSummaryByUser(ctx, userID) ([]PatternSummary, error)` method that returns only the fields needed for the list page, computing group count and stitch count in SQL:
+
+```sql
+SELECT p.id, p.name, p.description, p.pattern_type, p.hook_size, p.yarn_weight, p.difficulty, p.locked, p.share_token,
+       p.created_at, p.updated_at,
+       COUNT(DISTINCT ig.id) as group_count,
+       COALESCE(SUM(se.count * se.repeat_count * ig.repeat_count), 0) as stitch_count
+FROM patterns p
+LEFT JOIN instruction_groups ig ON ig.pattern_id = p.id
+LEFT JOIN stitch_entries se ON se.instruction_group_id = ig.id
+WHERE p.user_id = ?
+GROUP BY p.id
+ORDER BY p.updated_at DESC
+```
+
+---
+
+### IMP-14: Pattern Import/Export (Text Format)
+
+**Problem**: Users can't export patterns for backup or import patterns from text. Many crocheters share patterns in plain text format on forums, social media, and Ravelry.
+
+**Goal**: Allow users to export a pattern as formatted text (matching the existing `RenderPatternText` output) and import a pattern from a structured text format.
+
+---
+
+#### Export
+
+Already partially implemented — `service.RenderPatternText(pattern)` produces a readable text output. Add:
+
+- A "Download as Text" button on the pattern view page
+- `GET /patterns/{id}/export` handler that returns `Content-Type: text/plain` with `Content-Disposition: attachment; filename="{name}.txt"`
+- Include pattern metadata (name, type, hook size, yarn weight, difficulty) as a header in the export
+
+#### Import
+
+More complex — requires a text parser. Start with a structured format:
+
+```
+Name: My Pattern
+Type: round
+Hook: 5.0mm
+Yarn: Worsted
+Difficulty: Beginner
+
+Round 1: MR, sc 6 (6)
+Round 2: inc 6 (12)
+Round 3: [sc, inc] x6 (18)
+```
+
+The parser would:
+1. Extract metadata from `Key: Value` headers
+2. Parse each line as an instruction group with label, stitch entries, and optional expected count
+3. Resolve stitch abbreviations against the user's available stitches (predefined + custom)
+4. Create the pattern via the existing `PatternService.Create`
+
+**Handler**: `POST /patterns/import` with a textarea form or file upload.
+
+---
+
+### IMP-15: Pattern Search & Filtering
+
+**Problem**: The pattern list page shows all patterns in a single unfiltered list. As users accumulate patterns, finding a specific one becomes difficult.
+
+**Goal**: Add search and filter capabilities to the pattern list page.
+
+**Features**:
+- **Text search**: Filter by pattern name and description (SQL `LIKE` or `INSTR`)
+- **Filter by type**: Round / Row / All
+- **Filter by difficulty**: Beginner / Intermediate / Advanced / Expert / All
+- **Sort options**: Last modified (default), name, created date, stitch count
+
+**Implementation**:
+- Use query parameters (`?q=hat&type=round&difficulty=Beginner&sort=name`)
+- Add filter controls above the pattern grid (using standard form submission, not Datastar — consistent with the stitch library filter approach)
+- Update `PatternRepository.ListByUser` to accept filter/sort options, or add a new `SearchByUser` method
+
+---
+
+### IMP-16: Multi-Session per Pattern Prevention
+
+**Problem**: A user can start multiple work sessions for the same pattern. This leads to confusion — which session represents their current progress? There's no warning or prevention mechanism.
+
+**Goal**: When a user starts a session for a pattern that already has an active/paused session, either:
+- **Option A**: Warn and redirect to the existing session (don't allow a second session)
+- **Option B**: Warn but allow creating a new one ("You already have an active session for this pattern. Resume it or start fresh?")
+
+**Implementation**: In `WorkSessionService.Start`, check `GetActiveByUser` for an existing session with the same `PatternID`. Show a confirmation prompt if one exists.
+
+---
+
+### IMP-17: Pattern Versioning / History
+
+**Problem**: Editing a pattern is destructive — the previous version is lost. If a user accidentally changes or removes instruction groups, there's no way to recover.
+
+**Goal**: Keep a version history of patterns. Each save creates a new version. Users can view previous versions and optionally restore them.
+
+**Approach**: This is a significant feature. A lightweight approach:
+- Add a `pattern_versions` table that stores a JSON snapshot of the pattern at each save
+- Each `Update` call creates a version record before applying changes
+- A "Version History" page shows timestamps and allows viewing past versions
+- "Restore" duplicates a past version as the current state
+
+This is an idea-level item — needs further design before implementation.
