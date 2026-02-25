@@ -4,11 +4,16 @@ These are post-v1 improvements to be implemented incrementally. Each item should
 
 ---
 
-### IMP-12: Pattern Sharing (Read-Only)
+### IMP-12: Pattern Sharing (Read-Only, Authenticated)
 
 **Problem**: Users have no way to share patterns with others. Sharing patterns is a core use case for crochet communities — designers want to distribute patterns, and crocheters want to share finds with friends. The sharing mechanism must be read-only (recipients cannot edit the original) and work without requiring the recipient to know the pattern owner.
 
-**Goal**: Allow a pattern owner to generate a unique, unguessable share link for any pattern. Anyone with the link (authenticated or not) can view the pattern in read-only mode. Authenticated users can additionally "save" (duplicate) a shared pattern into their own collection. The share link can be revoked by the owner at any time.
+**Goal**: Allow a pattern owner to share any pattern via two modes, both requiring the viewer to be authenticated:
+
+1. **Global link** — A shareable URL that any authenticated user can open. Good for posting in communities or sharing broadly.
+2. **Email-bound link** — A unique share link tied to a specific user's email address. Only the authenticated user whose email matches can view the pattern. Good for sharing privately with a specific person.
+
+The owner can revoke any share link at any time. Shared patterns are always read-only; authenticated viewers can "save" (duplicate) a shared pattern into their own collection.
 
 ---
 
@@ -24,58 +29,93 @@ The codebase already has several pieces that support sharing:
 
 4. **Read-only pattern view** (`internal/handler/pattern.go:93-131`, `internal/view/pattern_view.templ`) — The `HandleView` handler and `PatternViewPage` templ already render a full read-only view of a pattern with all groups, stitch entries, pattern text preview, and images. Currently gated on `pattern.UserID == user.ID`, but the rendering logic itself is ownership-agnostic.
 
-5. **Image serving** (`internal/handler/image.go`, `GET /images/{id}`) — Images are served by ID. Currently requires authentication but the actual serving logic doesn't depend on ownership (ownership is checked separately).
+5. **Image serving** (`internal/handler/image.go`, `GET /images/{id}`) — Images are served by ID. Currently requires authentication and the actual serving logic doesn't depend on ownership (ownership is checked separately). Since all share routes now require auth, the existing authenticated image route works for shared patterns without modification.
 
 ---
 
 #### What's Missing
 
-##### 1. Share Token — Domain & Storage
+##### 1. Share Domain Model & Storage
 
-**New field on `Pattern` struct** (`internal/domain/pattern.go`):
+**New `PatternShare` entity** (`internal/domain/pattern.go`):
 
 ```go
-type Pattern struct {
-    // ... existing fields ...
-    ShareToken  string    // Unique unguessable token for sharing; empty = not shared
+type ShareType string
+
+const (
+    ShareTypeGlobal ShareType = "global" // Any authenticated user with the link
+    ShareTypeEmail  ShareType = "email"  // Only the user matching the bound email
+)
+
+type PatternShare struct {
+    ID            int64
+    PatternID     int64
+    Token         string    // Unique unguessable token (64 hex chars)
+    ShareType     ShareType // "global" or "email"
+    RecipientEmail string   // Non-empty only when ShareType == "email"
+    CreatedAt     time.Time
 }
 ```
 
-The `ShareToken` is a cryptographically random string (e.g., 32-byte hex = 64 characters, generated via `crypto/rand`). When empty, the pattern is not shared. When populated, anyone with the token can view the pattern.
+A pattern can have **multiple shares** simultaneously — e.g., one global link and several email-bound links for different recipients. Each share has its own token and can be independently revoked.
 
-**New migration** (`internal/repository/sqlite/migrations/008_add_share_token.sql`):
+**New `PatternShareRepository` interface** (`internal/domain/pattern.go`):
+
+```go
+type PatternShareRepository interface {
+    Create(ctx context.Context, share *PatternShare) error
+    GetByToken(ctx context.Context, token string) (*PatternShare, error)
+    ListByPattern(ctx context.Context, patternID int64) ([]PatternShare, error)
+    Delete(ctx context.Context, id int64) error
+    DeleteAllByPattern(ctx context.Context, patternID int64) error
+}
+```
+
+**New migration** (`internal/repository/sqlite/migrations/008_create_pattern_shares.sql`):
 
 ```sql
-ALTER TABLE patterns ADD COLUMN share_token TEXT NOT NULL DEFAULT '';
-CREATE UNIQUE INDEX IF NOT EXISTS idx_patterns_share_token ON patterns(share_token) WHERE share_token != '';
+CREATE TABLE IF NOT EXISTS pattern_shares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_id INTEGER NOT NULL REFERENCES patterns(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    share_type TEXT NOT NULL DEFAULT 'global',
+    recipient_email TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_shares_token ON pattern_shares(token);
+CREATE INDEX IF NOT EXISTS idx_pattern_shares_pattern ON pattern_shares(pattern_id);
+CREATE INDEX IF NOT EXISTS idx_pattern_shares_email ON pattern_shares(recipient_email) WHERE recipient_email != '';
 ```
 
-The partial unique index ensures tokens are unique when present but allows multiple rows with empty strings.
+Using a separate `pattern_shares` table (instead of a column on `patterns`) because a pattern can have multiple share links. `ON DELETE CASCADE` ensures shares are cleaned up when a pattern is deleted.
 
-**Repository changes** (`internal/repository/sqlite/pattern.go`):
+**Repository implementation** (`internal/repository/sqlite/share.go`):
 
-- Add `share_token` to all `SELECT`, `INSERT`, and `UPDATE` queries for patterns.
-- Add new method `GetByShareToken(ctx context.Context, token string) (*Pattern, error)` — looks up a pattern by its share token. Returns `ErrNotFound` if no match.
-- Update `Duplicate` to clear the share token on copies (copies should not inherit the share link).
+Implements `PatternShareRepository` with standard CRUD. `GetByToken` is the hot path for viewing shared patterns. `ListByPattern` supports the management UI. `Delete` revokes a single share. `DeleteAllByPattern` revokes all shares for a pattern at once.
 
-**Domain interface** (`internal/domain/pattern.go`):
+##### 2. Share Service Methods
+
+**New `ShareService`** (`internal/service/share.go`):
 
 ```go
-type PatternRepository interface {
-    // ... existing methods ...
-    GetByShareToken(ctx context.Context, token string) (*Pattern, error)
+type ShareService struct {
+    shares   domain.PatternShareRepository
+    patterns domain.PatternRepository
+    users    domain.UserRepository
 }
 ```
 
-##### 2. Share/Unshare Service Methods
+Methods:
 
-**Service layer** (`internal/service/pattern.go`):
+- `CreateGlobalShare(ctx context.Context, userID, patternID int64) (*domain.PatternShare, error)` — Verifies ownership. If a global share already exists for this pattern, returns it (idempotent). Otherwise generates a token, creates the share, returns it.
+- `CreateEmailShare(ctx context.Context, userID, patternID int64, recipientEmail string) (*domain.PatternShare, error)` — Verifies ownership. Validates the email is non-empty and well-formed. If an email share already exists for this pattern+email pair, returns it (idempotent). Otherwise generates a token, creates the share, returns it. Does NOT require the recipient to already have an account — the share is bound to the email, so it works once they register.
+- `RevokeShare(ctx context.Context, userID, shareID int64) error` — Loads the share, verifies the pattern is owned by the user, deletes the share.
+- `RevokeAllShares(ctx context.Context, userID, patternID int64) error` — Verifies ownership, deletes all shares for the pattern.
+- `GetPatternByShareToken(ctx context.Context, viewerUserID int64, token string) (*domain.Pattern, error)` — Looks up the share by token. If `ShareType == "global"`, returns the pattern. If `ShareType == "email"`, loads the viewer user by ID and checks that their email matches `RecipientEmail` — returns `ErrUnauthorized` if it doesn't match. Returns the full pattern with groups and entries.
+- `ListSharesForPattern(ctx context.Context, userID, patternID int64) ([]domain.PatternShare, error)` — Verifies ownership, returns all active shares for the pattern.
 
-- `GenerateShareLink(ctx context.Context, userID, patternID int64) (string, error)` — Verifies ownership, generates a random token via `crypto/rand`, sets `pattern.ShareToken`, updates the pattern, returns the token. If the pattern already has a share token, returns the existing one (idempotent).
-- `RevokeShareLink(ctx context.Context, userID, patternID int64) error` — Verifies ownership, clears `pattern.ShareToken`, updates the pattern.
-- `GetByShareToken(ctx context.Context, token string) (*Pattern, error)` — Passthrough to repository, no ownership check (anyone with the token can view).
-
-Token generation:
+Token generation (same helper, reused):
 
 ```go
 func generateShareToken() (string, error) {
@@ -87,94 +127,103 @@ func generateShareToken() (string, error) {
 }
 ```
 
-##### 3. Public Share Route & Handler
+##### 3. Share Routes & Handler
 
-**Handler** (`internal/handler/pattern.go` or new `internal/handler/share.go`):
+**All share routes require authentication.** There are no public/unauthenticated share routes.
 
-- `GET /s/{token}` — **Public route** (no auth required). Looks up the pattern by share token. Renders a read-only view using an adapted version of `PatternViewPage` (or a new `SharedPatternViewPage`). Shows the pattern content, pattern text preview, images. Does NOT show edit/delete buttons. Shows a "Save to My Patterns" button if the viewer is authenticated.
-- `POST /s/{token}/save` — **Authenticated route**. Duplicates the shared pattern into the authenticated user's collection. Redirects to the user's pattern list.
+**Handler** (`internal/handler/share.go`):
+
+- `GET /s/{token}` — **Authenticated**. Calls `GetPatternByShareToken(viewerUserID, token)`. On success, renders the shared pattern view. On `ErrNotFound` → 404. On `ErrUnauthorized` (email mismatch) → 403 with "This pattern was shared with a different account" message.
+- `POST /s/{token}/save` — **Authenticated**. Duplicates the shared pattern into the viewer's collection. Calls `GetPatternByShareToken` first to verify access, then calls `PatternRepository.Duplicate`. Redirects to the viewer's pattern list.
+
+**Owner management endpoints** (on the pattern resource):
+
+- `POST /patterns/{id}/share` — Creates a global share. Redirects back to pattern view.
+- `POST /patterns/{id}/share/email` — Creates an email-bound share. Reads `recipientEmail` from form body. Redirects back to pattern view.
+- `POST /patterns/{id}/share/{shareID}/revoke` — Revokes a single share. Redirects back to pattern view.
+- `POST /patterns/{id}/share/revoke-all` — Revokes all shares. Redirects back to pattern view.
 
 **Route registration** (`internal/handler/routes.go`):
 
 ```go
-// Public share routes.
-mux.Handle("GET /s/{token}", OptionalAuth(auth, http.HandlerFunc(shareHandler.HandleViewShared)))
-
-// Save shared pattern (authenticated).
+// Shared pattern viewing (authenticated).
+mux.Handle("GET /s/{token}", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleViewShared)))
 mux.Handle("POST /s/{token}/save", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleSaveShared)))
-```
 
-The `GET /s/{token}` route uses `OptionalAuth` so that:
-- Unauthenticated users see the pattern + a prompt to register/login to save it
-- Authenticated users see the pattern + a "Save to My Patterns" button
+// Share management (owner, authenticated).
+mux.Handle("POST /patterns/{id}/share", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateGlobalShare)))
+mux.Handle("POST /patterns/{id}/share/email", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateEmailShare)))
+mux.Handle("POST /patterns/{id}/share/{shareID}/revoke", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeShare)))
+mux.Handle("POST /patterns/{id}/share/revoke-all", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeAllShares)))
+```
 
 ##### 4. Share Management UI (Owner)
 
 **Pattern View page** (`internal/view/pattern_view.templ`):
 
-Add a "Share" section below the action buttons:
+Add a "Sharing" section below the action buttons:
 
-- If `pattern.ShareToken == ""`: Show a "Share" button that POSTs to `/patterns/{id}/share` to generate a link.
-- If `pattern.ShareToken != ""`: Show the share URL (e.g., `{baseURL}/s/{token}`), a "Copy Link" button (small JS or Datastar to copy to clipboard), and a "Revoke" button that POSTs to `/patterns/{id}/unshare`.
+- **"Share via Link" button** — POSTs to `/patterns/{id}/share` to generate a global link. If one already exists, shows the existing URL.
+- **"Share with User" form** — An email input field + submit button that POSTs to `/patterns/{id}/share/email`. Creates an email-bound share link.
+- **Active shares list** — Shows all active shares for the pattern:
+  - Global shares: show the share URL, a "Copy Link" button, and a "Revoke" button.
+  - Email shares: show the recipient email, the share URL, a "Copy Link" button, and a "Revoke" button.
+- **"Revoke All" button** — Visible when there are multiple active shares. POSTs to `/patterns/{id}/share/revoke-all`.
 
 **Pattern List page** (`internal/view/pattern_list.templ`):
 
-Add a small share indicator icon on pattern cards that have an active share token (e.g., a link icon next to the lock icon).
-
-**Handler endpoints**:
-
-- `POST /patterns/{id}/share` — Calls `GenerateShareLink`, redirects back to the pattern view page.
-- `POST /patterns/{id}/unshare` — Calls `RevokeShareLink`, redirects back to the pattern view page.
+Add a small share indicator icon on pattern cards that have any active shares (e.g., a link icon next to the lock icon). The handler should pass a set of pattern IDs that have shares, determined via a count query or by loading share data alongside patterns.
 
 ##### 5. Shared Pattern View Page
 
-**New templ** (`internal/view/shared_pattern.templ`) or adapt existing `PatternViewPage`:
+**New templ** (`internal/view/shared_pattern.templ`):
 
-A dedicated shared view is cleaner because it has different chrome:
-- No edit/delete/duplicate buttons
+A dedicated shared view with different chrome from the owner view:
+- No edit/delete buttons
 - Shows the pattern owner's display name (e.g., "Shared by Alice")
-- "Save to My Patterns" button (if authenticated) or "Login to save this pattern" prompt (if not)
+- "Save to My Patterns" button that POSTs to `/s/{token}/save`
 - Full pattern content: metadata, pattern text preview, instruction groups with stitch entries, images
-- No navbar items for patterns/stitches/sessions if the viewer is unauthenticated
+- Standard authenticated navbar (Dashboard, Patterns, Stitch Library) since the viewer is always logged in
 
-This requires the handler to load the pattern owner's display name. Add to the handler:
+This requires the handler to load the pattern owner's display name:
 
 ```go
-owner, err := h.auth.GetUserByID(ctx, pattern.UserID)
+owner, err := h.users.GetByID(ctx, pattern.UserID)
 ```
 
 The view signature:
 
 ```go
-templ SharedPatternPage(displayName string, pattern *domain.Pattern, ownerName string, groupImages map[int64][]domain.PatternImage, isAuthenticated bool)
+templ SharedPatternPage(displayName string, pattern *domain.Pattern, ownerName string, groupImages map[int64][]domain.PatternImage)
 ```
+
+No `isAuthenticated` parameter needed — the viewer is always authenticated.
 
 ##### 6. Image Access for Shared Patterns
 
-Currently `GET /images/{id}` requires authentication. For shared patterns, images need to be viewable without auth.
-
-Two options:
-- **Option A**: Make `GET /images/{id}` public (simplest, but exposes all images by ID — low risk since IDs are auto-increment integers, but not ideal).
-- **Option B (Recommended)**: Add a share-token-scoped image route: `GET /s/{token}/images/{id}` — verifies the image belongs to the shared pattern before serving. This keeps `GET /images/{id}` authenticated-only.
+Since all share routes require authentication, and the existing `GET /images/{id}` route already requires authentication, **no changes are needed** for image serving. Authenticated users can already access images via the existing route. The image ownership check in the existing handler may need to be relaxed to allow viewing images for patterns the user has share access to — or images can be served without ownership checks since the route is already behind auth and image IDs are not sensitive.
 
 ##### 7. Authorization Considerations
 
-- Only the pattern owner can generate/revoke share links.
-- Share tokens should be long enough to be unguessable (64 hex chars = 256 bits of entropy).
-- Revoking a share link immediately prevents future access — there's no caching to worry about since all views are server-rendered.
-- Duplicating a shared pattern does NOT copy the share token — the recipient's copy starts unshared.
+- Only the pattern owner can create/revoke share links.
+- All share viewing requires authentication — unauthenticated users hitting `/s/{token}` are redirected to the login page (standard `RequireAuth` behavior).
+- Share tokens are 64 hex chars (256 bits of entropy) — unguessable.
+- Email-bound shares enforce that the authenticated viewer's email matches the `RecipientEmail`. This prevents link forwarding — if Alice shares with bob@example.com, only the account registered with bob@example.com can view it.
+- Revoking a share immediately prevents future access — no caching concerns since all views are server-rendered.
+- Duplicating a shared pattern does NOT copy any shares — the recipient's copy starts with zero shares.
 - A shared pattern with active work sessions remains shareable — sessions belong to the owner, not the viewer.
+- Deleting a pattern cascades to delete all its shares (via `ON DELETE CASCADE`).
 
 ---
 
 #### Affected files
 
-- **New**: `internal/view/shared_pattern.templ`, `internal/handler/share.go` (or extend `pattern.go`), `internal/repository/sqlite/migrations/008_add_share_token.sql`
-- **Modified**: `internal/domain/pattern.go` (add `ShareToken` field, add `GetByShareToken` to interface), `internal/repository/sqlite/pattern.go` (add `share_token` to queries, implement `GetByShareToken`, clear token on duplicate), `internal/service/pattern.go` (add share/unshare methods), `internal/handler/routes.go` (register share routes), `internal/view/pattern_view.templ` (share management UI), `internal/view/pattern_list.templ` (share indicator), `internal/handler/image.go` (share-scoped image route), `main.go` (wire share handler if separate)
+- **New**: `internal/domain/share.go` (or extend `pattern.go` — `PatternShare` entity, `PatternShareRepository` interface), `internal/repository/sqlite/share.go` (repository implementation), `internal/repository/sqlite/migrations/008_create_pattern_shares.sql`, `internal/service/share.go`, `internal/handler/share.go`, `internal/view/shared_pattern.templ`
+- **Modified**: `internal/handler/routes.go` (register share routes), `internal/view/pattern_view.templ` (share management UI), `internal/view/pattern_list.templ` (share indicator), `main.go` (wire share service and handler)
 
 #### Regression gate
 
-All existing tests pass. New tests cover: generate share token (success, non-owner → error), revoke share token, view shared pattern (valid token, invalid token → 404, revoked token → 404), save shared pattern (authenticated → duplicate created, unauthenticated → redirect to login), image access through share route. Pattern CRUD, work sessions, and stitch library unaffected.
+All existing tests pass. New tests cover: create global share (success, non-owner → error, idempotent), create email share (success, non-owner → error, idempotent, invalid email → error), view global shared pattern (valid token, invalid token → 404, revoked token → 404), view email shared pattern (matching email → success, non-matching email → 403), save shared pattern (duplicate created, redirects to pattern list), revoke single share, revoke all shares, cascade delete on pattern delete. Pattern CRUD, work sessions, and stitch library unaffected.
 
 ---
 
