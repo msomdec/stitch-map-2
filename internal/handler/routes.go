@@ -3,18 +3,20 @@ package handler
 import (
 	"net/http"
 
+	"github.com/msomdec/stitch-map-2/internal/domain"
 	"github.com/msomdec/stitch-map-2/internal/service"
 	"github.com/msomdec/stitch-map-2/internal/view"
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService, images *service.ImageService) {
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService, images *service.ImageService, shares *service.ShareService, users domain.UserRepository) {
 	authHandler := NewAuthHandler(auth)
 	stitchHandler := NewStitchHandler(stitches)
-	patternHandler := NewPatternHandler(patterns, stitches, images)
+	patternHandler := NewPatternHandler(patterns, stitches, images, shares)
 	sessionHandler := NewWorkSessionHandler(sessions, patterns, images)
 	dashboardHandler := NewDashboardHandler(sessions, patterns)
 	imageHandler := NewImageHandler(images, patterns)
+	shareHandler := NewShareHandler(shares, patterns, images, users)
 
 	// Rate limiter for auth endpoints: 10 req/s capacity, refills at 1/s.
 	authLimiter := service.NewTokenBucket(1, 10)
@@ -69,6 +71,16 @@ func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *ser
 	mux.Handle("POST /sessions/{id}/pause", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandlePause)))
 	mux.Handle("POST /sessions/{id}/resume", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleResume)))
 	mux.Handle("POST /sessions/{id}/abandon", RequireAuth(auth, http.HandlerFunc(sessionHandler.HandleAbandon)))
+
+	// Shared pattern viewing and saving (authenticated).
+	mux.Handle("GET /s/{token}", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleViewShared)))
+	mux.Handle("POST /s/{token}/save", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleSaveShared)))
+
+	// Share management (owner, authenticated).
+	mux.Handle("POST /patterns/{id}/share", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateGlobalShare)))
+	mux.Handle("POST /patterns/{id}/share/email", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleCreateEmailShare)))
+	mux.Handle("POST /patterns/{id}/share/{shareID}/revoke", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeShare)))
+	mux.Handle("POST /patterns/{id}/share/revoke-all", RequireAuth(auth, http.HandlerFunc(shareHandler.HandleRevokeAllShares)))
 
 	// Catch-all 404 handler.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

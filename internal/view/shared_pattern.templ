@@ -1,0 +1,116 @@
+package view
+
+import "github.com/msomdec/stitch-map-2/internal/domain"
+import "github.com/msomdec/stitch-map-2/internal/service"
+import "strconv"
+import "fmt"
+
+templ SharedPatternPreviewPage(displayName string, pattern *domain.Pattern, ownerName string, groupImages map[int64][]domain.PatternImage, alreadySaved bool, savedPatternID int64, token string) {
+	@Layout(pattern.Name+" (Shared)", displayName) {
+		<div class="notification is-info is-light">
+			<p>
+				<strong>Shared by { ownerName }</strong> — This is a preview of a shared pattern.
+				if !alreadySaved {
+					Save it to your library to keep a permanent copy.
+				}
+			</p>
+		</div>
+		<div class="level">
+			<div class="level-left">
+				<div>
+					<h1 class="title">{ pattern.Name }</h1>
+					<p class="subtitle has-text-grey">
+						{ string(pattern.PatternType) }
+						if pattern.Difficulty != "" {
+							{ " · " + pattern.Difficulty }
+						}
+						if pattern.HookSize != "" {
+							{ " · " + pattern.HookSize }
+						}
+						if pattern.YarnWeight != "" {
+							{ " · " + pattern.YarnWeight }
+						}
+						{ " · " + fmt.Sprintf("%d stitches total", service.StitchCount(pattern)) }
+					</p>
+				</div>
+			</div>
+			<div class="level-right">
+				<div class="buttons">
+					if alreadySaved {
+						<a class="button is-success is-static">Already in Your Library</a>
+						<a class="button is-light" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(savedPatternID, 10)) }>View Your Copy</a>
+					} else {
+						<form method="POST" action={ templ.SafeURL("/s/" + token + "/save") }>
+							<button class="button is-primary is-medium" type="submit">Save to My Library</button>
+						</form>
+					}
+					<a class="button is-light" href="/patterns">Back to Patterns</a>
+				</div>
+			</div>
+		</div>
+		if pattern.Description != "" {
+			<div class="content">
+				<p>{ pattern.Description }</p>
+			</div>
+		}
+		<!-- Pattern Text Preview -->
+		<div class="box">
+			<h2 class="title is-5">Pattern Text</h2>
+			<div class="content">
+				<pre class="pattern-text">{ service.RenderPatternText(pattern) }</pre>
+			</div>
+		</div>
+		<!-- Instruction Groups Detail -->
+		<h2 class="title is-5">Instruction Groups</h2>
+		for _, g := range pattern.InstructionGroups {
+			<div class="box">
+				<div class="level">
+					<div class="level-left">
+						<strong>{ g.Label }</strong>
+						if g.RepeatCount > 1 {
+							<span class="tag is-warning ml-2">{ fmt.Sprintf("×%d", g.RepeatCount) }</span>
+						}
+					</div>
+					<div class="level-right">
+						if g.ExpectedCount != nil {
+							<span class="tag is-info">{ fmt.Sprintf("(%d)", *g.ExpectedCount) }</span>
+						}
+					</div>
+				</div>
+				if g.Notes != "" {
+					<p class="help has-text-grey-dark is-italic mb-2">{ g.Notes }</p>
+				}
+				if len(g.StitchEntries) > 0 {
+					<div class="content">
+						for _, e := range g.StitchEntries {
+							<span class="tag is-medium mr-1 mb-1">
+								{ sharedPatternStitchAbbr(pattern.PatternStitches, e.PatternStitchID) }
+								if e.Count > 1 {
+									{ " " + strconv.Itoa(e.Count) }
+								}
+								if e.RepeatCount > 1 {
+									{ fmt.Sprintf(" ×%d", e.RepeatCount) }
+								}
+							</span>
+						}
+					</div>
+				}
+				<p class="help has-text-grey">
+					{ service.RenderGroupText(&g, pattern.PatternStitches) }
+				</p>
+				if len(groupImages[g.ID]) > 0 {
+					@ImageGallery(groupImages[g.ID])
+				}
+			</div>
+		}
+	}
+}
+
+func sharedPatternStitchAbbr(stitches []domain.PatternStitch, id int64) string {
+	for _, s := range stitches {
+		if s.ID == id {
+			return s.Abbreviation
+		}
+	}
+	return "?"
+}

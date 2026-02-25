@@ -20,13 +20,14 @@ type DB struct {
 
 // Compile-time interface compliance checks.
 var (
-	_ domain.Database              = (*DB)(nil)
-	_ domain.UserRepository        = (*userRepo)(nil)
-	_ domain.StitchRepository      = (*stitchRepo)(nil)
-	_ domain.PatternRepository     = (*patternRepo)(nil)
+	_ domain.Database               = (*DB)(nil)
+	_ domain.UserRepository         = (*userRepo)(nil)
+	_ domain.StitchRepository       = (*stitchRepo)(nil)
+	_ domain.PatternRepository      = (*patternRepo)(nil)
 	_ domain.WorkSessionRepository  = (*workSessionRepo)(nil)
 	_ domain.PatternImageRepository = (*patternImageRepo)(nil)
 	_ domain.FileStore              = (*fileStore)(nil)
+	_ domain.PatternShareRepository = (*shareRepo)(nil)
 )
 
 // Users returns a domain.UserRepository backed by this database.
@@ -46,6 +47,9 @@ func (db *DB) PatternImages() domain.PatternImageRepository { return &patternIma
 
 // FileStore returns a domain.FileStore backed by SQLite BLOBs.
 func (db *DB) FileStore() domain.FileStore { return &fileStore{db: db.SqlDB} }
+
+// Shares returns a domain.PatternShareRepository backed by this database.
+func (db *DB) Shares() domain.PatternShareRepository { return &shareRepo{db: db.SqlDB} }
 
 // New opens a SQLite database at the given path and configures it for use.
 // It enables WAL mode and foreign keys.

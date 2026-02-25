@@ -330,7 +330,7 @@ func TestPatternService_Duplicate_LockedAllowed(t *testing.T) {
 	}
 
 	// Duplicate should succeed even when locked.
-	dup, err := svc.Duplicate(ctx, userID, p.ID)
+	dup, err := svc.Duplicate(ctx, userID, p.ID, userID)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}

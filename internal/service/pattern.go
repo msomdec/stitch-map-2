@@ -44,6 +44,11 @@ func (s *PatternService) ListByUser(ctx context.Context, userID int64) ([]domain
 	return s.patterns.ListByUser(ctx, userID)
 }
 
+// ListSharedWithUser returns all patterns shared with a user.
+func (s *PatternService) ListSharedWithUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
+	return s.patterns.ListSharedWithUser(ctx, userID)
+}
+
 // Update updates a pattern with validation and ownership check.
 func (s *PatternService) Update(ctx context.Context, userID int64, pattern *domain.Pattern) error {
 	existing, err := s.patterns.GetByID(ctx, pattern.ID)
@@ -52,6 +57,9 @@ func (s *PatternService) Update(ctx context.Context, userID int64, pattern *doma
 	}
 	if existing.UserID != userID {
 		return domain.ErrUnauthorized
+	}
+	if existing.SharedFromUserID != nil {
+		return domain.ErrPatternLocked
 	}
 	if existing.Locked {
 		return domain.ErrPatternLocked
@@ -72,6 +80,7 @@ func (s *PatternService) Update(ctx context.Context, userID int64, pattern *doma
 }
 
 // Delete deletes a pattern with ownership check.
+// Received patterns (SharedFromUserID != nil) cannot be deleted.
 func (s *PatternService) Delete(ctx context.Context, userID int64, id int64) error {
 	existing, err := s.patterns.GetByID(ctx, id)
 	if err != nil {
@@ -79,6 +88,9 @@ func (s *PatternService) Delete(ctx context.Context, userID int64, id int64) err
 	}
 	if existing.UserID != userID {
 		return domain.ErrUnauthorized
+	}
+	if existing.SharedFromUserID != nil {
+		return domain.ErrPatternLocked
 	}
 	if existing.Locked {
 		return domain.ErrPatternLocked
@@ -88,7 +100,18 @@ func (s *PatternService) Delete(ctx context.Context, userID int64, id int64) err
 }
 
 // Duplicate creates a copy of a pattern for a user.
-func (s *PatternService) Duplicate(ctx context.Context, id int64, newUserID int64) (*domain.Pattern, error) {
+// Received patterns (SharedFromUserID != nil) cannot be duplicated.
+func (s *PatternService) Duplicate(ctx context.Context, userID int64, id int64, newUserID int64) (*domain.Pattern, error) {
+	existing, err := s.patterns.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.UserID != userID {
+		return nil, domain.ErrUnauthorized
+	}
+	if existing.SharedFromUserID != nil {
+		return nil, fmt.Errorf("%w: cannot duplicate a received pattern", domain.ErrPatternLocked)
+	}
 	return s.patterns.Duplicate(ctx, id, newUserID)
 }
 

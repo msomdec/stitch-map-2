@@ -58,6 +58,7 @@ func main() {
 	patternService := service.NewPatternService(db.Patterns(), db.Stitches())
 	sessionService := service.NewWorkSessionService(db.Sessions(), db.Patterns())
 	imageService := service.NewImageService(db.PatternImages(), db.FileStore(), db.Patterns())
+	shareService := service.NewShareService(db.Shares(), db.Patterns(), db.Users())
 
 	// Seed predefined stitches (idempotent).
 	if err := stitchService.SeedPredefined(context.Background()); err != nil {
@@ -67,7 +68,7 @@ func main() {
 	slog.Info("predefined stitches seeded")
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService, imageService)
+	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService, imageService, shareService, db.Users())
 
 	srv := &http.Server{
 		Addr:    ":" + port,

@@ -22,6 +22,8 @@ type Pattern struct {
 	YarnWeight        string
 	Difficulty        string
 	Locked            bool
+	SharedFromUserID  *int64
+	SharedFromName    string
 	PatternStitches   []PatternStitch
 	InstructionGroups []InstructionGroup
 	CreatedAt         time.Time
@@ -63,7 +65,9 @@ type PatternRepository interface {
 	Create(ctx context.Context, pattern *Pattern) error
 	GetByID(ctx context.Context, id int64) (*Pattern, error)
 	ListByUser(ctx context.Context, userID int64) ([]Pattern, error)
+	ListSharedWithUser(ctx context.Context, userID int64) ([]Pattern, error)
 	Update(ctx context.Context, pattern *Pattern) error
 	Delete(ctx context.Context, id int64) error
 	Duplicate(ctx context.Context, id int64, newUserID int64) (*Pattern, error)
+	DuplicateAsShared(ctx context.Context, id int64, newUserID int64, sharedFromUserID int64, sharedFromName string) (*Pattern, error)
 }

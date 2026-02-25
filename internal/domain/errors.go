@@ -10,4 +10,5 @@ var (
 	ErrUnauthorized          = errors.New("unauthorized")
 	ErrInvalidInput          = errors.New("invalid input")
 	ErrPatternLocked         = errors.New("pattern is locked")
+	ErrAlreadySaved          = errors.New("pattern already saved")
 )
