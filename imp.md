@@ -27,7 +27,7 @@ The codebase already has several pieces that support sharing:
 
 2. **Self-contained `PatternStitch` model** (migration 007, `internal/domain/pattern.go:31-39`) — Patterns already snapshot their stitches into `pattern_stitches` rows, decoupled from the global stitch library. This means a shared pattern displays correctly even if the original owner's custom stitches are later modified or deleted. This is exactly the data model needed for sharing.
 
-3. **`Duplicate` repository method** (`internal/repository/sqlite/pattern.go:205-229`) — Creates a full copy of a pattern (including all PatternStitches, InstructionGroups, and StitchEntries) for a different user. The copy is always unlocked. This is the core mechanism for snapshotting a shared pattern — it needs to be extended to also set the `shared_from_user_id` origin metadata on the copy.
+3. **`Duplicate` repository method** (`internal/repository/sqlite/pattern.go:205-229`) — Creates a full copy of a pattern (including all PatternStitches, InstructionGroups, and StitchEntries) for a different user. Currently the copy is always unlocked. This is the core mechanism for snapshotting a shared pattern — it needs to be extended to set `Locked = true`, set the `shared_from_user_id`/`shared_from_name` origin metadata, and copy images when duplicating from a share.
 
 4. **Read-only pattern view** (`internal/handler/pattern.go:93-131`, `internal/view/pattern_view.templ`) — The `HandleView` handler and `PatternViewPage` templ already render a full read-only view of a pattern with all groups, stitch entries, pattern text preview, and images. Currently gated on `pattern.UserID == user.ID`, but the rendering logic itself is ownership-agnostic.
 
@@ -221,10 +221,9 @@ The page renders two distinct sections:
 - Pattern name
 - "Shared by {SharedFromName}" subtitle
 - Pattern metadata (type, hook size, yarn weight) — same as "My Patterns" cards
-- Footer actions: **View** only (no Edit, no Delete, no Duplicate, no Start). These are read-only snapshots.
-  - **Exception**: The owner may choose to unlock a received pattern for editing. If unlocked, Edit and Start become available. If locked (default for received patterns — see below), only View is available.
+- Footer actions: **View** and **Start** only. No Edit, no Delete, no Duplicate. These are permanently read-only snapshots — the recipient can view the pattern and work through it via a work session, but cannot modify, copy, or remove it.
 
-Received patterns are **locked by default** when duplicated via sharing. This preserves the snapshot semantics — the recipient sees exactly what was shared. If they want to modify it, they can explicitly unlock it (same unlock mechanism as existing locked patterns), at which point it behaves like any other pattern they own.
+Received patterns are **permanently locked and read-only**. The `Locked` flag is set to `true` on save and the UI never offers an unlock option for received patterns. The handlers and service layer enforce this: edit, delete, duplicate, and unlock requests for a received pattern (`SharedFromUserID != nil`) are rejected.
 
 **Empty states**: If one section is empty, show a contextual empty state message:
 - "My Patterns" empty: "You haven't created any patterns yet. Click 'New Pattern' to get started!"
@@ -243,7 +242,7 @@ Add a "Sharing" section below the action buttons (only shown for user-authored p
   - Email shares: show the recipient email, the share URL, a "Copy Link" button, and a "Revoke" button.
 - **"Revoke All" button** — Visible when there are multiple active shares. POSTs to `/patterns/{id}/share/revoke-all`.
 
-For **received patterns** (where `pattern.SharedFromUserID != nil`), the view page shows a "Shared by {SharedFromName}" notice instead of the sharing section. No share management is available — you cannot reshare a pattern that was shared to you.
+For **received patterns** (where `pattern.SharedFromUserID != nil`), the view page shows a "Shared by {SharedFromName}" notice instead of the sharing section. The view page hides all mutation actions: no Edit, Delete, Duplicate, Unlock, or Share buttons. The only actions available are View (already on this page) and Start (to begin a work session). This enforces that received patterns are permanently read-only snapshots.
 
 ##### 6. Shared Pattern Preview Page (Share Link Landing)
 
@@ -278,17 +277,35 @@ When a pattern is duplicated via sharing, images should also be duplicated (the 
 
 ##### 8. Authorization & Business Rules
 
-- Only the **pattern owner** can create/revoke share links.
-- **Cannot reshare**: Patterns received via sharing (`SharedFromUserID != nil`) cannot have share links created for them. The sharing UI is hidden, and the service rejects attempts.
+- Only the **pattern owner** (user-authored patterns) can create/revoke share links.
+- **Received patterns are immutable**: Patterns received via sharing (`SharedFromUserID != nil`) are permanently locked and read-only. They cannot be edited, unlocked, deleted, duplicated, or reshared. The service layer rejects all mutation operations on received patterns. The only permitted actions are viewing and starting a work session.
 - All share viewing requires authentication — unauthenticated users hitting `/s/{token}` are redirected to the login page (standard `RequireAuth` behavior).
 - Share tokens are 64 hex chars (256 bits of entropy) — unguessable.
 - Email-bound shares enforce that the authenticated viewer's email matches the `RecipientEmail`. This prevents link forwarding — if Alice shares with bob@example.com, only the account registered with bob@example.com can view it.
 - **Revoking** a share immediately prevents future previews and saves but does NOT affect copies already saved by recipients (those are independent snapshots owned by the recipient).
-- Saved copies are **locked by default** to preserve the snapshot. Recipients can unlock to modify.
+- Saved copies are **permanently locked** — the `Locked` flag is set to `true` and cannot be changed.
 - Saved copies do NOT inherit share links — they start with zero shares.
-- A shared pattern with active work sessions remains shareable — sessions belong to the owner, not the viewer.
+- A shared pattern with active work sessions remains shareable — sessions belong to the owner, not the viewer. Recipients can also start their own work sessions on received patterns.
 - Deleting a pattern cascades to delete all its share links (via `ON DELETE CASCADE`). Existing saved copies in other users' libraries are unaffected (they are separate rows with their own `user_id`).
 - **Duplicate save prevention**: A user cannot save the same shared pattern twice. The service checks for existing patterns with matching origin before duplicating. (Checked by querying for a pattern with the same `shared_from_user_id` and source pattern metadata, or by recording the source pattern ID in the share metadata.)
+
+---
+
+#### Design Rationale: Snapshot Duplication vs. Version-on-Save
+
+An alternative approach was evaluated: instead of duplicating on share-save, every pattern edit would create a new version (copy-on-write), and share links would point to specific versions. All recipients of the same share would reference the same version row. This was **rejected** for the following reasons:
+
+1. **Net storage increase** — Version-on-save trades O(N) copies for N recipients (small — most patterns shared with 1–5 people) for O(V) full copies for V saves (large — patterns are typically saved 20–50+ times during active editing). Most patterns are never shared, yet all would pay the versioning cost on every save.
+
+2. **Disproportionate complexity** — The pattern data graph spans 4–6 tables (patterns, pattern_stitches, instruction_groups, stitch_entries, pattern_images, file_blobs). Versioning requires either a parallel `pattern_versions` table set or version-aware FKs throughout — a foundational refactor touching every existing query, not an additive change.
+
+3. **Conflation of concerns** — Versioning (undo/history for the author) and sharing (read-only access for others) solve different problems with different triggers. Coupling them means shipping sharing requires also shipping versioning. IMP-17 already plans versioning as a standalone feature with a simpler approach (JSON snapshots).
+
+4. **Snapshot duplication is already built** — The `Duplicate` repository method already creates a full deep copy. Extending it with origin metadata and image copying is a small, well-scoped change.
+
+5. **Read-only immutability makes duplication ideal** — Since received patterns are permanently read-only (no editing, no unlocking, no duplicating), there is no scenario where a recipient needs to track updates from the original. A snapshot is exactly the right semantics.
+
+Soft-delete (author hides a pattern while recipients keep access) is already solved by duplication — recipients have independent rows, so the author can hard-delete freely. If "archive without delete" is desired for the author's own UX, a simple `archived_at` column achieves this without versioning.
 
 ---
 
@@ -299,7 +316,7 @@ When a pattern is duplicated via sharing, images should also be duplicated (the 
 
 #### Regression gate
 
-All existing tests pass. New tests cover: create global share (success, non-owner → error, idempotent, reshare-received-pattern → error), create email share (success, non-owner → error, idempotent, invalid email → error, self-share → error), view shared pattern preview (valid token, invalid token → 404, revoked token → 404, owner-views-own → redirect), view email-bound share (matching email → success, non-matching email → 403), save shared pattern (creates locked duplicate with origin metadata, images copied, flash message), duplicate save prevention (second save → error), pattern list two sections (user-authored in "My Patterns", received in "Shared with Me", share indicators on authored patterns with active shares), revoke single share, revoke all shares, cascade delete on pattern delete (copies unaffected), received pattern locked by default. Pattern CRUD, work sessions, and stitch library unaffected.
+All existing tests pass. New tests cover: create global share (success, non-owner → error, idempotent, reshare-received-pattern → error), create email share (success, non-owner → error, idempotent, invalid email → error, self-share → error), view shared pattern preview (valid token, invalid token → 404, revoked token → 404, owner-views-own → redirect), view email-bound share (matching email → success, non-matching email → 403), save shared pattern (creates permanently locked duplicate with origin metadata, images copied, flash message), duplicate save prevention (second save → error), received pattern immutability (edit → error, delete → error, duplicate → error, unlock → error, create share → error), pattern list two sections (user-authored in "My Patterns", received in "Shared with Me", share indicators on authored patterns with active shares), work session on received pattern (allowed — read-only does not prevent tracking progress), revoke single share, revoke all shares, cascade delete on pattern delete (copies unaffected). Pattern CRUD, work sessions, and stitch library unaffected.
 
 ---
 
