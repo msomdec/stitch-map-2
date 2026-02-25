@@ -5,7 +5,7 @@ import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-templ PatternListPage(displayName string, patterns []domain.Pattern) {
+templ PatternListPage(displayName string, patterns []domain.Pattern, sharedPatterns []domain.Pattern, sharedMap map[int64]bool) {
 	@Layout("Patterns", displayName) {
 		<div class="level">
 			<div class="level-left">
@@ -23,7 +23,18 @@ templ PatternListPage(displayName string, patterns []domain.Pattern) {
 			<div class="columns is-multiline">
 				for _, p := range patterns {
 					<div class="column is-4">
-						@patternCard(p)
+						@patternCard(p, sharedMap[p.ID])
+					</div>
+				}
+			</div>
+		}
+		if len(sharedPatterns) > 0 {
+			<hr/>
+			<h2 class="title is-4">Shared with Me</h2>
+			<div class="columns is-multiline">
+				for _, p := range sharedPatterns {
+					<div class="column is-4">
+						@sharedPatternCard(p)
 					</div>
 				}
 			</div>
@@ -31,7 +42,7 @@ templ PatternListPage(displayName string, patterns []domain.Pattern) {
 	}
 }
 
-templ patternCard(p domain.Pattern) {
+templ patternCard(p domain.Pattern, hasShares bool) {
 	<div class="card" aria-label={ "Pattern: " + p.Name }>
 		<div class="card-content">
 			<p class="title is-5">
@@ -39,6 +50,11 @@ templ patternCard(p domain.Pattern) {
 				if p.Locked {
 					<span class="icon has-text-grey ml-1" title="Locked">
 						<i class="fas fa-lock"></i>
+					</span>
+				}
+				if hasShares {
+					<span class="icon has-text-link ml-1" title="Shared">
+						<i class="fas fa-share-alt"></i>
 					</span>
 				}
 			</p>
@@ -82,6 +98,42 @@ templ patternCard(p domain.Pattern) {
 					aria-label={ "Delete pattern " + p.Name }
 					data-on:click={ fmt.Sprintf("$confirmTitle='Delete Pattern'; $confirmMsg='Delete \"%s\"? This cannot be undone.'; $confirmUrl='/patterns/%d/delete'; $confirmOpen=true", p.Name, p.ID) }>Delete</button>
 			}
+		</footer>
+	</div>
+}
+
+templ sharedPatternCard(p domain.Pattern) {
+	<div class="card" aria-label={ "Shared pattern: " + p.Name }>
+		<div class="card-content">
+			<p class="title is-5">{ p.Name }</p>
+			<p class="subtitle is-6 has-text-grey">
+				{ "Shared by " + p.SharedFromName }
+			</p>
+			<p class="subtitle is-7 has-text-grey">
+				{ string(p.PatternType) }
+				if p.HookSize != "" {
+					{ " · " + p.HookSize }
+				}
+				if p.YarnWeight != "" {
+					{ " · " + p.YarnWeight }
+				}
+			</p>
+			if p.Description != "" {
+				<p class="content is-small">{ truncate(p.Description, 100) }</p>
+			}
+			<div class="tags">
+				<span class="tag is-info">{ fmt.Sprintf("%d groups", len(p.InstructionGroups)) }</span>
+				<span class="tag is-success">{ fmt.Sprintf("%d stitches", service.StitchCount(&p)) }</span>
+			</div>
+		</div>
+		<footer class="card-footer">
+			<a class="card-footer-item" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10)) }
+				aria-label={ "View shared pattern " + p.Name }>View</a>
+			<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(p.ID, 10) + "/start-session") }
+				class="form-contents">
+				<button class="card-footer-item has-text-primary card-footer-button" type="submit"
+					aria-label={ "Start working on " + p.Name }>Start</button>
+			</form>
 		</footer>
 	</div>
 }

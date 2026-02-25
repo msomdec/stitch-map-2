@@ -20,14 +20,16 @@ type PatternHandler struct {
 	patterns *service.PatternService
 	stitches *service.StitchService
 	images   *service.ImageService
+	shares   *service.ShareService
 }
 
 // NewPatternHandler creates a new PatternHandler.
-func NewPatternHandler(patterns *service.PatternService, stitches *service.StitchService, images *service.ImageService) *PatternHandler {
-	return &PatternHandler{patterns: patterns, stitches: stitches, images: images}
+func NewPatternHandler(patterns *service.PatternService, stitches *service.StitchService, images *service.ImageService, shares *service.ShareService) *PatternHandler {
+	return &PatternHandler{patterns: patterns, stitches: stitches, images: images, shares: shares}
 }
 
-// HandleList renders the pattern list page.
+// HandleList renders the pattern list page with two sections:
+// "My Patterns" (user-authored) and "Shared with Me" (received).
 func (h *PatternHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r.Context())
 	if user == nil {
@@ -42,7 +44,29 @@ func (h *PatternHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternListPage(user.DisplayName, patterns).Render(r.Context(), w)
+	sharedPatterns, err := h.patterns.ListSharedWithUser(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("list shared patterns", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine which user-authored patterns have active share links.
+	var patternIDs []int64
+	for _, p := range patterns {
+		patternIDs = append(patternIDs, p.ID)
+	}
+	sharedMap := map[int64]bool{}
+	if len(patternIDs) > 0 {
+		sharedMap, err = h.shares.HasSharesByPatternIDs(r.Context(), patternIDs)
+		if err != nil {
+			slog.Error("check share indicators", "error", err)
+			// Non-fatal — proceed without indicators.
+			sharedMap = map[int64]bool{}
+		}
+	}
+
+	view.PatternListPage(user.DisplayName, patterns, sharedPatterns, sharedMap).Render(r.Context(), w)
 }
 
 // HandleNew renders the pattern creation form.
@@ -127,7 +151,17 @@ func (h *PatternHandler) HandleView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view.PatternViewPage(user.DisplayName, pattern, groupImages).Render(r.Context(), w)
+	// Load shares for owner-authored patterns.
+	var shares []domain.PatternShare
+	if pattern.SharedFromUserID == nil {
+		shares, err = h.shares.ListSharesForPattern(r.Context(), user.ID, pattern.ID)
+		if err != nil {
+			slog.Error("list shares for pattern", "error", err)
+			// Non-fatal — proceed without share info.
+		}
+	}
+
+	view.PatternViewPage(user.DisplayName, pattern, groupImages, shares).Render(r.Context(), w)
 }
 
 // HandleEdit renders the pattern editor for an existing pattern.
@@ -273,10 +307,14 @@ func (h *PatternHandler) HandleDuplicate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	_, err = h.patterns.Duplicate(r.Context(), id, user.ID)
+	_, err = h.patterns.Duplicate(r.Context(), user.ID, id, user.ID)
 	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUnauthorized) {
 			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrPatternLocked) {
+			http.Error(w, "This pattern cannot be duplicated", http.StatusForbidden)
 			return
 		}
 		slog.Error("duplicate pattern", "error", err)

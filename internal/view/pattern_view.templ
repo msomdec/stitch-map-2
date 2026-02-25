@@ -5,8 +5,13 @@ import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-templ PatternViewPage(displayName string, pattern *domain.Pattern, groupImages map[int64][]domain.PatternImage) {
+templ PatternViewPage(displayName string, pattern *domain.Pattern, groupImages map[int64][]domain.PatternImage, shares []domain.PatternShare) {
 	@Layout(pattern.Name, displayName) {
+		if pattern.SharedFromUserID != nil {
+			<div class="notification is-info is-light">
+				<p><strong>Shared by { pattern.SharedFromName }</strong> — This is a read-only copy saved to your library.</p>
+			</div>
+		}
 		<div class="level">
 			<div class="level-left">
 				<div>
@@ -35,11 +40,16 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, groupImages m
 			</div>
 			<div class="level-right">
 				<div class="buttons">
-					if !pattern.Locked {
-						<a class="button is-primary" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/edit") }>Edit</a>
+					if pattern.SharedFromUserID == nil {
+						if !pattern.Locked {
+							<a class="button is-primary" href={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/edit") }>Edit</a>
+						}
+						<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/duplicate") } class="form-contents">
+							<button class="button is-info" type="submit">Duplicate</button>
+						</form>
 					}
-					<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/duplicate") } class="form-contents">
-						<button class="button is-info" type="submit">Duplicate</button>
+					<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/start-session") } class="form-contents">
+						<button class="button is-success" type="submit">Start Session</button>
 					</form>
 					<a class="button is-light" href="/patterns">Back to Patterns</a>
 				</div>
@@ -97,6 +107,81 @@ templ PatternViewPage(displayName string, pattern *domain.Pattern, groupImages m
 				</p>
 				if len(groupImages[g.ID]) > 0 {
 					@ImageGallery(groupImages[g.ID])
+				}
+			</div>
+		}
+		<!-- Sharing Section (owner-authored patterns only) -->
+		if pattern.SharedFromUserID == nil {
+			<hr/>
+			<h2 class="title is-5">Sharing</h2>
+			<div class="box">
+				<div class="columns">
+					<div class="column is-half">
+						<h3 class="title is-6">Share via Link</h3>
+						<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/share") }>
+							<button class="button is-link" type="submit">Generate Share Link</button>
+						</form>
+					</div>
+					<div class="column is-half">
+						<h3 class="title is-6">Share with User</h3>
+						<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/share/email") }>
+							<div class="field has-addons">
+								<div class="control is-expanded">
+									<input class="input" type="email" name="recipient_email" placeholder="recipient@example.com" required/>
+								</div>
+								<div class="control">
+									<button class="button is-link" type="submit">Share</button>
+								</div>
+							</div>
+						</form>
+					</div>
+				</div>
+				if len(shares) > 0 {
+					<hr/>
+					<h3 class="title is-6">Active Shares</h3>
+					<table class="table is-fullwidth is-striped">
+						<thead>
+							<tr>
+								<th>Type</th>
+								<th>Link</th>
+								<th>Recipient</th>
+								<th>Action</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, s := range shares {
+								<tr>
+									<td>
+										if s.ShareType == domain.ShareTypeGlobal {
+											<span class="tag is-info">Global</span>
+										} else {
+											<span class="tag is-warning">Email</span>
+										}
+									</td>
+									<td>
+										<code class="is-size-7">{ "/s/" + s.Token }</code>
+									</td>
+									<td>
+										if s.RecipientEmail != "" {
+											{ s.RecipientEmail }
+										} else {
+											<span class="has-text-grey">Anyone with link</span>
+										}
+									</td>
+									<td>
+										<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/share/" + strconv.FormatInt(s.ID, 10) + "/revoke") } class="form-contents">
+											<button class="button is-small is-danger is-outlined" type="submit">Revoke</button>
+										</form>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+					if len(shares) > 1 {
+						<form method="POST" action={ templ.SafeURL("/patterns/" + strconv.FormatInt(pattern.ID, 10) + "/share/revoke-all") }>
+							<button class="button is-danger is-small" type="submit">Revoke All Shares</button>
+						</form>
+					}
 				}
 			</div>
 		}

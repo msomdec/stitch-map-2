@@ -23,10 +23,11 @@ func (r *patternRepo) Create(ctx context.Context, pattern *domain.Pattern) error
 
 	now := time.Now().UTC()
 	result, err := tx.ExecContext(ctx,
-		`INSERT INTO patterns (user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO patterns (user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, shared_from_user_id, shared_from_name, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		pattern.UserID, pattern.Name, pattern.Description, pattern.PatternType,
-		pattern.HookSize, pattern.YarnWeight, pattern.Difficulty, pattern.Locked, now, now,
+		pattern.HookSize, pattern.YarnWeight, pattern.Difficulty, pattern.Locked,
+		pattern.SharedFromUserID, pattern.SharedFromName, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("insert pattern: %w", err)
@@ -59,10 +60,10 @@ func (r *patternRepo) Create(ctx context.Context, pattern *domain.Pattern) error
 func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, error) {
 	p := &domain.Pattern{}
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, created_at, updated_at
+		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, shared_from_user_id, shared_from_name, created_at, updated_at
 		 FROM patterns WHERE id = ?`, id,
 	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.PatternType,
-		&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.Locked, &p.CreatedAt, &p.UpdatedAt)
+		&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.Locked, &p.SharedFromUserID, &p.SharedFromName, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrNotFound
@@ -86,8 +87,8 @@ func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, e
 
 func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, created_at, updated_at
-		 FROM patterns WHERE user_id = ? ORDER BY updated_at DESC`, userID)
+		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, shared_from_user_id, shared_from_name, created_at, updated_at
+		 FROM patterns WHERE user_id = ? AND shared_from_user_id IS NULL ORDER BY updated_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list patterns: %w", err)
 	}
@@ -97,8 +98,47 @@ func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pa
 	for rows.Next() {
 		var p domain.Pattern
 		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.PatternType,
-			&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.Locked, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.Locked, &p.SharedFromUserID, &p.SharedFromName, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pattern: %w", err)
+		}
+		patterns = append(patterns, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i := range patterns {
+		ps, err := r.loadPatternStitches(ctx, patterns[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("load pattern stitches for pattern %d: %w", patterns[i].ID, err)
+		}
+		patterns[i].PatternStitches = ps
+
+		groups, err := r.loadGroups(ctx, patterns[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("load groups for pattern %d: %w", patterns[i].ID, err)
+		}
+		patterns[i].InstructionGroups = groups
+	}
+
+	return patterns, nil
+}
+
+func (r *patternRepo) ListSharedWithUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, shared_from_user_id, shared_from_name, created_at, updated_at
+		 FROM patterns WHERE user_id = ? AND shared_from_user_id IS NOT NULL ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list shared patterns: %w", err)
+	}
+	defer rows.Close()
+
+	var patterns []domain.Pattern
+	for rows.Next() {
+		var p domain.Pattern
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.PatternType,
+			&p.HookSize, &p.YarnWeight, &p.Difficulty, &p.Locked, &p.SharedFromUserID, &p.SharedFromName, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan shared pattern: %w", err)
 		}
 		patterns = append(patterns, p)
 	}
@@ -226,6 +266,107 @@ func (r *patternRepo) Duplicate(ctx context.Context, id int64, newUserID int64) 
 	}
 
 	return dup, nil
+}
+
+func (r *patternRepo) DuplicateAsShared(ctx context.Context, id int64, newUserID int64, sharedFromUserID int64, sharedFromName string) (*domain.Pattern, error) {
+	original, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get original: %w", err)
+	}
+
+	dup := &domain.Pattern{
+		UserID:            newUserID,
+		Name:              original.Name,
+		Description:       original.Description,
+		PatternType:       original.PatternType,
+		HookSize:          original.HookSize,
+		YarnWeight:        original.YarnWeight,
+		Difficulty:        original.Difficulty,
+		Locked:            true,
+		SharedFromUserID:  &sharedFromUserID,
+		SharedFromName:    sharedFromName,
+		PatternStitches:   original.PatternStitches,
+		InstructionGroups: original.InstructionGroups,
+	}
+
+	if err := r.Create(ctx, dup); err != nil {
+		return nil, fmt.Errorf("create shared duplicate: %w", err)
+	}
+
+	// Copy images from the original pattern to the duplicate.
+	if err := r.copyImages(ctx, original, dup); err != nil {
+		return nil, fmt.Errorf("copy images: %w", err)
+	}
+
+	return dup, nil
+}
+
+// copyImages duplicates all pattern_images and their file_blobs from the
+// original pattern to the duplicate, mapping groups by sort_order.
+func (r *patternRepo) copyImages(ctx context.Context, original, dup *domain.Pattern) error {
+	// Build sort_order -> new group ID mapping from the duplicate.
+	dupGroupBySort := make(map[int]int64, len(dup.InstructionGroups))
+	for _, g := range dup.InstructionGroups {
+		dupGroupBySort[g.SortOrder] = g.ID
+	}
+
+	for _, g := range original.InstructionGroups {
+		newGroupID, ok := dupGroupBySort[g.SortOrder]
+		if !ok {
+			continue
+		}
+
+		rows, err := r.db.QueryContext(ctx,
+			`SELECT pi.filename, pi.content_type, pi.size, pi.storage_key, pi.sort_order, pi.created_at
+			 FROM pattern_images pi WHERE pi.instruction_group_id = ? ORDER BY pi.sort_order`, g.ID)
+		if err != nil {
+			return fmt.Errorf("load images for group %d: %w", g.ID, err)
+		}
+
+		type imgRow struct {
+			Filename    string
+			ContentType string
+			Size        int64
+			StorageKey  string
+			SortOrder   int
+			CreatedAt   time.Time
+		}
+		var imgs []imgRow
+		for rows.Next() {
+			var img imgRow
+			if err := rows.Scan(&img.Filename, &img.ContentType, &img.Size, &img.StorageKey, &img.SortOrder, &img.CreatedAt); err != nil {
+				rows.Close()
+				return fmt.Errorf("scan image: %w", err)
+			}
+			imgs = append(imgs, img)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		for _, img := range imgs {
+			// Copy the file blob with a new storage key.
+			newKey := img.StorageKey + "-copy-" + fmt.Sprintf("%d", dup.ID)
+			_, err := r.db.ExecContext(ctx,
+				`INSERT INTO file_blobs (storage_key, data)
+				 SELECT ?, data FROM file_blobs WHERE storage_key = ?`,
+				newKey, img.StorageKey)
+			if err != nil {
+				return fmt.Errorf("copy file blob: %w", err)
+			}
+
+			_, err = r.db.ExecContext(ctx,
+				`INSERT INTO pattern_images (instruction_group_id, filename, content_type, size, storage_key, sort_order, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				newGroupID, img.Filename, img.ContentType, img.Size, newKey, img.SortOrder, img.CreatedAt)
+			if err != nil {
+				return fmt.Errorf("insert copied image: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // insertPatternStitches inserts pattern_stitches rows and returns a mapping from
