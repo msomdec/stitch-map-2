@@ -12,7 +12,7 @@ func TestHandleHome(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -32,7 +32,7 @@ func TestUnknownPathReturns404(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

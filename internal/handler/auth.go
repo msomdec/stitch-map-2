@@ -12,12 +12,13 @@ import (
 
 // AuthHandler handles authentication-related HTTP requests.
 type AuthHandler struct {
-	auth *service.AuthService
+	auth         *service.AuthService
+	cookieSecure bool
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(auth *service.AuthService) *AuthHandler {
-	return &AuthHandler{auth: auth}
+func NewAuthHandler(auth *service.AuthService, cookieSecure bool) *AuthHandler {
+	return &AuthHandler{auth: auth, cookieSecure: cookieSecure}
 }
 
 // ShowLogin renders the login page.
@@ -92,6 +93,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400, // 24 hours
 	})
@@ -106,6 +108,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})

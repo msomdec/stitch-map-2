@@ -39,6 +39,11 @@ func (s *PatternService) GetByID(ctx context.Context, id int64) (*domain.Pattern
 	return s.patterns.GetByID(ctx, id)
 }
 
+// GetNamesByIDs returns a map of pattern ID to name for the given IDs.
+func (s *PatternService) GetNamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
+	return s.patterns.GetNamesByIDs(ctx, ids)
+}
+
 // ListByUser returns all patterns for a user.
 func (s *PatternService) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	return s.patterns.ListByUser(ctx, userID)
@@ -47,6 +52,21 @@ func (s *PatternService) ListByUser(ctx context.Context, userID int64) ([]domain
 // ListSharedWithUser returns all patterns shared with a user.
 func (s *PatternService) ListSharedWithUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	return s.patterns.ListSharedWithUser(ctx, userID)
+}
+
+// ListSummaryByUser returns lightweight pattern summaries for a user's own patterns.
+func (s *PatternService) ListSummaryByUser(ctx context.Context, userID int64) ([]domain.PatternSummary, error) {
+	return s.patterns.ListSummaryByUser(ctx, userID)
+}
+
+// ListSummarySharedWithUser returns lightweight pattern summaries for patterns shared with a user.
+func (s *PatternService) ListSummarySharedWithUser(ctx context.Context, userID int64) ([]domain.PatternSummary, error) {
+	return s.patterns.ListSummarySharedWithUser(ctx, userID)
+}
+
+// SearchSummaryByUser returns filtered and sorted pattern summaries for a user's own patterns.
+func (s *PatternService) SearchSummaryByUser(ctx context.Context, userID int64, filter domain.PatternFilter) ([]domain.PatternSummary, error) {
+	return s.patterns.SearchSummaryByUser(ctx, userID, filter)
 }
 
 // Update updates a pattern with validation and ownership check.

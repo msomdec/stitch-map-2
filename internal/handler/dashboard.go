@@ -43,16 +43,22 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 // buildPatternNames builds a map of pattern ID to pattern name for the given sessions.
 func (h *DashboardHandler) buildPatternNames(r *http.Request, sessions []domain.WorkSession) map[int64]string {
 	seen := make(map[int64]bool)
-	names := make(map[int64]string)
-
+	var ids []int64
 	for _, s := range sessions {
 		if !seen[s.PatternID] {
 			seen[s.PatternID] = true
-			if p, err := h.patterns.GetByID(r.Context(), s.PatternID); err == nil {
-				names[s.PatternID] = p.Name
-			}
+			ids = append(ids, s.PatternID)
 		}
 	}
 
+	if len(ids) == 0 {
+		return map[int64]string{}
+	}
+
+	names, err := h.patterns.GetNamesByIDs(r.Context(), ids)
+	if err != nil {
+		slog.Error("get pattern names", "error", err)
+		return map[int64]string{}
+	}
 	return names
 }

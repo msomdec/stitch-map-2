@@ -427,3 +427,151 @@ func TestPatternRepository_MultipleGroupsAndEntries(t *testing.T) {
 		t.Fatalf("expected group notes 'in each st around', got %q", g3.Notes)
 	}
 }
+
+func TestPatternRepository_GetNamesByIDs(t *testing.T) {
+	db := newTestDB(t)
+	repo := db.Patterns()
+	ctx := context.Background()
+
+	userID := seedTestUser(t, db)
+
+	p1 := makeTestPattern(userID)
+	p1.Name = "Alpha"
+	if err := repo.Create(ctx, p1); err != nil {
+		t.Fatalf("Create p1: %v", err)
+	}
+
+	p2 := makeTestPattern(userID)
+	p2.Name = "Beta"
+	if err := repo.Create(ctx, p2); err != nil {
+		t.Fatalf("Create p2: %v", err)
+	}
+
+	names, err := repo.GetNamesByIDs(ctx, []int64{p1.ID, p2.ID})
+	if err != nil {
+		t.Fatalf("GetNamesByIDs: %v", err)
+	}
+	if len(names) != 2 {
+		t.Fatalf("expected 2 names, got %d", len(names))
+	}
+	if names[p1.ID] != "Alpha" {
+		t.Fatalf("expected 'Alpha', got %q", names[p1.ID])
+	}
+	if names[p2.ID] != "Beta" {
+		t.Fatalf("expected 'Beta', got %q", names[p2.ID])
+	}
+
+	// Empty IDs returns empty map.
+	empty, err := repo.GetNamesByIDs(ctx, nil)
+	if err != nil {
+		t.Fatalf("GetNamesByIDs empty: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("expected 0 names for nil IDs, got %d", len(empty))
+	}
+}
+
+func TestPatternRepository_ListSummaryByUser(t *testing.T) {
+	db := newTestDB(t)
+	repo := db.Patterns()
+	ctx := context.Background()
+
+	userID := seedTestUser(t, db)
+
+	p1 := makeTestPattern(userID)
+	p1.Name = "Summary Test"
+	if err := repo.Create(ctx, p1); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	summaries, err := repo.ListSummaryByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("ListSummaryByUser: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("expected 1 summary, got %d", len(summaries))
+	}
+	s := summaries[0]
+	if s.Name != "Summary Test" {
+		t.Fatalf("expected name 'Summary Test', got %q", s.Name)
+	}
+	if s.GroupCount != 1 {
+		t.Fatalf("expected 1 group, got %d", s.GroupCount)
+	}
+	// makeTestPattern creates 1 group with 1 entry: sc 6 x1 repeat = 6 stitches
+	if s.StitchCount != 6 {
+		t.Fatalf("expected 6 stitches, got %d", s.StitchCount)
+	}
+}
+
+func TestPatternRepository_SearchSummaryByUser(t *testing.T) {
+	db := newTestDB(t)
+	repo := db.Patterns()
+	ctx := context.Background()
+
+	userID := seedTestUser(t, db)
+
+	p1 := makeTestPattern(userID)
+	p1.Name = "Amigurumi Cat"
+	p1.PatternType = domain.PatternTypeRound
+	p1.Difficulty = "Beginner"
+	if err := repo.Create(ctx, p1); err != nil {
+		t.Fatalf("Create p1: %v", err)
+	}
+
+	p2 := makeTestPattern(userID)
+	p2.Name = "Simple Scarf"
+	p2.PatternType = domain.PatternTypeRow
+	p2.Difficulty = "Intermediate"
+	if err := repo.Create(ctx, p2); err != nil {
+		t.Fatalf("Create p2: %v", err)
+	}
+
+	// Search by query.
+	results, err := repo.SearchSummaryByUser(ctx, userID, domain.PatternFilter{Query: "cat"})
+	if err != nil {
+		t.Fatalf("SearchSummaryByUser query: %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "Amigurumi Cat" {
+		t.Fatalf("expected 1 result for 'cat', got %d", len(results))
+	}
+
+	// Filter by type.
+	results, err = repo.SearchSummaryByUser(ctx, userID, domain.PatternFilter{Type: "row"})
+	if err != nil {
+		t.Fatalf("SearchSummaryByUser type: %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "Simple Scarf" {
+		t.Fatalf("expected 1 row result, got %d", len(results))
+	}
+
+	// Filter by difficulty.
+	results, err = repo.SearchSummaryByUser(ctx, userID, domain.PatternFilter{Difficulty: "Beginner"})
+	if err != nil {
+		t.Fatalf("SearchSummaryByUser difficulty: %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "Amigurumi Cat" {
+		t.Fatalf("expected 1 beginner result, got %d", len(results))
+	}
+
+	// Sort by name.
+	results, err = repo.SearchSummaryByUser(ctx, userID, domain.PatternFilter{Sort: "name"})
+	if err != nil {
+		t.Fatalf("SearchSummaryByUser sort: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].Name != "Amigurumi Cat" || results[1].Name != "Simple Scarf" {
+		t.Fatalf("expected alphabetical order, got %q then %q", results[0].Name, results[1].Name)
+	}
+
+	// No results.
+	results, err = repo.SearchSummaryByUser(ctx, userID, domain.PatternFilter{Query: "nonexistent"})
+	if err != nil {
+		t.Fatalf("SearchSummaryByUser no results: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results, got %d", len(results))
+	}
+}
