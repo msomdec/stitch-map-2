@@ -24,7 +24,7 @@ func TestIntegration_RegisterLoginDashboardLogout(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -132,7 +132,7 @@ func TestIntegration_LoginWrongPassword(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -173,7 +173,7 @@ func TestIntegration_RegisterDuplicateEmail(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -216,7 +216,7 @@ func TestIntegration_RegisterWeakPassword(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -246,7 +246,7 @@ func TestIntegration_LoginPageRendering(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -274,7 +274,7 @@ func TestIntegration_StitchLibrary_Unauthenticated(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -298,7 +298,7 @@ func TestIntegration_StitchLibrary_BrowseCreateEditDelete(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -437,7 +437,7 @@ func TestIntegration_StitchLibrary_FilterByCategory(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -498,7 +498,7 @@ func TestIntegration_Pattern_CreateViewEditDelete(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -660,7 +660,7 @@ func TestIntegration_Pattern_ViewWithTextPreview(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -770,7 +770,7 @@ func TestIntegration_Pattern_EditorPreview(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -857,7 +857,7 @@ func TestIntegration_Pattern_Duplicate(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -989,7 +989,7 @@ func TestIntegration_Pattern_Unauthenticated(t *testing.T) {
 	auth, stitches, patterns, sessions, images, shares, users := newTestServices(t)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1012,7 +1012,7 @@ func TestIntegration_WorkSession_NavigateToCompletion(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1139,7 +1139,7 @@ func TestIntegration_WorkSession_MultiGroupNavigateToCompletion(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1288,7 +1288,7 @@ func TestIntegration_WorkSession_NavigateBackward(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1401,7 +1401,7 @@ func TestFullHappyPath(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1614,7 +1614,7 @@ func TestIntegration_ImageUploadAndServe(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1749,7 +1749,7 @@ func TestIntegration_ImageUploadLimits(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -1833,7 +1833,7 @@ func TestIntegration_ImageDeleteAndCascade(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users)
+	handler.RegisterRoutes(mux, auth, stitches, patterns, sessions, images, shares, users, false)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

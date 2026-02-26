@@ -9,8 +9,8 @@ import (
 )
 
 // RegisterRoutes sets up all HTTP routes on the given mux.
-func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService, images *service.ImageService, shares *service.ShareService, users domain.UserRepository) {
-	authHandler := NewAuthHandler(auth)
+func RegisterRoutes(mux *http.ServeMux, auth *service.AuthService, stitches *service.StitchService, patterns *service.PatternService, sessions *service.WorkSessionService, images *service.ImageService, shares *service.ShareService, users domain.UserRepository, cookieSecure bool) {
+	authHandler := NewAuthHandler(auth, cookieSecure)
 	stitchHandler := NewStitchHandler(stitches)
 	patternHandler := NewPatternHandler(patterns, stitches, images, shares)
 	sessionHandler := NewWorkSessionHandler(sessions, patterns, images)

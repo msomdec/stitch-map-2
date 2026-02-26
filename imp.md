@@ -414,45 +414,11 @@ ORDER BY p.updated_at DESC
 
 ---
 
-### IMP-14: Pattern Import/Export (Text Format)
+### IMP-14: Pattern Import/Export (Text Format) — Rejected
 
-**Problem**: Users can't export patterns for backup or import patterns from text. Many crocheters share patterns in plain text format on forums, social media, and Ravelry.
+**Summary**: Allow users to export patterns as text and import patterns from a structured text format.
 
-**Goal**: Allow users to export a pattern as formatted text (matching the existing `RenderPatternText` output) and import a pattern from a structured text format.
-
----
-
-#### Export
-
-Already partially implemented — `service.RenderPatternText(pattern)` produces a readable text output. Add:
-
-- A "Download as Text" button on the pattern view page
-- `GET /patterns/{id}/export` handler that returns `Content-Type: text/plain` with `Content-Disposition: attachment; filename="{name}.txt"`
-- Include pattern metadata (name, type, hook size, yarn weight, difficulty) as a header in the export
-
-#### Import
-
-More complex — requires a text parser. Start with a structured format:
-
-```
-Name: My Pattern
-Type: round
-Hook: 5.0mm
-Yarn: Worsted
-Difficulty: Beginner
-
-Round 1: MR, sc 6 (6)
-Round 2: inc 6 (12)
-Round 3: [sc, inc] x6 (18)
-```
-
-The parser would:
-1. Extract metadata from `Key: Value` headers
-2. Parse each line as an instruction group with label, stitch entries, and optional expected count
-3. Resolve stitch abbreviations against the user's available stitches (predefined + custom)
-4. Create the pattern via the existing `PatternService.Create`
-
-**Handler**: `POST /patterns/import` with a textarea form or file upload.
+**Status**: Rejected — this feature is not desired and will not be implemented.
 
 ---
 

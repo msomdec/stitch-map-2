@@ -30,6 +30,8 @@ func main() {
 		slog.Error("JWT_SECRET environment variable is required")
 		os.Exit(1)
 	}
+	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+
 	bcryptCost := 12
 	if v := os.Getenv("BCRYPT_COST"); v != "" {
 		parsed, err := strconv.Atoi(v)
@@ -68,7 +70,7 @@ func main() {
 	slog.Info("predefined stitches seeded")
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService, imageService, shareService, db.Users())
+	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService, imageService, shareService, db.Users(), cookieSecure)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

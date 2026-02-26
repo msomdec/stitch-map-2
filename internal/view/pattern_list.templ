@@ -1,11 +1,14 @@
 package view
 
 import "github.com/msomdec/stitch-map-2/internal/domain"
-import "github.com/msomdec/stitch-map-2/internal/service"
 import "strconv"
 import "fmt"
 
-templ PatternListPage(displayName string, patterns []domain.Pattern, sharedPatterns []domain.Pattern, sharedMap map[int64]bool) {
+func hasActiveFilter(f domain.PatternFilter) bool {
+	return f.Query != "" || f.Type != "" || f.Difficulty != "" || f.Sort != ""
+}
+
+templ PatternListPage(displayName string, patterns []domain.PatternSummary, sharedPatterns []domain.PatternSummary, sharedMap map[int64]bool, filter domain.PatternFilter) {
 	@Layout("Patterns", displayName) {
 		<div class="level">
 			<div class="level-left">
@@ -15,10 +18,68 @@ templ PatternListPage(displayName string, patterns []domain.Pattern, sharedPatte
 				<a class="button is-primary" href="/patterns/new" aria-label="Create new pattern">New Pattern</a>
 			</div>
 		</div>
+		<!-- Search and Filter -->
+		<div class="box">
+			<form method="GET" action="/patterns" role="search" aria-label="Filter patterns">
+				<div class="field is-grouped is-grouped-multiline">
+					<div class="control is-expanded">
+						<label class="is-sr-only" for="pattern-search">Search</label>
+						<input class="input" type="text" id="pattern-search" name="q" placeholder="Search patterns..." value={ filter.Query } aria-label="Search patterns"/>
+					</div>
+					<div class="control">
+						<label class="is-sr-only" for="type-filter">Type</label>
+						<div class="select">
+							<select name="type" id="type-filter" aria-label="Filter by type">
+								<option value="" if filter.Type == "" { selected }>All Types</option>
+								<option value="round" if filter.Type == "round" { selected }>Round</option>
+								<option value="row" if filter.Type == "row" { selected }>Row</option>
+							</select>
+						</div>
+					</div>
+					<div class="control">
+						<label class="is-sr-only" for="difficulty-filter">Difficulty</label>
+						<div class="select">
+							<select name="difficulty" id="difficulty-filter" aria-label="Filter by difficulty">
+								<option value="" if filter.Difficulty == "" { selected }>All Difficulties</option>
+								<option value="Beginner" if filter.Difficulty == "Beginner" { selected }>Beginner</option>
+								<option value="Intermediate" if filter.Difficulty == "Intermediate" { selected }>Intermediate</option>
+								<option value="Advanced" if filter.Difficulty == "Advanced" { selected }>Advanced</option>
+								<option value="Expert" if filter.Difficulty == "Expert" { selected }>Expert</option>
+							</select>
+						</div>
+					</div>
+					<div class="control">
+						<label class="is-sr-only" for="sort-select">Sort by</label>
+						<div class="select">
+							<select name="sort" id="sort-select" aria-label="Sort by">
+								<option value="" if filter.Sort == "" { selected }>Last Modified</option>
+								<option value="name" if filter.Sort == "name" { selected }>Name</option>
+								<option value="created" if filter.Sort == "created" { selected }>Created Date</option>
+								<option value="stitches" if filter.Sort == "stitches" { selected }>Stitch Count</option>
+							</select>
+						</div>
+					</div>
+					<div class="control">
+						<button class="button is-primary" type="submit" aria-label="Apply filter">Filter</button>
+					</div>
+					if hasActiveFilter(filter) {
+						<div class="control">
+							<a class="button is-light" href="/patterns" aria-label="Clear filters">Clear</a>
+						</div>
+					}
+				</div>
+			</form>
+		</div>
 		if len(patterns) == 0 {
-			<div class="notification is-info is-light" role="status">
-				<p>You haven't created any patterns yet. Click "New Pattern" to get started!</p>
-			</div>
+			if hasActiveFilter(filter) {
+				<div class="notification is-warning is-light" role="status">
+					<p>No patterns match your filter. <a href="/patterns">Clear filters</a></p>
+				</div>
+			} else {
+				<div class="notification is-info is-light" role="status">
+					<p>You haven't created any patterns yet. Click "New Pattern" to get started!</p>
+				</div>
+			}
 		} else {
 			<div class="columns is-multiline">
 				for _, p := range patterns {
@@ -42,7 +103,7 @@ templ PatternListPage(displayName string, patterns []domain.Pattern, sharedPatte
 	}
 }
 
-templ patternCard(p domain.Pattern, hasShares bool) {
+templ patternCard(p domain.PatternSummary, hasShares bool) {
 	<div class="card" aria-label={ "Pattern: " + p.Name }>
 		<div class="card-content">
 			<p class="title is-5">
@@ -71,8 +132,8 @@ templ patternCard(p domain.Pattern, hasShares bool) {
 				<p class="content is-small">{ truncate(p.Description, 100) }</p>
 			}
 			<div class="tags">
-				<span class="tag is-info">{ fmt.Sprintf("%d groups", len(p.InstructionGroups)) }</span>
-				<span class="tag is-success">{ fmt.Sprintf("%d stitches", service.StitchCount(&p)) }</span>
+				<span class="tag is-info">{ fmt.Sprintf("%d groups", p.GroupCount) }</span>
+				<span class="tag is-success">{ fmt.Sprintf("%d stitches", p.StitchCount) }</span>
 			</div>
 		</div>
 		<footer class="card-footer">
@@ -102,7 +163,7 @@ templ patternCard(p domain.Pattern, hasShares bool) {
 	</div>
 }
 
-templ sharedPatternCard(p domain.Pattern) {
+templ sharedPatternCard(p domain.PatternSummary) {
 	<div class="card" aria-label={ "Shared pattern: " + p.Name }>
 		<div class="card-content">
 			<p class="title is-5">{ p.Name }</p>
@@ -122,8 +183,8 @@ templ sharedPatternCard(p domain.Pattern) {
 				<p class="content is-small">{ truncate(p.Description, 100) }</p>
 			}
 			<div class="tags">
-				<span class="tag is-info">{ fmt.Sprintf("%d groups", len(p.InstructionGroups)) }</span>
-				<span class="tag is-success">{ fmt.Sprintf("%d stitches", service.StitchCount(&p)) }</span>
+				<span class="tag is-info">{ fmt.Sprintf("%d groups", p.GroupCount) }</span>
+				<span class="tag is-success">{ fmt.Sprintf("%d stitches", p.StitchCount) }</span>
 			</div>
 		</div>
 		<footer class="card-footer">

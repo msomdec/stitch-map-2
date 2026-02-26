@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/msomdec/stitch-map-2/internal/domain"
@@ -85,6 +86,37 @@ func (r *patternRepo) GetByID(ctx context.Context, id int64) (*domain.Pattern, e
 	return p, nil
 }
 
+func (r *patternRepo) GetNamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
+	if len(ids) == 0 {
+		return map[int64]string{}, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := "SELECT id, name FROM patterns WHERE id IN (" + strings.Join(placeholders, ",") + ")"
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get names by ids: %w", err)
+	}
+	defer rows.Close()
+
+	names := make(map[int64]string, len(ids))
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("scan pattern name: %w", err)
+		}
+		names[id] = name
+	}
+	return names, rows.Err()
+}
+
 func (r *patternRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Pattern, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, name, description, pattern_type, hook_size, yarn_weight, difficulty, locked, shared_from_user_id, shared_from_name, created_at, updated_at
@@ -161,6 +193,118 @@ func (r *patternRepo) ListSharedWithUser(ctx context.Context, userID int64) ([]d
 	}
 
 	return patterns, nil
+}
+
+const patternSummaryQuery = `
+SELECT p.id, p.user_id, p.name, p.description, p.pattern_type, p.hook_size, p.yarn_weight,
+       p.difficulty, p.locked, p.shared_from_user_id, p.shared_from_name,
+       p.created_at, p.updated_at,
+       COUNT(DISTINCT ig.id) as group_count,
+       COALESCE(SUM(se.count * se.repeat_count * ig.repeat_count), 0) as stitch_count
+FROM patterns p
+LEFT JOIN instruction_groups ig ON ig.pattern_id = p.id
+LEFT JOIN stitch_entries se ON se.instruction_group_id = ig.id
+`
+
+func scanPatternSummary(rows *sql.Rows) (domain.PatternSummary, error) {
+	var s domain.PatternSummary
+	err := rows.Scan(&s.ID, &s.UserID, &s.Name, &s.Description, &s.PatternType,
+		&s.HookSize, &s.YarnWeight, &s.Difficulty, &s.Locked,
+		&s.SharedFromUserID, &s.SharedFromName, &s.CreatedAt, &s.UpdatedAt,
+		&s.GroupCount, &s.StitchCount)
+	return s, err
+}
+
+func (r *patternRepo) ListSummaryByUser(ctx context.Context, userID int64) ([]domain.PatternSummary, error) {
+	query := patternSummaryQuery + `WHERE p.user_id = ? AND p.shared_from_user_id IS NULL
+GROUP BY p.id
+ORDER BY p.updated_at DESC`
+
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list pattern summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []domain.PatternSummary
+	for rows.Next() {
+		s, err := scanPatternSummary(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan pattern summary: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	return summaries, rows.Err()
+}
+
+func (r *patternRepo) ListSummarySharedWithUser(ctx context.Context, userID int64) ([]domain.PatternSummary, error) {
+	query := patternSummaryQuery + `WHERE p.user_id = ? AND p.shared_from_user_id IS NOT NULL
+GROUP BY p.id
+ORDER BY p.created_at DESC`
+
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list shared pattern summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []domain.PatternSummary
+	for rows.Next() {
+		s, err := scanPatternSummary(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan shared pattern summary: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	return summaries, rows.Err()
+}
+
+func (r *patternRepo) SearchSummaryByUser(ctx context.Context, userID int64, filter domain.PatternFilter) ([]domain.PatternSummary, error) {
+	query := patternSummaryQuery + `WHERE p.user_id = ? AND p.shared_from_user_id IS NULL`
+	args := []interface{}{userID}
+
+	if filter.Query != "" {
+		query += ` AND (p.name LIKE ? OR p.description LIKE ?)`
+		like := "%" + filter.Query + "%"
+		args = append(args, like, like)
+	}
+	if filter.Type != "" {
+		query += ` AND p.pattern_type = ?`
+		args = append(args, filter.Type)
+	}
+	if filter.Difficulty != "" {
+		query += ` AND p.difficulty = ?`
+		args = append(args, filter.Difficulty)
+	}
+
+	query += ` GROUP BY p.id`
+
+	switch filter.Sort {
+	case "name":
+		query += ` ORDER BY p.name ASC`
+	case "created":
+		query += ` ORDER BY p.created_at DESC`
+	case "stitches":
+		query += ` ORDER BY stitch_count DESC`
+	default:
+		query += ` ORDER BY p.updated_at DESC`
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("search pattern summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []domain.PatternSummary
+	for rows.Next() {
+		s, err := scanPatternSummary(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan pattern summary: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	return summaries, rows.Err()
 }
 
 func (r *patternRepo) Update(ctx context.Context, pattern *domain.Pattern) error {

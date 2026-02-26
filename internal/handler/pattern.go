@@ -37,14 +37,30 @@ func (h *PatternHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patterns, err := h.patterns.ListByUser(r.Context(), user.ID)
+	// Parse search/filter query parameters.
+	filter := domain.PatternFilter{
+		Query:      strings.TrimSpace(r.URL.Query().Get("q")),
+		Type:       r.URL.Query().Get("type"),
+		Difficulty: r.URL.Query().Get("difficulty"),
+		Sort:       r.URL.Query().Get("sort"),
+	}
+
+	hasFilter := filter.Query != "" || filter.Type != "" || filter.Difficulty != "" || filter.Sort != ""
+
+	var patterns []domain.PatternSummary
+	var err error
+	if hasFilter {
+		patterns, err = h.patterns.SearchSummaryByUser(r.Context(), user.ID, filter)
+	} else {
+		patterns, err = h.patterns.ListSummaryByUser(r.Context(), user.ID)
+	}
 	if err != nil {
 		slog.Error("list patterns", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	sharedPatterns, err := h.patterns.ListSharedWithUser(r.Context(), user.ID)
+	sharedPatterns, err := h.patterns.ListSummarySharedWithUser(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("list shared patterns", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -61,12 +77,11 @@ func (h *PatternHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		sharedMap, err = h.shares.HasSharesByPatternIDs(r.Context(), patternIDs)
 		if err != nil {
 			slog.Error("check share indicators", "error", err)
-			// Non-fatal — proceed without indicators.
 			sharedMap = map[int64]bool{}
 		}
 	}
 
-	view.PatternListPage(user.DisplayName, patterns, sharedPatterns, sharedMap).Render(r.Context(), w)
+	view.PatternListPage(user.DisplayName, patterns, sharedPatterns, sharedMap, filter).Render(r.Context(), w)
 }
 
 // HandleNew renders the pattern creation form.
