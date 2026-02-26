@@ -120,7 +120,14 @@ func TestRequireAuth_TamperedToken(t *testing.T) {
 		t.Fatalf("Login: %v", err)
 	}
 
-	tampered := token[:len(token)-1] + "X"
+	// Tamper in the middle of the signature (not the last char, which may have
+	// base64url padding bits that make single-char changes a no-op).
+	mid := len(token) / 2
+	replacement := byte('A')
+	if token[mid] == 'A' {
+		replacement = 'B'
+	}
+	tampered := token[:mid] + string(replacement) + token[mid+1:]
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("inner handler should not be called")
