@@ -143,12 +143,87 @@ templ Layout(title string, displayName string) {
 templ HomePage(displayName string) {
 	@Layout("Home", displayName) {
 		if displayName != "" {
-			<div class="content has-text-centered py-6">
+			<div class="mb-6">
 				<h1 class="title is-2">Welcome back, { displayName }!</h1>
-				<p class="subtitle is-4">Ready to pick up where you left off?</p>
-				<div class="buttons is-centered">
-					<a class="button is-primary is-medium" href="/dashboard">Go to Dashboard</a>
-					<a class="button is-link is-medium" href="/patterns">My Patterns</a>
+				<p class="subtitle is-5 has-text-grey">Here's what's new and a few tips to help you get the most out of StitchMap.</p>
+			</div>
+			<!-- Update Notes -->
+			<div class="mb-6">
+				<h2 class="title is-4">What's new</h2>
+				<div class="timeline-content">
+					<article class="message is-info mb-4">
+						<div class="message-body">
+							<p class="has-text-weight-bold mb-1">Pattern Sharing</p>
+							<p>
+								You can now share patterns with other StitchMap users.
+								Generate a public link anyone can use, or create an email-bound link for a specific person.
+								Recipients get their own independent copy — your original stays untouched.
+							</p>
+						</div>
+					</article>
+					<article class="message is-info mb-4">
+						<div class="message-body">
+							<p class="has-text-weight-bold mb-1">Pattern Images</p>
+							<p>
+								Attach photos to individual instruction groups in your patterns.
+								Great for documenting tricky sections or showing what a finished round should look like.
+							</p>
+						</div>
+					</article>
+					<article class="message is-info mb-4">
+						<div class="message-body">
+							<p class="has-text-weight-bold mb-1">Improved Pattern Text Preview</p>
+							<p>
+								The pattern editor now shows a live text preview using standard crochet notation
+								so you can see exactly how your pattern reads as you build it.
+							</p>
+						</div>
+					</article>
+				</div>
+			</div>
+			<hr/>
+			<!-- Quick Tips -->
+			<div class="mb-6">
+				<h2 class="title is-4">Quick tips</h2>
+				<div class="columns is-multiline">
+					<div class="column is-6">
+						<div class="box">
+							<p class="has-text-weight-bold mb-2">Keyboard shortcuts in the tracker</p>
+							<p class="has-text-grey">
+								Use <strong>Space</strong> or <strong>Right Arrow</strong> to advance a stitch,
+								and <strong>Backspace</strong> or <strong>Left Arrow</strong> to go back.
+								Pause anytime and resume later.
+							</p>
+						</div>
+					</div>
+					<div class="column is-6">
+						<div class="box">
+							<p class="has-text-weight-bold mb-2">Custom stitches</p>
+							<p class="has-text-grey">
+								Working with a stitch that's not in the built-in library? Head to the
+								<a href="/stitches">Stitch Library</a> to add your own custom abbreviations,
+								then use them in any pattern.
+							</p>
+						</div>
+					</div>
+					<div class="column is-6">
+						<div class="box">
+							<p class="has-text-weight-bold mb-2">Duplicate before experimenting</p>
+							<p class="has-text-grey">
+								Want to try a variation of an existing pattern? Use the <strong>Duplicate</strong> action
+								on your <a href="/patterns">Patterns</a> page to make a copy before making changes.
+							</p>
+						</div>
+					</div>
+					<div class="column is-6">
+						<div class="box">
+							<p class="has-text-weight-bold mb-2">Share with friends</p>
+							<p class="has-text-grey">
+								Open any pattern, click <strong>Share</strong>, and generate a link. You can share publicly
+								or restrict access to a specific email address. Revoke links anytime.
+							</p>
+						</div>
+					</div>
 				</div>
 			</div>
 		} else {
