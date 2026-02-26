@@ -489,14 +489,463 @@ The parser would:
 
 ### IMP-17: Pattern Versioning / History
 
-**Problem**: Editing a pattern is destructive — the previous version is lost. If a user accidentally changes or removes instruction groups, there's no way to recover.
+**Problem**: Editing a pattern is destructive — the previous version is lost. The repository's `Update` method performs a full delete-and-reinsert of all instruction groups, stitch entries, and pattern stitches within a transaction (`internal/repository/sqlite/pattern.go:166-227`). If a user accidentally removes instruction groups, reorders stitches incorrectly, or saves an unintended change, the previous state is irrecoverable. There is no undo, no history, and no safety net.
 
-**Goal**: Keep a version history of patterns. Each save creates a new version. Users can view previous versions and optionally restore them.
+**Goal**: Automatically capture a version snapshot every time a pattern is saved, creating a browsable version history. Users can view any previous version in a read-only preview and restore it as the current state. Versioning is transparent — no extra "save version" step is needed; every save is automatically versioned.
 
-**Approach**: This is a significant feature. A lightweight approach:
-- Add a `pattern_versions` table that stores a JSON snapshot of the pattern at each save
-- Each `Update` call creates a version record before applying changes
-- A "Version History" page shows timestamps and allows viewing past versions
-- "Restore" duplicates a past version as the current state
+---
 
-This is an idea-level item — needs further design before implementation.
+#### Existing Foundation
+
+1. **Full delete-and-reinsert on save** (`internal/repository/sqlite/pattern.go:166-227`) — The `Update` method begins a transaction, deletes all groups/entries/pattern stitches, then re-inserts them. This means the "before" state is naturally available: the service already loads the existing pattern via `GetByID` before calling `Update` (`internal/service/pattern.go:53-56`). The loaded pattern is the perfect snapshot source.
+
+2. **Self-contained `PatternStitch` model** (migration 007, `internal/domain/pattern.go:33-41`) — Patterns carry their own stitch definitions in `pattern_stitches`, decoupled from the global library. A JSON snapshot of the pattern is therefore fully self-contained — no dangling references to library stitches that might later change or be deleted.
+
+3. **Read-only pattern view** (`internal/handler/pattern.go:93-131`, `internal/view/pattern_view.templ`) — The existing `PatternViewPage` renders a full read-only view with all groups, entries, pattern text preview, and images. The version preview page can reuse this rendering logic with minor adaptations (different header, no action buttons, restore button instead).
+
+4. **`RenderPatternText` function** (`internal/service/pattern.go`) — Already produces a human-readable text representation of a pattern. This can be applied to deserialized version snapshots to show a text preview on the version history page, giving users a quick way to identify versions without opening each one.
+
+5. **Domain struct fields are all exported** (`internal/domain/pattern.go`) — `Pattern`, `InstructionGroup`, `StitchEntry`, and `PatternStitch` all have exported fields with simple types (`int64`, `string`, `bool`, `time.Time`, slices). They serialize cleanly to JSON. No JSON struct tags exist currently, so dedicated snapshot types with explicit JSON tags are needed.
+
+---
+
+#### What's Missing
+
+##### 1. Snapshot Domain Model & Storage
+
+**Snapshot types** (`internal/domain/version.go`):
+
+Define dedicated JSON-serializable types for version snapshots. These are separate from the main domain types to avoid coupling JSON serialization concerns to the core model and to give explicit control over what's included:
+
+```go
+// PatternVersion represents a single saved version of a pattern.
+type PatternVersion struct {
+    ID            int64
+    PatternID     int64
+    VersionNumber int       // Auto-incrementing per pattern, starting at 1
+    Snapshot      string    // JSON-encoded PatternSnapshot
+    CreatedAt     time.Time
+}
+
+// PatternSnapshot is the JSON-serializable representation of a pattern's
+// full state at a point in time. Images are NOT included — they are managed
+// separately and are not versioned.
+type PatternSnapshot struct {
+    Name              string                     `json:"name"`
+    Description       string                     `json:"description"`
+    PatternType       PatternType                `json:"pattern_type"`
+    HookSize          string                     `json:"hook_size"`
+    YarnWeight        string                     `json:"yarn_weight"`
+    Difficulty        string                     `json:"difficulty"`
+    PatternStitches   []PatternStitchSnapshot    `json:"pattern_stitches"`
+    InstructionGroups []InstructionGroupSnapshot  `json:"instruction_groups"`
+}
+
+type PatternStitchSnapshot struct {
+    Abbreviation    string `json:"abbreviation"`
+    Name            string `json:"name"`
+    Description     string `json:"description"`
+    Category        string `json:"category"`
+    LibraryStitchID *int64 `json:"library_stitch_id,omitempty"`
+}
+
+type InstructionGroupSnapshot struct {
+    SortOrder     int                    `json:"sort_order"`
+    Label         string                 `json:"label"`
+    RepeatCount   int                    `json:"repeat_count"`
+    ExpectedCount *int                   `json:"expected_count,omitempty"`
+    Notes         string                 `json:"notes,omitempty"`
+    StitchEntries []StitchEntrySnapshot  `json:"stitch_entries"`
+}
+
+type StitchEntrySnapshot struct {
+    SortOrder       int    `json:"sort_order"`
+    PatternStitchIdx int   `json:"pattern_stitch_idx"` // Index into PatternStitches slice
+    Count           int    `json:"count"`
+    IntoStitch      string `json:"into_stitch,omitempty"`
+    RepeatCount     int    `json:"repeat_count"`
+}
+```
+
+`StitchEntrySnapshot.PatternStitchIdx` stores the **index** into the `PatternStitches` slice (not a database ID). This makes the snapshot fully self-referential — no external IDs needed to reconstruct the pattern.
+
+**Helper functions** (on `PatternSnapshot`):
+
+```go
+// SnapshotFromPattern creates a PatternSnapshot from a loaded domain.Pattern.
+func SnapshotFromPattern(p *Pattern) PatternSnapshot { ... }
+
+// ToPattern reconstructs a domain.Pattern from a snapshot. The returned pattern
+// has ID=0, no UserID, no timestamps — it's a template for restoration.
+func (s PatternSnapshot) ToPattern() *Pattern { ... }
+
+// Summary returns a human-readable summary: group count, total stitch count.
+func (s PatternSnapshot) Summary() string { ... }
+```
+
+**New `PatternVersionRepository` interface** (`internal/domain/version.go`):
+
+```go
+type PatternVersionRepository interface {
+    // Create stores a new version. VersionNumber is computed as MAX(version_number)+1
+    // for the pattern. If the pattern already has MaxVersions versions, the oldest
+    // is deleted before inserting.
+    Create(ctx context.Context, version *PatternVersion) error
+
+    // ListByPattern returns all versions for a pattern, ordered by version_number DESC
+    // (newest first). Returns version metadata only — Snapshot field is empty.
+    ListByPattern(ctx context.Context, patternID int64) ([]PatternVersion, error)
+
+    // GetByPatternAndVersion returns a specific version with its full Snapshot.
+    GetByPatternAndVersion(ctx context.Context, patternID int64, versionNumber int) (*PatternVersion, error)
+
+    // DeleteByPattern removes all versions for a pattern. Called when a pattern
+    // is deleted (also handled by ON DELETE CASCADE, but explicit for clarity).
+    DeleteByPattern(ctx context.Context, patternID int64) error
+
+    // CountByPattern returns the number of versions for a pattern.
+    CountByPattern(ctx context.Context, patternID int64) (int, error)
+
+    // DeleteOldest deletes the oldest N versions for a pattern (by version_number ASC).
+    DeleteOldest(ctx context.Context, patternID int64, count int) error
+}
+```
+
+**New migration** (`internal/repository/sqlite/migrations/009_pattern_versions.sql`):
+
+```sql
+CREATE TABLE IF NOT EXISTS pattern_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_id INTEGER NOT NULL REFERENCES patterns(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    snapshot TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(pattern_id, version_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pattern_versions_pattern ON pattern_versions(pattern_id);
+CREATE INDEX IF NOT EXISTS idx_pattern_versions_lookup ON pattern_versions(pattern_id, version_number);
+```
+
+`ON DELETE CASCADE` ensures that deleting a pattern automatically removes all its version history. The `UNIQUE(pattern_id, version_number)` constraint guarantees version numbers are unique per pattern.
+
+**Repository implementation** (`internal/repository/sqlite/version.go`):
+
+Standard CRUD against the `pattern_versions` table. `Create` computes the next version number with `SELECT COALESCE(MAX(version_number), 0) + 1 FROM pattern_versions WHERE pattern_id = ?`. `ListByPattern` returns rows ordered by `version_number DESC` with `snapshot` omitted from the SELECT (for performance — snapshots can be large). `GetByPatternAndVersion` fetches the full row including `snapshot`. `DeleteOldest` uses `DELETE FROM pattern_versions WHERE pattern_id = ? AND version_number IN (SELECT version_number FROM pattern_versions WHERE pattern_id = ? ORDER BY version_number ASC LIMIT ?)`.
+
+##### 2. Version Service
+
+**New `VersionService`** (`internal/service/version.go`):
+
+```go
+type VersionService struct {
+    versions    domain.PatternVersionRepository
+    patterns    domain.PatternRepository
+    maxVersions int // configurable cap, default 50
+}
+
+func NewVersionService(
+    versions domain.PatternVersionRepository,
+    patterns domain.PatternRepository,
+    maxVersions int,
+) *VersionService { ... }
+```
+
+Methods:
+
+- `CreateVersion(ctx context.Context, pattern *domain.Pattern) error` — Takes a loaded `*Pattern`, serializes it to a `PatternSnapshot` via `SnapshotFromPattern`, JSON-encodes it, and calls `versions.Create`. If the pattern already has `maxVersions` versions, the oldest is pruned. This method is called by `PatternService.Update` after loading the existing pattern and before writing changes. It is **not** called for new patterns (Create) since there's no prior state to snapshot.
+
+- `ListVersions(ctx context.Context, userID, patternID int64) ([]domain.PatternVersion, error)` — Verifies ownership (loads the pattern, checks `UserID == userID`), then returns `versions.ListByPattern`. Returns version metadata only (no snapshots) for the history page.
+
+- `GetVersion(ctx context.Context, userID, patternID int64, versionNumber int) (*domain.PatternVersion, *domain.PatternSnapshot, error)` — Verifies ownership, loads the version, deserializes the JSON snapshot into a `PatternSnapshot`, and returns both. The snapshot is used to render the version preview page.
+
+- `RestoreVersion(ctx context.Context, userID, patternID int64, versionNumber int) error` — The core restore operation:
+  1. Loads the current pattern via `patterns.GetByID` and verifies ownership.
+  2. Rejects if the pattern is locked (`Locked == true`) or is a received shared pattern (`SharedFromUserID != nil`) — locked/shared patterns cannot be modified.
+  3. Snapshots the current state by calling `CreateVersion` (so the pre-restore state is preserved and the restore itself is undoable).
+  4. Loads the target version via `versions.GetByPatternAndVersion`.
+  5. Deserializes the snapshot and calls `snapshot.ToPattern()` to get a template `*Pattern`.
+  6. Copies the restored fields onto the existing pattern (name, description, type, hook size, yarn weight, difficulty, pattern stitches, instruction groups, stitch entries).
+  7. Calls `patterns.Update` with the restored pattern.
+
+  This means restoring version N creates version N+M (a snapshot of the state just before restoration), then applies version N's data as the current state. The user can always "undo" a restore by restoring the version created in step 3.
+
+- `GetVersionForPreview(ctx context.Context, userID, patternID int64, versionNumber int) (*domain.Pattern, string, error)` — Convenience method for the handler. Verifies ownership, loads the version, deserializes the snapshot, calls `snapshot.ToPattern()`, and also calls `RenderPatternText` on the reconstructed pattern to produce a text preview. Returns the reconstructed pattern and the text preview string.
+
+**Version cap and pruning**:
+
+The `maxVersions` cap (default 50, configurable via `MAX_PATTERN_VERSIONS` environment variable) prevents unbounded storage growth. When `CreateVersion` is called and the pattern already has `maxVersions` versions, the oldest version is deleted before the new one is inserted. This is a simple FIFO strategy. The cap applies per-pattern, not globally.
+
+Rationale for the default of 50: a typical pattern might be saved 20–50 times during active development. A cap of 50 preserves the full editing history for most patterns while keeping storage bounded. At approximately 2–5KB per snapshot (a medium-complexity pattern with 10 groups and 50 stitch entries), 50 versions is ~100–250KB per pattern — negligible for SQLite.
+
+##### 3. Integration with Pattern Update Flow
+
+**`PatternService.Update` changes** (`internal/service/pattern.go`):
+
+The existing `Update` method currently:
+1. Loads existing pattern via `GetByID`
+2. Checks ownership, shared-pattern lock, explicit lock
+3. Validates the new pattern
+4. Resolves pattern stitches
+5. Calls `patterns.Update`
+
+The change adds a single call between steps 2 and 3:
+
+```go
+func (s *PatternService) Update(ctx context.Context, userID int64, pattern *domain.Pattern) error {
+    existing, err := s.patterns.GetByID(ctx, pattern.ID)
+    if err != nil {
+        return fmt.Errorf("get pattern: %w", err)
+    }
+    if existing.UserID != userID {
+        return domain.ErrUnauthorized
+    }
+    if existing.SharedFromUserID != nil {
+        return domain.ErrPatternLocked
+    }
+    if existing.Locked {
+        return domain.ErrPatternLocked
+    }
+
+    // NEW: Snapshot the current state before applying changes.
+    if s.versions != nil {
+        if err := s.versions.CreateVersion(ctx, existing); err != nil {
+            // Log the error but don't fail the save — versioning is a
+            // convenience feature, not a gate on saving.
+            slog.Error("failed to create pattern version", "pattern_id", pattern.ID, "error", err)
+        }
+    }
+
+    if err := validate(pattern); err != nil {
+        return err
+    }
+    // ... rest unchanged
+}
+```
+
+The `versions` field is a `*VersionService` added to `PatternService`. It is `nil`-safe — if not injected (e.g., in tests that don't care about versioning), the versioning step is silently skipped. This keeps existing tests passing without modification.
+
+**Important design decision**: Version creation failure does **not** fail the save. Versioning is a safety net, not a gate. If snapshot creation fails (e.g., JSON marshaling error, disk full), the save proceeds and the error is logged. This ensures versioning never blocks the user from saving their work.
+
+##### 4. Version Routes & Handler
+
+**Handler** (`internal/handler/version.go`):
+
+```go
+type VersionHandler struct {
+    versions *service.VersionService
+    patterns *service.PatternService
+}
+```
+
+Routes:
+
+- `GET /patterns/{id}/versions` — **Version History page**. Loads the pattern (ownership check), calls `versions.ListVersions`, renders the version history page.
+- `GET /patterns/{id}/versions/{version}` — **Version Preview page**. Loads the specific version, renders a read-only view of the pattern at that point in time.
+- `POST /patterns/{id}/versions/{version}/restore` — **Restore a version**. Calls `versions.RestoreVersion`, redirects to `/patterns/{id}` (the pattern view page) with a flash message ("Restored to version {N}").
+
+**Route registration** (`internal/handler/routes.go`):
+
+```go
+// Pattern version history (authenticated, owner only)
+mux.Handle("GET /patterns/{id}/versions", RequireAuth(auth, http.HandlerFunc(versionHandler.HandleVersionList)))
+mux.Handle("GET /patterns/{id}/versions/{version}", RequireAuth(auth, http.HandlerFunc(versionHandler.HandleVersionView)))
+mux.Handle("POST /patterns/{id}/versions/{version}/restore", RequireAuth(auth, http.HandlerFunc(versionHandler.HandleRestore)))
+```
+
+##### 5. UI — Version History Page
+
+**New templ** (`internal/view/pattern_versions.templ`):
+
+The version history page shows a list of all saved versions for a pattern:
+
+- **Page header**: "Version History — {Pattern Name}" with a "Back to Pattern" link.
+- **Version list**: A table or card list, one row per version, ordered newest first:
+  - **Version number**: "v{N}" (e.g., "v12")
+  - **Timestamp**: "Saved on Feb 20, 2026 at 3:45 PM" — human-readable, with relative time ("2 hours ago") for recent versions
+  - **Summary**: "{M} groups, {N} total stitches" — computed from the snapshot metadata (stored in `PatternSnapshot.Summary()` or computed at display time from the snapshot)
+  - **Actions**: "View" (link to version preview page), "Restore" (POST button with confirmation)
+- **Empty state**: "No version history yet. Versions are created automatically each time you save the pattern." (This state only appears for patterns created before versioning was added, or patterns that have only been saved once.)
+- **Version cap notice**: If the pattern has reached the maximum version count, show a subtle note: "Showing the last {maxVersions} versions. Older versions are automatically removed."
+
+The "Restore" button on each version row triggers a confirmation modal (consistent with the existing save confirmation pattern in the editor): "Restore version {N} from {timestamp}? Your current pattern will be saved as a new version before restoring."
+
+**Templ signature**:
+
+```go
+templ PatternVersionsPage(
+    displayName string,
+    pattern *domain.Pattern,
+    versions []domain.PatternVersion,
+    summaries map[int]string, // version_number → summary string
+    maxVersions int,
+)
+```
+
+##### 6. UI — Version Preview Page
+
+**New templ** (`internal/view/pattern_version_view.templ`):
+
+Renders a read-only view of the pattern as it existed at a specific version. Visually similar to `PatternViewPage` but with distinct chrome:
+
+- **Header**: "Version {N} — {Pattern Name}" with "Saved on {timestamp}"
+- **Banner**: A colored info banner at the top: "You are viewing a previous version of this pattern. This is a read-only preview."
+- **Pattern content**: Renders the full pattern from the deserialized snapshot — metadata, instruction groups with stitch entries, and pattern text preview. Reuses the same rendering components as the current pattern view (extracted into shared templ components if not already).
+- **Images note**: If the current pattern has images, show a note: "Images reflect the current version and may differ from when this version was saved." (Since images are not versioned.)
+- **Actions**:
+  - "Restore this Version" button (POST to `/patterns/{id}/versions/{version}/restore` with confirmation modal)
+  - "Back to Version History" link
+  - "Back to Current Version" link (to `/patterns/{id}`)
+- **No edit/delete/duplicate/share buttons** — this is purely a read-only preview.
+
+**Templ signature**:
+
+```go
+templ PatternVersionViewPage(
+    displayName string,
+    originalPattern *domain.Pattern, // for context (current name, ID)
+    version *domain.PatternVersion,
+    snapshot *domain.PatternSnapshot,
+    restoredPattern *domain.Pattern,  // the snapshot reconstructed as a Pattern (for rendering)
+    patternText string,               // pre-rendered text preview
+)
+```
+
+##### 7. UI — Version History Access Point
+
+**Pattern View page changes** (`internal/view/pattern_view.templ`):
+
+Add a "Version History" link/button to the action bar on the pattern view page, next to the existing Edit/Duplicate/Start Session buttons. Only shown for user-authored patterns (`SharedFromUserID == nil`) — received patterns don't have version history since they were never edited by the recipient.
+
+Optionally show the version count as a badge: "History (12)" to give users a sense of how many versions exist.
+
+**Pattern Editor page changes** (`internal/view/pattern_editor.templ`):
+
+No changes to the editor itself. The version is created automatically on save — the user doesn't need to interact with versioning from the editor. A subtle text note below the save button could say "All changes are automatically versioned" for discoverability, but this is optional.
+
+##### 8. Snapshot Serialization Details
+
+**What IS captured** in the snapshot:
+- Pattern metadata: name, description, pattern type, hook size, yarn weight, difficulty
+- All `PatternStitch` records: abbreviation, name, description, category, library stitch ID reference
+- All `InstructionGroup` records: sort order, label, repeat count, expected count, notes
+- All `StitchEntry` records: sort order, pattern stitch index, count, into stitch, repeat count
+
+**What is NOT captured**:
+- **Images**: `pattern_images` and `file_blobs` are not included in snapshots. Images are large binary data that would bloat the version table significantly. Restoring a version does not affect images — they remain as they are on the current pattern. This is an acceptable trade-off: images change less frequently than stitch instructions, and the primary use case for versioning is recovering stitch/group changes. A future enhancement could add image versioning as a separate feature.
+- **Pattern ID, User ID, timestamps**: These are pattern identity/metadata, not content. They don't change between versions.
+- **Locked flag, SharedFromUserID/SharedFromName**: These are access control fields, not pattern content. Restoring a version should not change whether a pattern is locked or shared.
+- **Work session state**: Sessions track a user's progress through a pattern. They are independent of the pattern's version history.
+
+**JSON size estimates**: A medium-complexity pattern (10 instruction groups, 5 stitch entries per group, 15 unique pattern stitches) produces approximately 3–5KB of JSON. A very complex pattern (50 groups, 10 entries each, 30 pattern stitches) produces approximately 15–25KB. At 50 versions, that's 150KB–1.25MB per pattern — well within SQLite's comfort zone.
+
+##### 9. Restoration Mechanics
+
+When restoring version N:
+
+1. The current pattern state is snapshotted as a new version (version M+1, where M is the current highest version). This ensures the restore is undoable.
+2. The snapshot from version N is deserialized into a `PatternSnapshot`.
+3. `PatternSnapshot.ToPattern()` reconstructs a `*domain.Pattern` with:
+   - `PatternStitches` rebuilt from `PatternStitchSnapshot` entries, each with `ID = 0` (so the repository treats them as new inserts).
+   - `InstructionGroups` rebuilt with `StitchEntries` referencing the **index** into the `PatternStitches` slice (matching the convention used by `resolvePatternStitches` in the service layer, and by `insertPatternStitches` / `insertGroups` in the repository).
+   - All IDs set to 0 so the repository's delete-and-reinsert logic handles them as fresh inserts.
+4. The reconstructed pattern's content fields are copied onto the existing loaded pattern (preserving `ID`, `UserID`, `Locked`, `SharedFromUserID`, etc.).
+5. The pattern is saved via `PatternRepository.Update`, which performs its normal delete-and-reinsert within a transaction.
+
+**The restore bypasses `resolvePatternStitches`** in the service layer. Since the snapshot already contains fully resolved pattern stitches (not library stitch IDs), the service's stitch resolution step must be skipped for restores. This is handled by having `RestoreVersion` call `patterns.Update` directly (via the repository) rather than going through `PatternService.Update`, or by adding a flag/separate method on `PatternService` that skips stitch resolution. The recommended approach is a `PatternService.RestoreFromSnapshot(ctx, userID, patternID, snapshot)` method that handles the restore-specific logic.
+
+```go
+// RestoreFromSnapshot applies a snapshot to an existing pattern, bypassing
+// stitch resolution (since the snapshot already contains resolved stitches).
+func (s *PatternService) RestoreFromSnapshot(ctx context.Context, userID int64, patternID int64, snapshot *domain.PatternSnapshot) error {
+    existing, err := s.patterns.GetByID(ctx, patternID)
+    if err != nil {
+        return fmt.Errorf("get pattern: %w", err)
+    }
+    if existing.UserID != userID {
+        return domain.ErrUnauthorized
+    }
+    if existing.SharedFromUserID != nil || existing.Locked {
+        return domain.ErrPatternLocked
+    }
+
+    restored := snapshot.ToPattern()
+    existing.Name = restored.Name
+    existing.Description = restored.Description
+    existing.PatternType = restored.PatternType
+    existing.HookSize = restored.HookSize
+    existing.YarnWeight = restored.YarnWeight
+    existing.Difficulty = restored.Difficulty
+    existing.PatternStitches = restored.PatternStitches
+    existing.InstructionGroups = restored.InstructionGroups
+
+    return s.patterns.Update(ctx, existing)
+}
+```
+
+##### 10. Authorization & Business Rules
+
+- Only the **pattern owner** can view version history, view individual versions, or restore versions. Ownership is verified by loading the pattern and checking `UserID == userID`.
+- **Received patterns** (`SharedFromUserID != nil`) have no version history and cannot be restored. The version history link is not shown on the view page for received patterns.
+- **Locked patterns** cannot be restored (restore modifies the pattern). The version history can still be *viewed* for locked patterns, but the "Restore" buttons are disabled/hidden. This allows users to see past versions even if the pattern is currently locked.
+- Version creation failure does **not** block pattern saves. Versioning is best-effort. Errors are logged via `slog.Error`.
+- The version cap (default 50) is enforced per pattern. When the cap is reached, the oldest version is pruned before a new one is inserted. This is a hard cap — there is no way to exceed it.
+- Restoring a version always creates a new version first (capturing the pre-restore state). This means a restore consumes one version slot toward the cap.
+- Deleting a pattern cascades to delete all its versions (via `ON DELETE CASCADE`).
+- **Work sessions are not affected by version restoration.** If a user is mid-session on a pattern and restores a version, the session's position indices may no longer align with the restored pattern structure. The work session tracker already handles out-of-bounds indices gracefully (redirecting to the start of the pattern). An optional enhancement: detect when a pattern has been modified since the session's `last_activity_at` and warn the user. This is a future improvement, not required for v1.
+
+---
+
+#### Design Rationale
+
+##### JSON Snapshots vs. Relational Versioning
+
+Two approaches were considered:
+
+**Approach A — JSON snapshots** (chosen): Store a JSON blob of the entire pattern state in a single `pattern_versions` row. Simple schema (one table, one blob column). Easy to create, easy to restore, easy to reason about. The snapshot is self-contained and immutable.
+
+**Approach B — Relational versioning**: Create versioned copies of all related tables (`patterns_v`, `instruction_groups_v`, `stitch_entries_v`, `pattern_stitches_v`) with a `version_id` FK. More normalized but significantly more complex — every query that touches versions must join across 4+ tables, restoration requires multi-table inserts, and the version schema must evolve in lockstep with the main schema.
+
+JSON snapshots were chosen because:
+
+1. **Simplicity**: One table, one column. No version-aware FKs, no parallel table sets, no multi-table joins for version reads.
+2. **Decoupled from schema evolution**: If the main schema changes (new columns on `patterns`, new fields on `stitch_entries`), old version snapshots remain valid — they simply omit the new fields. Deserialization with `json.Unmarshal` naturally handles missing fields by leaving them at zero values. New fields can be added to the snapshot type with `omitempty` tags, and old snapshots remain readable.
+3. **Performance**: Creating a version is a single INSERT with a pre-serialized JSON string. Reading a version list is a single indexed SELECT. The hot path (saving a pattern) adds only one INSERT — no multi-table copying.
+4. **Storage is bounded**: The per-pattern version cap (default 50) and the modest size of JSON snapshots (3–25KB each) keep total storage well-bounded. A user with 100 patterns, each at the 50-version cap, uses approximately 15–125MB of version storage — manageable for SQLite.
+5. **Already consistent with the IMP-12 design rationale**: The IMP-12 sharing design explicitly chose snapshot duplication over relational versioning (see "Design Rationale: Snapshot Duplication vs. Version-on-Save" in IMP-12). Using JSON snapshots for versioning maintains this architectural consistency.
+
+##### Automatic vs. Manual Versioning
+
+Versions are created **automatically on every save**, not manually by the user. Rationale:
+
+1. **No cognitive overhead**: Users don't need to remember to "save a version" before making changes. Every save is versioned.
+2. **Matches the problem statement**: The problem is accidental destructive edits. Automatic versioning catches these by default, whereas manual versioning only helps if the user anticipated the need.
+3. **Simplicity**: No UI for "create version," "name this version," or "choose what to version." The feature is invisible during normal use and only surfaces when the user needs to recover.
+
+The trade-off is that automatic versioning creates versions for trivial changes (fixing a typo in a pattern name). The version cap mitigates unbounded growth, and the per-version storage cost is small enough that this trade-off is acceptable.
+
+##### Images Not Versioned
+
+Images are excluded from version snapshots because:
+
+1. **Size**: Image file blobs can be 100KB–5MB each. Including them in JSON snapshots would increase version storage by 10–100x.
+2. **Frequency of change**: Images change less frequently than stitch instructions. Most versioning use cases involve recovering stitch/group changes, not images.
+3. **Complexity**: Image restoration would require re-inserting `file_blobs` rows and updating `pattern_images` FKs — significantly more complex than restoring text data.
+4. **Acceptable trade-off**: When restoring a version, images remain as they are on the current pattern. Users can re-upload images if needed after a restore.
+
+---
+
+#### Affected Files
+
+- **New**: `internal/domain/version.go` (`PatternVersion`, `PatternSnapshot` and related snapshot types, `PatternVersionRepository` interface, `SnapshotFromPattern`/`ToPattern`/`Summary` helpers), `internal/repository/sqlite/version.go` (repository implementation), `internal/repository/sqlite/migrations/009_pattern_versions.sql`, `internal/service/version.go` (`VersionService`), `internal/handler/version.go` (`VersionHandler`), `internal/view/pattern_versions.templ` (version history page), `internal/view/pattern_version_view.templ` (version preview page)
+- **Modified**: `internal/domain/pattern.go` (add `RestoreFromSnapshot` to `PatternRepository` interface or keep it in the service layer only), `internal/service/pattern.go` (add `versions *VersionService` field to `PatternService`, call `CreateVersion` in `Update`, add `RestoreFromSnapshot` method), `internal/handler/routes.go` (register version routes), `internal/view/pattern_view.templ` (add "Version History" link to action bar for user-authored patterns), `main.go` (wire `VersionService` and `VersionHandler`, read `MAX_PATTERN_VERSIONS` env var)
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_PATTERN_VERSIONS` | `50` | Maximum number of versions retained per pattern. Oldest versions are pruned when the cap is reached. |
+
+#### Regression Gate
+
+All existing tests pass. New tests cover: automatic version creation on pattern update (save pattern, verify version count incremented, verify snapshot content matches pre-update state), version list retrieval (correct ordering, no snapshot in list results, ownership check), version view (correct snapshot deserialization, ownership check, non-existent version → 404), restore version (pre-restore state snapshotted as new version, pattern content matches restored version, images unchanged, locked pattern → error, shared pattern → error, ownership check), version cap enforcement (save 51 times with cap=50, verify oldest version pruned, exactly 50 versions remain), restore-then-undo (restore v3, verify new version created, restore that new version to get back to pre-restore state), snapshot serialization roundtrip (create pattern → snapshot → JSON → deserialize → ToPattern → verify all fields match), empty version history (newly created pattern has zero versions, version list returns empty), pattern deletion cascades (delete pattern → verify all versions deleted), `RenderPatternText` on restored pattern (text output matches original). Pattern CRUD, work sessions, sharing, stitch library, and image management unaffected.
