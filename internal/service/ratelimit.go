@@ -6,7 +6,7 @@ import (
 )
 
 // TokenBucket is a simple in-memory per-key rate limiter using the token bucket algorithm.
-// It is safe for concurrent use.
+// It is safe for concurrent use. Stale buckets are automatically cleaned up.
 type TokenBucket struct {
 	mu       sync.Mutex
 	buckets  map[string]*bucket
@@ -20,13 +20,16 @@ type bucket struct {
 }
 
 // NewTokenBucket creates a rate limiter that allows up to capacity tokens per key,
-// refilling at the given rate (tokens per second).
+// refilling at the given rate (tokens per second). It starts a background goroutine
+// that periodically removes stale buckets.
 func NewTokenBucket(rate, capacity float64) *TokenBucket {
-	return &TokenBucket{
+	tb := &TokenBucket{
 		buckets:  make(map[string]*bucket),
 		rate:     rate,
 		capacity: capacity,
 	}
+	go tb.cleanup()
+	return tb
 }
 
 // Allow reports whether the given key is allowed to proceed under the rate limit.
@@ -51,4 +54,19 @@ func (tb *TokenBucket) Allow(key string) bool {
 		return true
 	}
 	return false
+}
+
+// cleanup runs periodically and removes buckets that haven't been accessed in 10 minutes.
+func (tb *TokenBucket) cleanup() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		tb.mu.Lock()
+		cutoff := time.Now().Add(-10 * time.Minute)
+		for key, b := range tb.buckets {
+			if b.last.Before(cutoff) {
+				delete(tb.buckets, key)
+			}
+		}
+		tb.mu.Unlock()
+	}
 }

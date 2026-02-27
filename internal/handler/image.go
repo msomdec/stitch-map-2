@@ -68,6 +68,9 @@ func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	group := &pattern.InstructionGroups[groupIndex]
 
+	// Enforce hard upload size limit (10MB + overhead for multipart headers).
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20+4096)
+
 	// Parse multipart form (10MB limit).
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		http.Error(w, "File too large", http.StatusBadRequest)
@@ -94,7 +97,7 @@ func (h *ImageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	_, err = h.images.Upload(r.Context(), user.ID, group.ID, header.Filename, contentType, data)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "Invalid image. Only JPEG and PNG files up to 5MB are accepted (max 5 per section).", http.StatusBadRequest)
 			return
 		}
 		slog.Error("upload image", "error", err)

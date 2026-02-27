@@ -156,7 +156,7 @@ func (h *ShareHandler) HandleCreateGlobalShare(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "This pattern cannot be shared.", http.StatusBadRequest)
 			return
 		}
 		slog.Error("create global share", "error", err)
@@ -195,7 +195,7 @@ func (h *ShareHandler) HandleCreateEmailShare(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "Invalid email address or pattern cannot be shared.", http.StatusBadRequest)
 			return
 		}
 		slog.Error("create email share", "error", err)

@@ -372,14 +372,14 @@ func (h *PatternHandler) HandleAddPart(w http.ResponseWriter, r *http.Request) {
 
 // HandleRemovePart returns an SSE response that removes a part section.
 func (h *PatternHandler) HandleRemovePart(w http.ResponseWriter, r *http.Request) {
-	gi := r.PathValue("gi")
-	if gi == "" {
+	gi, err := strconv.Atoi(r.PathValue("gi"))
+	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	sse := datastar.NewSSE(w, r)
-	sse.RemoveElementByID("part-" + gi)
+	sse.RemoveElementByID("part-" + strconv.Itoa(gi))
 }
 
 // HandleAddEntry returns an SSE response that appends a new stitch entry row.
@@ -425,15 +425,19 @@ func (h *PatternHandler) HandleAddEntry(w http.ResponseWriter, r *http.Request) 
 
 // HandleRemoveEntry returns an SSE response that removes a stitch entry row.
 func (h *PatternHandler) HandleRemoveEntry(w http.ResponseWriter, r *http.Request) {
-	gi := r.PathValue("gi")
-	ei := r.PathValue("ei")
-	if gi == "" || ei == "" {
+	gi, err := strconv.Atoi(r.PathValue("gi"))
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	ei, err := strconv.Atoi(r.PathValue("ei"))
+	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	sse := datastar.NewSSE(w, r)
-	sse.RemoveElementByID("entry-" + gi + "-" + ei)
+	sse.RemoveElementByID("entry-" + strconv.Itoa(gi) + "-" + strconv.Itoa(ei))
 }
 
 func (h *PatternHandler) renderEditorWithError(w http.ResponseWriter, r *http.Request, user *domain.User, pattern *domain.Pattern, errMsg string) {

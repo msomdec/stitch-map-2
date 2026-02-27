@@ -205,7 +205,18 @@ func (s *PatternService) validate(pattern *domain.Pattern) error {
 	if pattern.Name == "" {
 		return fmt.Errorf("%w: pattern name is required", domain.ErrInvalidInput)
 	}
-
+	if len(pattern.Name) > 200 {
+		return fmt.Errorf("%w: pattern name must be 200 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(pattern.Description) > 5000 {
+		return fmt.Errorf("%w: description must be 5000 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(pattern.HookSize) > 50 {
+		return fmt.Errorf("%w: hook size must be 50 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(pattern.YarnWeight) > 50 {
+		return fmt.Errorf("%w: yarn weight must be 50 characters or fewer", domain.ErrInvalidInput)
+	}
 	if pattern.PatternType != domain.PatternTypeRound && pattern.PatternType != domain.PatternTypeRow {
 		return fmt.Errorf("%w: pattern type must be 'round' or 'row'", domain.ErrInvalidInput)
 	}
@@ -223,8 +234,17 @@ func (s *PatternService) validate(pattern *domain.Pattern) error {
 		if g.Label == "" {
 			return fmt.Errorf("%w: group %d label is required", domain.ErrInvalidInput, i+1)
 		}
+		if len(g.Label) > 200 {
+			return fmt.Errorf("%w: group %d label must be 200 characters or fewer", domain.ErrInvalidInput, i+1)
+		}
+		if len(g.Notes) > 1000 {
+			return fmt.Errorf("%w: group %d notes must be 1000 characters or fewer", domain.ErrInvalidInput, i+1)
+		}
 		if g.RepeatCount < 1 {
 			return fmt.Errorf("%w: group %d repeat count must be at least 1", domain.ErrInvalidInput, i+1)
+		}
+		if g.RepeatCount > 1000 {
+			return fmt.Errorf("%w: group %d repeat count must be 1000 or fewer", domain.ErrInvalidInput, i+1)
 		}
 		for j, e := range g.StitchEntries {
 			if e.PatternStitchID == 0 {
@@ -233,8 +253,17 @@ func (s *PatternService) validate(pattern *domain.Pattern) error {
 			if e.Count < 1 {
 				return fmt.Errorf("%w: group %d entry %d count must be at least 1", domain.ErrInvalidInput, i+1, j+1)
 			}
+			if e.Count > 10000 {
+				return fmt.Errorf("%w: group %d entry %d count must be 10000 or fewer", domain.ErrInvalidInput, i+1, j+1)
+			}
 			if e.RepeatCount < 1 {
 				return fmt.Errorf("%w: group %d entry %d repeat count must be at least 1", domain.ErrInvalidInput, i+1, j+1)
+			}
+			if e.RepeatCount > 1000 {
+				return fmt.Errorf("%w: group %d entry %d repeat count must be 1000 or fewer", domain.ErrInvalidInput, i+1, j+1)
+			}
+			if len(e.IntoStitch) > 200 {
+				return fmt.Errorf("%w: group %d entry %d into-stitch must be 200 characters or fewer", domain.ErrInvalidInput, i+1, j+1)
 			}
 		}
 	}

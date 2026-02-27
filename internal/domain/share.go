@@ -23,6 +23,7 @@ type PatternShare struct {
 
 type PatternShareRepository interface {
 	Create(ctx context.Context, share *PatternShare) error
+	GetByID(ctx context.Context, id int64) (*PatternShare, error)
 	GetByToken(ctx context.Context, token string) (*PatternShare, error)
 	ListByPattern(ctx context.Context, patternID int64) ([]PatternShare, error)
 	Delete(ctx context.Context, id int64) error

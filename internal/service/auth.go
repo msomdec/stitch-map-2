@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strconv"
 	"time"
 
@@ -34,12 +35,25 @@ func (s *AuthService) Register(ctx context.Context, email, displayName, password
 		return nil, fmt.Errorf("%w: email, display name, and password are required", domain.ErrInvalidInput)
 	}
 
+	if len(email) > 254 {
+		return nil, fmt.Errorf("%w: email must be 254 characters or fewer", domain.ErrInvalidInput)
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return nil, fmt.Errorf("%w: invalid email address format", domain.ErrInvalidInput)
+	}
+	if len(displayName) > 100 {
+		return nil, fmt.Errorf("%w: display name must be 100 characters or fewer", domain.ErrInvalidInput)
+	}
+
 	if password != confirmPassword {
 		return nil, fmt.Errorf("%w: passwords do not match", domain.ErrInvalidInput)
 	}
 
 	if len(password) < 8 {
 		return nil, fmt.Errorf("%w: password must be at least 8 characters", domain.ErrInvalidInput)
+	}
+	if len(password) > 72 {
+		return nil, fmt.Errorf("%w: password must be 72 characters or fewer", domain.ErrInvalidInput)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.bcryptCost)
@@ -60,11 +74,21 @@ func (s *AuthService) Register(ctx context.Context, email, displayName, password
 	return user, nil
 }
 
+// dummyHash is a pre-computed bcrypt hash used to equalize timing when a user is
+// not found, preventing user enumeration via response time analysis.
+var dummyHash = func() []byte {
+	h, _ := bcrypt.GenerateFromPassword([]byte("timing-equalization"), bcrypt.DefaultCost)
+	return h
+}()
+
 // Login verifies credentials and returns a signed JWT token string.
 func (s *AuthService) Login(ctx context.Context, email, password string) (string, error) {
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
+			// Perform a dummy bcrypt comparison to equalize timing with the
+			// case where the user exists but the password is wrong.
+			bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
 			return "", domain.ErrUnauthorized
 		}
 		return "", fmt.Errorf("get user: %w", err)

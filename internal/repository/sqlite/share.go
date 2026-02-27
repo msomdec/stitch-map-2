@@ -31,6 +31,21 @@ func (r *shareRepo) Create(ctx context.Context, share *domain.PatternShare) erro
 	return nil
 }
 
+func (r *shareRepo) GetByID(ctx context.Context, id int64) (*domain.PatternShare, error) {
+	s := &domain.PatternShare{}
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, pattern_id, token, share_type, recipient_email, created_at
+		 FROM pattern_shares WHERE id = ?`, id,
+	).Scan(&s.ID, &s.PatternID, &s.Token, &s.ShareType, &s.RecipientEmail, &s.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("get share by id: %w", err)
+	}
+	return s, nil
+}
+
 func (r *shareRepo) GetByToken(ctx context.Context, token string) (*domain.PatternShare, error) {
 	s := &domain.PatternShare{}
 	err := r.db.QueryRowContext(ctx,

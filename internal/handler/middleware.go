@@ -9,6 +9,25 @@ import (
 	"github.com/msomdec/stitch-map-2/internal/service"
 )
 
+// SecurityHeaders is middleware that sets standard security response headers.
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self' https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+
+				"img-src 'self' data:; "+
+				"connect-src 'self'; "+
+				"font-src 'self' https://cdn.jsdelivr.net; "+
+				"object-src 'none'; "+
+				"frame-ancestors 'none'")
+		next.ServeHTTP(w, r)
+	})
+}
+
 type contextKey string
 
 const userContextKey contextKey = "user"

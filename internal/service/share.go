@@ -118,7 +118,8 @@ func (s *ShareService) CreateEmailShare(ctx context.Context, userID, patternID i
 	return share, nil
 }
 
-// RevokeShareForPattern revokes a single share after verifying pattern ownership.
+// RevokeShareForPattern revokes a single share after verifying pattern ownership
+// and that the share belongs to the specified pattern.
 func (s *ShareService) RevokeShareForPattern(ctx context.Context, userID, patternID, shareID int64) error {
 	pattern, err := s.patterns.GetByID(ctx, patternID)
 	if err != nil {
@@ -126,6 +127,14 @@ func (s *ShareService) RevokeShareForPattern(ctx context.Context, userID, patter
 	}
 	if pattern.UserID != userID {
 		return domain.ErrUnauthorized
+	}
+
+	share, err := s.shares.GetByID(ctx, shareID)
+	if err != nil {
+		return err
+	}
+	if share.PatternID != patternID {
+		return domain.ErrNotFound
 	}
 
 	return s.shares.Delete(ctx, shareID)

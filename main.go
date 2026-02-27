@@ -30,13 +30,23 @@ func main() {
 		slog.Error("JWT_SECRET environment variable is required")
 		os.Exit(1)
 	}
-	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+	if len(jwtSecret) < 32 {
+		slog.Error("JWT_SECRET must be at least 32 characters for HMAC-SHA256 security")
+		os.Exit(1)
+	}
+
+	// Default to secure cookies; disable only for local development.
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
 
 	bcryptCost := 12
 	if v := os.Getenv("BCRYPT_COST"); v != "" {
 		parsed, err := strconv.Atoi(v)
 		if err != nil {
 			slog.Error("invalid BCRYPT_COST", "error", err)
+			os.Exit(1)
+		}
+		if parsed < 4 || parsed > 14 {
+			slog.Error("BCRYPT_COST must be between 4 and 14", "value", parsed)
 			os.Exit(1)
 		}
 		bcryptCost = parsed
@@ -73,8 +83,11 @@ func main() {
 	handler.RegisterRoutes(mux, authService, stitchService, patternService, sessionService, imageService, shareService, db.Users(), cookieSecure)
 
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
+		Addr:              ":" + port,
+		Handler:           handler.SecurityHeaders(mux),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.

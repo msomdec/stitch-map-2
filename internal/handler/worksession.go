@@ -46,7 +46,7 @@ func (h *WorkSessionHandler) HandleStart(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			http.Error(w, "Cannot start session for this pattern.", http.StatusUnprocessableEntity)
 			return
 		}
 		slog.Error("start work session", "error", err)

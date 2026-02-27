@@ -54,6 +54,18 @@ func (s *StitchService) CreateCustom(ctx context.Context, userID int64, abbrevia
 	if abbreviation == "" || name == "" {
 		return nil, fmt.Errorf("%w: abbreviation and name are required", domain.ErrInvalidInput)
 	}
+	if len(abbreviation) > 20 {
+		return nil, fmt.Errorf("%w: abbreviation must be 20 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(name) > 100 {
+		return nil, fmt.Errorf("%w: name must be 100 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(description) > 1000 {
+		return nil, fmt.Errorf("%w: description must be 1000 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(category) > 50 {
+		return nil, fmt.Errorf("%w: category must be 50 characters or fewer", domain.ErrInvalidInput)
+	}
 
 	// Check if abbreviation conflicts with a predefined stitch.
 	_, err := s.stitches.GetByAbbreviation(ctx, abbreviation, nil)
@@ -97,6 +109,18 @@ func (s *StitchService) UpdateCustom(ctx context.Context, userID int64, id int64
 
 	if abbreviation == "" || name == "" {
 		return nil, fmt.Errorf("%w: abbreviation and name are required", domain.ErrInvalidInput)
+	}
+	if len(abbreviation) > 20 {
+		return nil, fmt.Errorf("%w: abbreviation must be 20 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(name) > 100 {
+		return nil, fmt.Errorf("%w: name must be 100 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(description) > 1000 {
+		return nil, fmt.Errorf("%w: description must be 1000 characters or fewer", domain.ErrInvalidInput)
+	}
+	if len(category) > 50 {
+		return nil, fmt.Errorf("%w: category must be 50 characters or fewer", domain.ErrInvalidInput)
 	}
 
 	// If abbreviation changed, check it doesn't conflict with predefined.
